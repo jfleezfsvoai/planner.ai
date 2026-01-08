@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Component } from 'react';
 import { 
   Calendar as CalIcon, Layout, Trello, CheckSquare, 
   Plus, Clock, ChevronLeft, ChevronRight, X, Bell, 
@@ -6,39 +6,113 @@ import {
   Menu, Home, Sun, Moon, MoreHorizontal, Database, 
   Zap, Download, Activity, Layers, Shield, BookOpen, 
   DollarSign, PieChart, Square, LogIn, LogOut, User,
-  List, FileText
+  List, FileText, AlertTriangle
 } from 'lucide-react';
 
 // --- Firebase Imports ---
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
 /**
- * --- Modern Future Planner ---
- * Style: Clean Tech / Future Minimalist (Light Mode)
- * Updates:
- * 1. Strategy: 10px rounded corners, larger containers.
- * 2. 36x10: Aligned Date Range column, Enter to add task, aligned textareas.
- * 3. Wealth Jar: Deduct commitment first, then split 30/30/20/20.
+ * --- Future Planner Pro (Sanitized Version) ---
+ * 修复：移除了所有导致白屏的不可见特殊字符 (Non-breaking spaces)。
+ * 修复：增强了 Firebase 初始化时的错误捕捉。
  */
 
 // --- Firebase Initialization ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-// --- Utility: Get Local Date String (Fixes Timezone Issues) ---
-const getLocalDateString = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+// 注意：在 Vercel 生产环境中，建议使用环境变量 import.meta.env.VITE_...
+const firebaseConfig = {
+  apiKey: "AIzaSyBOa0GCtfFfv-UOeA9j-pM4YKJD9msovV0",
+  authDomain: "of-10-days.firebaseapp.com",
+  projectId: "of-10-days",
+  storageBucket: "of-10-days.firebasestorage.app",
+  messagingSenderId: "656607786498",
+  appId: "1:656607786498:web:8eabac0b0d5edd222ed91b",
+  measurementId: "G-4J0D8M9HH4"
 };
 
-// --- Sub-Components (Defined Outside App) ---
+// Initialize Firebase with Robust Error Handling
+let app, auth, db, analytics;
+let firebaseError = null;
+
+try {
+  // 尝试初始化，如果失败则捕获错误，防止整个应用白屏
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  if (typeof window !== 'undefined') {
+    analytics = getAnalytics(app);
+  }
+} catch (e) {
+  console.error("Firebase Initialization Error:", e);
+  firebaseError = e.message;
+}
+
+const appId = 'future-planner-production';
+
+// --- Utility: Get Local Date String (Robust) ---
+const getLocalDateString = (date) => {
+  if (!date) return '';
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return ''; // Invalid date
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    return '';
+  }
+};
+
+// --- Error Boundary Component ---
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-100 max-w-md w-full">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+               <AlertTriangle size={32} />
+            </div>
+            <h2 className="text-xl font-black text-slate-800 mb-2">应用遇到错误</h2>
+            <p className="text-slate-500 text-sm mb-6">Application crashed unexpectedly.</p>
+            <div className="bg-slate-100 p-3 rounded-lg text-left mb-6 overflow-auto max-h-32">
+               <code className="text-xs text-slate-600 font-mono">{this.state.error?.toString()}</code>
+            </div>
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors"
+            >
+              重置并刷新 (Reset)
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// --- Sub-Components ---
 
 const TaskCard = ({ task, onToggle, onDelete, categoryColors }) => {
   const getCategoryStyle = (cat) => {
@@ -210,6 +284,10 @@ const AuthModal = ({ isOpen, onClose }) => {
   
     const handleAuth = async (e) => {
       e.preventDefault();
+      if (!auth) {
+        setError("Firebase connection failed. Please check config.");
+        return;
+      }
       setError('');
       setLoading(true);
       try {
@@ -282,6 +360,9 @@ const AuthModal = ({ isOpen, onClose }) => {
 };
 
 const WealthJarView = ({ balances, setBalances }) => {
+    // Safety check for balances
+    const safeBalances = balances || { commitment: 0, savings: 0, investment: 0, education: 0, emergency: 0 };
+
     // Config only for the distributable jars
     const JARS_CONFIG = [
       { id: 'savings', label: 'Savings 储蓄', percent: 30, icon: Shield, color: 'text-violet-500', bg: 'bg-violet-50' },
@@ -302,14 +383,14 @@ const WealthJarView = ({ balances, setBalances }) => {
       if (isNaN(income) || income <= 0) return;
   
       const netIncome = Math.max(0, income - commit);
-      const newBalances = { ...balances };
+      const newBalances = { ...safeBalances };
 
       // Add commitment directly to commitment jar
       newBalances.commitment = (newBalances.commitment || 0) + commit;
 
       // Distribute remainder
       JARS_CONFIG.forEach(jar => {
-        newBalances[jar.id] += netIncome * (jar.percent / 100);
+        newBalances[jar.id] = (newBalances[jar.id] || 0) + netIncome * (jar.percent / 100);
       });
   
       setBalances(newBalances);
@@ -323,7 +404,7 @@ const WealthJarView = ({ balances, setBalances }) => {
       }
     }
   
-    const currentSavings = balances.savings + balances.investment;
+    const currentSavings = (safeBalances.savings || 0) + (safeBalances.investment || 0);
     const progressPercent = Math.min(100, (currentSavings / targetAmount) * 100);
     const progressValue = Math.round((currentSavings / targetAmount) * 100);
   
@@ -383,11 +464,11 @@ const WealthJarView = ({ balances, setBalances }) => {
                <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
                       <div className={`p-3 rounded-2xl bg-rose-50 text-rose-500`}>
-                         <Layers size={22} />
+                          <Layers size={22} />
                       </div>
                       <div>
-                         <div className="text-sm font-bold text-slate-700">Commitment 开销</div>
-                         <div className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full mt-1 inline-block">Fixed</div>
+                          <div className="text-sm font-bold text-slate-700">Commitment 开销</div>
+                          <div className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full mt-1 inline-block">Fixed</div>
                       </div>
                   </div>
                </div>
@@ -395,7 +476,7 @@ const WealthJarView = ({ balances, setBalances }) => {
                   <div className="text-xs text-slate-400 font-medium mb-1 uppercase tracking-wider">Current Balance</div>
                   <div className="text-2xl font-black text-slate-800 tracking-tight">
                       <span className="text-sm text-slate-400 mr-1 font-normal">RM</span>
-                      {balances.commitment ? balances.commitment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                      {safeBalances.commitment ? safeBalances.commitment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                   </div>
                </div>
             </div>
@@ -418,7 +499,7 @@ const WealthJarView = ({ balances, setBalances }) => {
                     <div className="text-xs text-slate-400 font-medium mb-1 uppercase tracking-wider">Current Balance</div>
                     <div className="text-2xl font-black text-slate-800 tracking-tight">
                         <span className="text-sm text-slate-400 mr-1 font-normal">RM</span>
-                        {balances[jar.id].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(safeBalances[jar.id] || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                 </div>
                 </div>
@@ -427,34 +508,34 @@ const WealthJarView = ({ balances, setBalances }) => {
   
         <div className="bg-white border border-violet-100 rounded-3xl p-8 shadow-xl shadow-violet-50 relative overflow-hidden">
            <div className="flex justify-between items-end mb-4 relative z-10">
-              <div>
+             <div>
                  <h3 className="text-violet-600 font-bold text-sm tracking-widest uppercase mb-1 flex items-center gap-2">
                     <Target size={16}/> Yearly Savings Target
                  </h3>
                  <p className="text-xs text-slate-400 font-medium">(Savings + Investment Only)</p>
-              </div>
-              <div className="text-right">
+             </div>
+             <div className="text-right">
                  <div className="text-3xl font-black text-slate-800 tracking-tight">
                     RM {currentSavings.toLocaleString()} <span className="text-slate-300 text-xl font-medium">/ {targetAmount.toLocaleString()}</span>
                  </div>
-              </div>
+             </div>
            </div>
   
            <div className="h-6 bg-slate-100 rounded-full overflow-hidden relative">
-              <div 
-                style={{ width: `${progressPercent}%` }}
-                className="h-full bg-gradient-to-r from-slate-900 via-indigo-950 to-violet-900 relative transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(76,29,149,0.5)] flex items-center justify-end pr-2"
-              >
+             <div 
+               style={{ width: `${progressPercent}%` }}
+               className="h-full bg-gradient-to-r from-slate-900 via-indigo-950 to-violet-900 relative transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(76,29,149,0.5)] flex items-center justify-end pr-2"
+             >
                  <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
                  {progressPercent > 5 && <span className="text-[10px] text-white font-bold relative z-10">{progressValue}%</span>}
-              </div>
-              {progressPercent <= 5 && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">{progressValue}%</span>}
+             </div>
+             {progressPercent <= 5 && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">{progressValue}%</span>}
            </div>
            
            <div className="mt-3 flex justify-between text-xs font-bold text-slate-400">
-              <span>0%</span>
-              <span className={progressPercent >= 100 ? "text-violet-600" : ""}>{progressPercent >= 100 ? 'GOAL ACHIEVED' : 'IN PROGRESS'}</span>
-              <span>100%</span>
+             <span>0%</span>
+             <span className={progressPercent >= 100 ? "text-violet-600" : ""}>{progressPercent >= 100 ? 'GOAL ACHIEVED' : 'IN PROGRESS'}</span>
+             <span>100%</span>
            </div>
         </div>
       </div>
@@ -464,21 +545,26 @@ const WealthJarView = ({ balances, setBalances }) => {
 const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) => {
     const generateId = () => Math.random().toString(36).substr(2, 9);
     
+    // Safety check: ensure data is array
+    const safeData = Array.isArray(data) ? data : [];
+
     const [stats, setStats] = useState({ total: 0, completed: 0, percent: 0 });
     useEffect(() => {
         let totalTasks = 0;
         let completedTasks = 0;
-        data.forEach(cycle => {
-            cycle.tasks.forEach(task => {
-                if (task.text.trim() !== '') {
-                    totalTasks++;
-                    if (task.done) completedTasks++;
-                }
-            });
+        safeData.forEach(cycle => {
+            if (Array.isArray(cycle.tasks)) {
+                cycle.tasks.forEach(task => {
+                    if (task.text && task.text.trim() !== '') {
+                        totalTasks++;
+                        if (task.done) completedTasks++;
+                    }
+                });
+            }
         });
         const percent = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
         setStats({ total: totalTasks, completed: completedTasks, percent });
-    }, [data]);
+    }, [safeData]); // Depend on safeData
 
     const handleDateChange = (e) => {
       const newDate = e.target.value;
@@ -487,19 +573,19 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
   
     const handleTaskTextChange = (cycleId, taskId, newText) => {
       setData(prev => prev.map(cycle => 
-        cycle.id === cycleId ? { ...cycle, tasks: cycle.tasks.map(t => t.id === taskId ? { ...t, text: newText } : t) } : cycle
+        cycle.id === cycleId ? { ...cycle, tasks: (cycle.tasks || []).map(t => t.id === taskId ? { ...t, text: newText } : t) } : cycle
       ));
     };
   
     const toggleTask = (cycleId, taskId) => {
       setData(prev => prev.map(cycle => 
-        cycle.id === cycleId ? { ...cycle, tasks: cycle.tasks.map(t => t.id === taskId ? { ...t, done: !t.done } : t) } : cycle
+        cycle.id === cycleId ? { ...cycle, tasks: (cycle.tasks || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t) } : cycle
       ));
     };
   
     const addTask = (cycleId) => {
       setData(prev => prev.map(cycle => 
-        cycle.id === cycleId ? { ...cycle, tasks: [...cycle.tasks, { id: generateId(), text: '', done: false }] } : cycle
+        cycle.id === cycleId ? { ...cycle, tasks: [...(cycle.tasks || []), { id: generateId(), text: '', done: false }] } : cycle
       ));
     };
 
@@ -514,10 +600,11 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
     const deleteTask = (cycleId, taskId) => {
       setData(prev => prev.map(cycle => {
         if (cycle.id !== cycleId) return cycle;
-        if (cycle.tasks.length <= 1) {
-            return { ...cycle, tasks: cycle.tasks.map(t => t.id === taskId ? {...t, text: '', done: false} : t) };
+        const currentTasks = cycle.tasks || [];
+        if (currentTasks.length <= 1) {
+            return { ...cycle, tasks: currentTasks.map(t => t.id === taskId ? {...t, text: '', done: false} : t) };
         }
-        return { ...cycle, tasks: cycle.tasks.filter(t => t.id !== taskId) };
+        return { ...cycle, tasks: currentTasks.filter(t => t.id !== taskId) };
       }));
     };
   
@@ -527,8 +614,8 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
   
     const exportToExcel = () => {
         let htmlContent = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table><thead><tr><th>周期</th><th>日期范围</th><th>任务清单</th><th>Action Plan</th><th>Review & Feedback</th></tr></thead><tbody>`;
-        data.forEach(row => {
-            const taskList = row.tasks.filter(t => t.text.trim()).map(t => `[${t.done ? '√' : ' '}] ${t.text}`).join("<br>"); 
+        safeData.forEach(row => {
+            const taskList = (row.tasks || []).filter(t => t.text && t.text.trim()).map(t => `[${t.done ? '√' : ' '}] ${t.text}`).join("<br>"); 
             htmlContent += `<tr><td>${row.id}</td><td>${row.dateRange}</td><td>${taskList}</td><td>${row.actionPlan || ''}</td><td>${row.notes}</td></tr>`;
         });
         htmlContent += `</tbody></table></body></html>`;
@@ -541,123 +628,123 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
 
     return (
         <div className="h-full flex flex-col animate-fade-in pb-20">
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-2 border-b border-slate-200/50">
-                <div>
-                    <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                        <Activity className="text-violet-600" /> 
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-blue-600">36 x 10 Cycles</span>
-                    </h2>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 font-medium">
-                        <span className="text-violet-600 font-bold bg-violet-50 px-2 py-0.5 rounded-md">{stats.completed} / {stats.total} Tasks Completed</span>
-                        <div className="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">
-                            <span>Start:</span>
-                            <input 
-                                type="date" 
-                                value={startYearDate} 
-                                onChange={handleDateChange}
-                                className="bg-transparent text-slate-700 outline-none w-[110px] font-bold cursor-pointer"
-                            />
-                        </div>
-                        <div className="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm text-slate-400">
-                             <span>Today:</span>
-                             <span className="font-bold text-slate-700">{new Date().toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                </div>
-                <button 
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6 sticky top-0 bg-slate-50/95 backdrop-blur z-20 py-2 border-b border-slate-200/50">
+                 <div>
+                     <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                         <Activity className="text-violet-600" /> 
+                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-blue-600">36 x 10 Cycles</span>
+                     </h2>
+                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 font-medium">
+                         <span className="text-violet-600 font-bold bg-violet-50 px-2 py-0.5 rounded-md">{stats.completed} / {stats.total} Tasks Completed</span>
+                         <div className="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">
+                             <span>Start:</span>
+                             <input 
+                                 type="date" 
+                                 value={startYearDate} 
+                                 onChange={handleDateChange}
+                                 className="bg-transparent text-slate-700 outline-none w-[110px] font-bold cursor-pointer"
+                             />
+                         </div>
+                         <div className="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm text-slate-400">
+                              <span>Today:</span>
+                              <span className="font-bold text-slate-700">{new Date().toLocaleDateString()}</span>
+                         </div>
+                     </div>
+                 </div>
+                 <button 
                     onClick={exportToExcel} 
                     className="flex items-center gap-2 bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-colors"
-                >
+                 >
                     <Download size={16} /> Export .xls
-                </button>
-            </div>
+                 </button>
+             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-slate-400 tracking-widest uppercase flex items-center gap-2"><TrendingUp size={12}/> Year Progress</span>
-                    <span className="text-xl font-black text-violet-600">{stats.percent}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                    <div className="bg-gradient-to-r from-violet-500 to-blue-500 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(139,92,246,0.3)]" style={{ width: `${stats.percent}%` }}></div>
-                </div>
-            </div>
+             <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm">
+                 <div className="flex justify-between items-center mb-2">
+                     <span className="text-xs font-bold text-slate-400 tracking-widest uppercase flex items-center gap-2"><TrendingUp size={12}/> Year Progress</span>
+                     <span className="text-xl font-black text-violet-600">{stats.percent}%</span>
+                 </div>
+                 <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                     <div className="bg-gradient-to-r from-violet-500 to-blue-500 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(139,92,246,0.3)]" style={{ width: `${stats.percent}%` }}></div>
+                 </div>
+             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
-                <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-white border border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider rounded-xl shadow-sm mb-4">
-                    <div className="col-span-1 text-center">Cycle</div>
-                    <div className="col-span-1 text-center">Date Range</div>
-                    <div className="col-span-5">Task Protocol</div>
-                    <div className="col-span-2">Action Plan</div>
-                    <div className="col-span-3">Review & Feedback</div>
-                </div>
+             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+                 <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-white border border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider rounded-xl shadow-sm mb-4">
+                     <div className="col-span-1 text-center">Cycle</div>
+                     <div className="col-span-1 text-center">Date Range</div>
+                     <div className="col-span-5">Task Protocol</div>
+                     <div className="col-span-2">Action Plan</div>
+                     <div className="col-span-3">Review & Feedback</div>
+                 </div>
 
-                {data.map((row) => (
-                    <div key={row.id} className="bg-white border border-slate-100 rounded-2xl p-5 md:grid md:grid-cols-12 md:gap-4 md:items-start hover:shadow-lg hover:shadow-slate-100 hover:-translate-y-[1px] transition-all group duration-300">
-                         {/* Cycle ID - Col 1 */}
-                         <div className="col-span-1 flex items-start justify-center pt-2">
-                             <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-50 text-violet-600 font-bold text-sm shadow-sm">
-                                {row.id}
+                 {safeData.map((row) => (
+                     <div key={row.id} className="bg-white border border-slate-100 rounded-2xl p-5 md:grid md:grid-cols-12 md:gap-4 md:items-start hover:shadow-lg hover:shadow-slate-100 hover:-translate-y-[1px] transition-all group duration-300">
+                          {/* Cycle ID - Col 1 */}
+                          <div className="col-span-1 flex items-start justify-center pt-2">
+                              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-50 text-violet-600 font-bold text-sm shadow-sm">
+                                 {row.id}
+                              </span>
+                          </div>
+
+                          {/* Date Range - Col 1 - Aligned with Header */}
+                          <div className="col-span-1 flex items-start justify-center pt-2.5">
+                             <span className="text-slate-500 text-[11px] font-bold text-center leading-tight">
+                                 {row.dateRange}
                              </span>
-                         </div>
+                          </div>
 
-                         {/* Date Range - Col 1 - Aligned with Header */}
-                         <div className="col-span-1 flex items-start justify-center pt-2.5">
-                            <span className="text-slate-500 text-[11px] font-bold text-center leading-tight">
-                                {row.dateRange}
-                            </span>
-                         </div>
+                          {/* Tasks - Col 5 */}
+                          <div className="col-span-5 space-y-3 mb-5 md:mb-0">
+                             {(row.tasks || []).map((task) => (
+                                 <div key={task.id} className="flex items-center gap-3 group/task">
+                                     <button onClick={() => toggleTask(row.id, task.id)} className="flex-shrink-0 transition-transform active:scale-90">
+                                         {task.done ? (
+                                             <CheckSquare className="w-5 h-5 text-emerald-500 drop-shadow-sm" />
+                                         ) : (
+                                             <Square className="w-5 h-5 text-slate-300 hover:text-violet-400 transition-colors" />
+                                         )}
+                                     </button>
+                                     <input 
+                                         type="text"
+                                         value={task.text}
+                                         onChange={(e) => handleTaskTextChange(row.id, task.id, e.target.value)}
+                                         onKeyDown={(e) => handleTaskKeyDown(e, row.id)}
+                                         placeholder="Add task..."
+                                         className={`flex-1 bg-transparent border-b border-transparent hover:border-slate-100 focus:border-violet-300 outline-none text-sm py-1 transition-all font-medium ${task.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                                     />
+                                     <button onClick={() => deleteTask(row.id, task.id)} className="opacity-0 group-hover/task:opacity-100 text-slate-300 hover:text-red-400 transition-opacity"><Trash2 size={14}/></button>
+                                 </div>
+                             ))}
+                             <button onClick={() => addTask(row.id)} className="text-[11px] text-violet-500 hover:text-violet-700 flex items-center gap-1 font-bold mt-2 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors w-max"><Plus size={12}/> ADD ITEM</button>
+                          </div>
+                          
+                          {/* Action Plan - Col 2 */}
+                          <div className="col-span-2 pt-1">
+                              <span className="md:hidden text-xs text-slate-400 font-bold block mb-1">Action Plan:</span>
+                              <textarea 
+                                 rows="3"
+                                 placeholder="Plan..."
+                                 value={row.actionPlan || ''}
+                                 onChange={(e) => handleFieldChange(row.id, 'actionPlan', e.target.value)}
+                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 focus:border-violet-400 focus:bg-white outline-none resize-none transition-all placeholder-slate-400"
+                              />
+                          </div>
 
-                         {/* Tasks - Col 5 */}
-                         <div className="col-span-5 space-y-3 mb-5 md:mb-0">
-                            {row.tasks.map((task) => (
-                                <div key={task.id} className="flex items-center gap-3 group/task">
-                                    <button onClick={() => toggleTask(row.id, task.id)} className="flex-shrink-0 transition-transform active:scale-90">
-                                        {task.done ? (
-                                            <CheckSquare className="w-5 h-5 text-emerald-500 drop-shadow-sm" />
-                                        ) : (
-                                            <Square className="w-5 h-5 text-slate-300 hover:text-violet-400 transition-colors" />
-                                        )}
-                                    </button>
-                                    <input 
-                                        type="text"
-                                        value={task.text}
-                                        onChange={(e) => handleTaskTextChange(row.id, task.id, e.target.value)}
-                                        onKeyDown={(e) => handleTaskKeyDown(e, row.id)}
-                                        placeholder="Add task..."
-                                        className={`flex-1 bg-transparent border-b border-transparent hover:border-slate-100 focus:border-violet-300 outline-none text-sm py-1 transition-all font-medium ${task.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
-                                    />
-                                    <button onClick={() => deleteTask(row.id, task.id)} className="opacity-0 group-hover/task:opacity-100 text-slate-300 hover:text-red-400 transition-opacity"><Trash2 size={14}/></button>
-                                </div>
-                            ))}
-                            <button onClick={() => addTask(row.id)} className="text-[11px] text-violet-500 hover:text-violet-700 flex items-center gap-1 font-bold mt-2 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors w-max"><Plus size={12}/> ADD ITEM</button>
-                         </div>
-                         
-                         {/* Action Plan - Col 2 */}
-                         <div className="col-span-2 pt-1">
-                             <span className="md:hidden text-xs text-slate-400 font-bold block mb-1">Action Plan:</span>
-                             <textarea 
-                                rows="3"
-                                placeholder="Plan..."
-                                value={row.actionPlan || ''}
-                                onChange={(e) => handleFieldChange(row.id, 'actionPlan', e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 focus:border-violet-400 focus:bg-white outline-none resize-none transition-all placeholder-slate-400"
-                             />
-                         </div>
-
-                         {/* Feedback - Col 3 */}
-                         <div className="col-span-3 pt-1">
-                             <span className="md:hidden text-xs text-slate-400 font-bold block mb-1">Review & Feedback:</span>
-                             <textarea 
-                                rows="3"
-                                placeholder="Feedback..."
-                                value={row.notes}
-                                onChange={(e) => handleFieldChange(row.id, 'notes', e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 focus:border-violet-400 focus:bg-white outline-none resize-none transition-all placeholder-slate-400"
-                             />
-                         </div>
-                    </div>
-                ))}
-            </div>
+                          {/* Feedback - Col 3 */}
+                          <div className="col-span-3 pt-1">
+                              <span className="md:hidden text-xs text-slate-400 font-bold block mb-1">Review & Feedback:</span>
+                              <textarea 
+                                 rows="3"
+                                 placeholder="Feedback..."
+                                 value={row.notes}
+                                 onChange={(e) => handleFieldChange(row.id, 'notes', e.target.value)}
+                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 focus:border-violet-400 focus:bg-white outline-none resize-none transition-all placeholder-slate-400"
+                              />
+                          </div>
+                     </div>
+                 ))}
+             </div>
         </div>
     )
 };
@@ -680,8 +767,8 @@ const FocusView = ({ tasks, user, annualGoals, openAddModal, toggleTask, deleteT
             </p>
           </div>
           <div className="hidden md:block text-right">
-             <div className="text-5xl font-black text-slate-200">{new Date().getDate()}</div>
-             <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { month: 'long', weekday: 'short' })}</div>
+              <div className="text-5xl font-black text-slate-200">{new Date().getDate()}</div>
+              <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { month: 'long', weekday: 'short' })}</div>
           </div>
         </header>
 
@@ -762,8 +849,11 @@ const FocusView = ({ tasks, user, annualGoals, openAddModal, toggleTask, deleteT
 };
 
 const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    // Robust date handling
+    const safeDate = (currentDate instanceof Date && !isNaN(currentDate)) ? currentDate : new Date();
+    
+    const year = safeDate.getFullYear();
+    const month = safeDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
     const totalSlots = [...Array(firstDay).fill(null), ...Array(daysInMonth).fill(0).map((_, i) => i + 1)];
@@ -822,13 +912,16 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
 };
 
 const BoardView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, categoryColors }) => {
-    const curr = new Date(currentDate); 
+    // Robust date handling
+    const safeDate = (currentDate instanceof Date && !isNaN(currentDate)) ? currentDate : new Date();
+
+    const curr = new Date(safeDate); 
     const first = curr.getDate() - curr.getDay(); 
     const weekDays = [...Array(7)].map((_, i) => new Date(curr.setDate(first + i) && curr));
-    curr.setTime(currentDate.getTime());
+    curr.setTime(safeDate.getTime());
 
     const changeWeek = (offset) => {
-      const d = new Date(currentDate);
+      const d = new Date(safeDate);
       d.setDate(d.getDate() + offset * 7);
       setCurrentDate(d);
     };
@@ -889,73 +982,73 @@ const YearlyView = ({ currentDate, monthlyGoals, addMonthlyGoal, toggleMonthlyGo
 
     return (
         <div className="h-full flex flex-col animate-fade-in overflow-y-auto pb-24 md:pb-8 pr-1 custom-scrollbar">
-             <div className="flex justify-between items-center mb-8 flex-shrink-0">
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">Strategic Map {currentYear}</h2>
-             </div>
+              <div className="flex justify-between items-center mb-8 flex-shrink-0">
+                 <h2 className="text-3xl font-black text-slate-800 tracking-tight">Strategic Map {currentYear}</h2>
+              </div>
 
-             {/* Progress HUD */}
-             <div className="bg-slate-900 rounded-3xl p-10 mb-10 relative overflow-hidden shadow-2xl shadow-slate-200 flex-shrink-0">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/30 rounded-full blur-[100px] -mr-20 -mt-20 pointer-events-none"></div>
-                <div className="relative z-10 text-white">
-                    <div className="flex justify-between items-end mb-6">
-                        <div>
-                            <div className="text-violet-300 font-bold text-xs uppercase tracking-widest mb-2">Annual Execution</div>
-                            <div className="text-5xl font-black tracking-tighter">{yearlyProgress}%</div>
-                        </div>
-                    </div>
-                    <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                        <div style={{width: `${yearlyProgress}%`}} className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 shadow-[0_0_20px_rgba(139,92,246,0.5)] transition-all duration-1000"></div>
-                    </div>
-                </div>
-             </div>
-
-             {/* Monthly Grid */}
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-8">
-                 {months.map(m => {
-                     const isSelected = m === currentMonth;
-                     const key = `${currentYear}-${m}`;
-                     const goals = monthlyGoals[key] || [];
-                     const completed = goals.filter(g=>g.completed).length;
-                     const total = goals.length;
-                     const prog = total ? Math.round((completed/total)*100) : 0;
-
-                     return (
-                         <div key={m} className={`bg-white rounded-[10px] p-8 min-h-[350px] flex flex-col transition-shadow duration-300 border ${isSelected ? 'border-violet-200 shadow-xl shadow-violet-100 ring-1 ring-violet-100' : 'border-slate-100 hover:shadow-lg hover:shadow-slate-100'}`}>
-                             <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-50">
-                                 <span className={`text-lg font-bold ${isSelected ? 'text-violet-700' : 'text-slate-700'}`}>{new Date(currentYear, m).toLocaleString('default', {month:'long'})}</span>
-                                 <button onClick={() => addMonthlyGoal(currentYear, m)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-50 text-slate-400 hover:text-violet-600 transition-colors"><Plus size={18}/></button>
-                             </div>
-                             {total > 0 && <div className="h-1.5 w-full bg-slate-50 rounded-full mb-4 overflow-hidden"><div style={{width:`${prog}%`}} className="h-full bg-violet-500 rounded-full"></div></div>}
-                             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                                 {goals.map(g => (
-                                     <div key={g.id} className="flex gap-3 group items-start">
-                                         <button onClick={() => toggleMonthlyGoal(currentYear, m, g.id)} className={`w-4 h-4 rounded border mt-0.5 flex-shrink-0 transition-colors ${g.completed ? 'bg-violet-500 border-violet-500' : 'border-slate-300 hover:border-violet-400'}`}></button>
-                                         {g.isNew ? (
-                                             <input autoFocus className="bg-transparent border-b border-violet-300 text-slate-800 outline-none w-full text-sm font-medium pb-1" 
-                                                 value={g.text} 
-                                                 onChange={(e)=>updateMonthlyGoalText(currentYear, m, g.id, e.target.value)}
-                                                 onBlur={(e) => handleMonthlyBlur(currentYear, m, g.id, e.target.value)}
-                                                 onKeyDown={(e) => handleMonthlyEnter(currentYear, m, g.id, e)}
-                                                 placeholder="Type goal..."
-                                             />
-                                         ) : (
-                                             <div className="flex-1 relative group/item">
-                                                <span 
-                                                    onClick={() => setMonthlyGoals(prev => ({...prev, [`${currentYear}-${m}`]: prev[`${currentYear}-${m}`].map(item => item.id === g.id ? {...item, isNew: true} : item)}))}
-                                                    className={`text-sm font-medium transition-colors cursor-text block pr-6 ${g.completed ? 'text-slate-400 line-through' : 'text-slate-600'}`}
-                                                >
-                                                    {g.text}
-                                                </span>
-                                                <button onClick={() => deleteMonthlyGoal(currentYear, m, g.id)} className="absolute right-0 top-1 opacity-0 group-hover/item:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"><X size={14}/></button>
-                                             </div>
-                                         )}
-                                     </div>
-                                 ))}
-                             </div>
+              {/* Progress HUD */}
+              <div className="bg-slate-900 rounded-3xl p-10 mb-10 relative overflow-hidden shadow-2xl shadow-slate-200 flex-shrink-0">
+                 <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/30 rounded-full blur-[100px] -mr-20 -mt-20 pointer-events-none"></div>
+                 <div className="relative z-10 text-white">
+                     <div className="flex justify-between items-end mb-6">
+                         <div>
+                             <div className="text-violet-300 font-bold text-xs uppercase tracking-widest mb-2">Annual Execution</div>
+                             <div className="text-5xl font-black tracking-tighter">{yearlyProgress}%</div>
                          </div>
-                     )
-                 })}
-             </div>
+                     </div>
+                     <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+                         <div style={{width: `${yearlyProgress}%`}} className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 shadow-[0_0_20px_rgba(139,92,246,0.5)] transition-all duration-1000"></div>
+                     </div>
+                 </div>
+              </div>
+
+              {/* Monthly Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-8">
+                  {months.map(m => {
+                      const isSelected = m === currentMonth;
+                      const key = `${currentYear}-${m}`;
+                      const goals = monthlyGoals[key] || [];
+                      const completed = goals.filter(g=>g.completed).length;
+                      const total = goals.length;
+                      const prog = total ? Math.round((completed/total)*100) : 0;
+
+                      return (
+                          <div key={m} className={`bg-white rounded-[10px] p-8 min-h-[350px] flex flex-col transition-shadow duration-300 border ${isSelected ? 'border-violet-200 shadow-xl shadow-violet-100 ring-1 ring-violet-100' : 'border-slate-100 hover:shadow-lg hover:shadow-slate-100'}`}>
+                              <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-50">
+                                  <span className={`text-lg font-bold ${isSelected ? 'text-violet-700' : 'text-slate-700'}`}>{new Date(currentYear, m).toLocaleString('default', {month:'long'})}</span>
+                                  <button onClick={() => addMonthlyGoal(currentYear, m)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-50 text-slate-400 hover:text-violet-600 transition-colors"><Plus size={18}/></button>
+                              </div>
+                              {total > 0 && <div className="h-1.5 w-full bg-slate-50 rounded-full mb-4 overflow-hidden"><div style={{width:`${prog}%`}} className="h-full bg-violet-500 rounded-full"></div></div>}
+                              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                                  {goals.map(g => (
+                                      <div key={g.id} className="flex gap-3 group items-start">
+                                            <button onClick={() => toggleMonthlyGoal(currentYear, m, g.id)} className={`w-4 h-4 rounded border mt-0.5 flex-shrink-0 transition-colors ${g.completed ? 'bg-violet-500 border-violet-500' : 'border-slate-300 hover:border-violet-400'}`}></button>
+                                            {g.isNew ? (
+                                                <input autoFocus className="bg-transparent border-b border-violet-300 text-slate-800 outline-none w-full text-sm font-medium pb-1" 
+                                                     value={g.text} 
+                                                     onChange={(e)=>updateMonthlyGoalText(currentYear, m, g.id, e.target.value)}
+                                                     onBlur={(e) => handleMonthlyBlur(currentYear, m, g.id, e.target.value)}
+                                                     onKeyDown={(e) => handleMonthlyEnter(currentYear, m, g.id, e)}
+                                                     placeholder="Type goal..."
+                                                />
+                                            ) : (
+                                                 <div className="flex-1 relative group/item">
+                                                     <span 
+                                                         onClick={() => setMonthlyGoals(prev => ({...prev, [`${currentYear}-${m}`]: prev[`${currentYear}-${m}`].map(item => item.id === g.id ? {...item, isNew: true} : item)}))}
+                                                         className={`text-sm font-medium transition-colors cursor-text block pr-6 ${g.completed ? 'text-slate-400 line-through' : 'text-slate-600'}`}
+                                                     >
+                                                         {g.text}
+                                                     </span>
+                                                     <button onClick={() => deleteMonthlyGoal(currentYear, m, g.id)} className="absolute right-0 top-1 opacity-0 group-hover/item:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"><X size={14}/></button>
+                                                 </div>
+                                            )}
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )
+                  })}
+              </div>
         </div>
     )
 };
@@ -967,7 +1060,8 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  // Replaced toISOString with getLocalDateString for Modal Date State
+  
+  // Safe date handling for modal
   const [selectedDateForAdd, setSelectedDateForAdd] = useState(getLocalDateString(new Date()));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -1005,8 +1099,11 @@ export default function App() {
   // Lock ref for preventing blur conflicts
   const ignoreBlurRef = useRef(false);
 
-  // --- Auth & Data Effects ---
+  // --- Auth & Data Effects (Safe) ---
   useEffect(() => {
+    // Only subscribe if auth is initialized
+    if (!auth) return;
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) loadFromLocalStorage();
@@ -1014,39 +1111,106 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // --- ROBUST DATA LOADING ---
   useEffect(() => {
-      if (user) {
+      if (user && db) {
           const unsubs = [];
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), (doc) => { if (doc.exists()) setTasks(doc.data().list || []); }));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), (doc) => { if (doc.exists()) { const d = doc.data(); setAnnualGoals(d.annual || []); setMonthlyGoals(d.monthly || {}); } }));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), (doc) => { if (doc.exists()) setWealthBalances(doc.data().balances || { commitment: 0, savings: 0, investment: 0, education: 0, emergency: 0 }); }));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), (doc) => { if (doc.exists()) { setCyclesData(doc.data().list || []); setStartYearDate(doc.data().startDate || new Date().getFullYear() + '-01-01'); } else { const initial = generateInitialCycles(new Date().getFullYear() + '-01-01'); setCyclesData(initial); } }));
+          try {
+             // Tasks
+             unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), (doc) => { if (doc.exists()) setTasks(doc.data().list || []); }));
+             // Goals
+             unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), (doc) => { if (doc.exists()) { const d = doc.data(); setAnnualGoals(d.annual || []); setMonthlyGoals(d.monthly || {}); } }));
+             
+             // Wealth (Patch commitment if missing)
+             unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), (doc) => { 
+                 if (doc.exists()) {
+                     const data = doc.data().balances || {};
+                     setWealthBalances({
+                         commitment: data.commitment ?? 0,
+                         savings: data.savings ?? 0,
+                         investment: data.investment ?? 0,
+                         education: data.education ?? 0,
+                         emergency: data.emergency ?? 0
+                     });
+                 }
+             }));
+
+             // Cycles (Patch tasks if missing)
+             unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), (doc) => { 
+                 if (doc.exists()) { 
+                     const list = doc.data().list || [];
+                     // Patch list to ensure tasks array exists
+                     const patchedList = list.map(c => ({
+                         ...c,
+                         tasks: Array.isArray(c.tasks) ? c.tasks : []
+                     }));
+                     setCyclesData(patchedList); 
+                     setStartYearDate(doc.data().startDate || new Date().getFullYear() + '-01-01'); 
+                 } else { 
+                     const initial = generateInitialCycles(new Date().getFullYear() + '-01-01'); 
+                     setCyclesData(initial); 
+                 } 
+             }));
+          } catch(err) {
+              console.error("Firestore Listen Error:", err);
+          }
           return () => unsubs.forEach(u => u());
       } else { loadFromLocalStorage(); }
   }, [user]);
 
   const loadFromLocalStorage = () => {
       try {
+          if (typeof window === 'undefined') return;
           const t = localStorage.getItem('modern_tasks'); setTasks(t ? JSON.parse(t) : []);
           const ag = localStorage.getItem('modern_annual_goals'); setAnnualGoals(ag ? JSON.parse(ag) : []);
           const mg = localStorage.getItem('modern_monthly_goals'); setMonthlyGoals(mg ? JSON.parse(mg) : {});
-          const wb = localStorage.getItem('wealth_balances'); setWealthBalances(wb ? JSON.parse(wb) : { commitment: 0, savings: 0, investment: 0, education: 0, emergency: 0 });
-          const cd = localStorage.getItem('tracker_data'); setCyclesData(cd ? JSON.parse(cd) : generateInitialCycles(new Date().getFullYear() + '-01-01'));
+          
+          const wb = localStorage.getItem('wealth_balances'); 
+          if (wb) {
+              const data = JSON.parse(wb);
+              setWealthBalances({
+                  commitment: data.commitment ?? 0,
+                  savings: data.savings ?? 0,
+                  investment: data.investment ?? 0,
+                  education: data.education ?? 0,
+                  emergency: data.emergency ?? 0
+              });
+          }
+
+          const cd = localStorage.getItem('tracker_data'); 
+          if (cd) {
+              const list = JSON.parse(cd);
+              const patchedList = list.map(c => ({
+                  ...c,
+                  tasks: Array.isArray(c.tasks) ? c.tasks : []
+              }));
+              setCyclesData(patchedList);
+          } else {
+              setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01'));
+          }
+
           const sd = localStorage.getItem('tracker_startDate'); if(sd) setStartYearDate(sd);
-      } catch(e) { console.error(e); }
+      } catch(e) { console.error("Load Error", e); }
   };
 
   const saveData = (type, data) => {
-      if (user) {
-         if (type === 'tasks') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), { list: data });
-         if (type === 'goals') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), { annual: annualGoals, monthly: monthlyGoals });
-         if (type === 'wealth') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), { balances: data });
-         if (type === 'cycles') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), { list: data, startDate: startYearDate });
+      if (user && db) {
+         // Firestore save logic
+         try {
+             if (type === 'tasks') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), { list: data });
+             if (type === 'goals') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), { annual: annualGoals, monthly: monthlyGoals });
+             if (type === 'wealth') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), { balances: data });
+             if (type === 'cycles') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), { list: data, startDate: startYearDate });
+         } catch(e) {
+             console.error("Firestore Save Error:", e);
+         }
       } else {
-         if (type === 'tasks') localStorage.setItem('modern_tasks', JSON.stringify(data));
-         if (type === 'goals') { localStorage.setItem('modern_annual_goals', JSON.stringify(annualGoals)); localStorage.setItem('modern_monthly_goals', JSON.stringify(monthlyGoals)); }
-         if (type === 'wealth') localStorage.setItem('wealth_balances', JSON.stringify(data));
-         if (type === 'cycles') { localStorage.setItem('tracker_data', JSON.stringify(data)); localStorage.setItem('tracker_startDate', startYearDate); }
+         if (typeof window !== 'undefined') {
+             if (type === 'tasks') localStorage.setItem('modern_tasks', JSON.stringify(data));
+             if (type === 'goals') { localStorage.setItem('modern_annual_goals', JSON.stringify(annualGoals)); localStorage.setItem('modern_monthly_goals', JSON.stringify(monthlyGoals)); }
+             if (type === 'wealth') localStorage.setItem('wealth_balances', JSON.stringify(data));
+             if (type === 'cycles') { localStorage.setItem('tracker_data', JSON.stringify(data)); localStorage.setItem('tracker_startDate', startYearDate); }
+         }
       }
   };
 
@@ -1142,143 +1306,145 @@ export default function App() {
   };
   
   // Calculate total assets for sidebar
-  const totalAssets = wealthBalances.savings + wealthBalances.investment;
+  const totalAssets = (wealthBalances.savings || 0) + (wealthBalances.investment || 0);
 
   // --- Main Layout ---
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden selection:bg-violet-100 selection:text-violet-900">
-      
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static flex flex-col
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="p-8">
-          <div className="flex items-center gap-3 text-slate-900 font-black text-2xl mb-10 tracking-tight">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
-              <Layout size={20} />
+    <ErrorBoundary>
+      <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden selection:bg-violet-100 selection:text-violet-900">
+        
+        {/* Sidebar */}
+        <aside className={`
+          fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static flex flex-col
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          <div className="p-8">
+            <div className="flex items-center gap-3 text-slate-900 font-black text-2xl mb-10 tracking-tight">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
+                <Layout size={20} />
+              </div>
+              Planner<span className="text-violet-600">.AI</span>
             </div>
-            Planner<span className="text-violet-600">.AI</span>
+
+            <nav className="space-y-1.5">
+              {[
+                { id: 'focus', label: 'Dashboard', icon: Home },
+                { id: 'wealth', label: 'Wealth Jar', icon: Database }, 
+                { id: 'cycle', label: '36x10 Cycles', icon: Activity },
+                { id: 'calendar', label: 'Calendar', icon: CalIcon },
+                { id: 'board', label: 'Kanban', icon: Trello },
+                { id: 'yearly', label: 'Strategy', icon: TrendingUp },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => { setView(item.id); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm tracking-wide ${
+                    view === item.id 
+                      ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <item.icon size={18} className={view === item.id ? "text-violet-300" : ""}/>
+                  {item.label}
+                </button>
+              ))}
+            </nav>
           </div>
 
-          <nav className="space-y-1.5">
-            {[
-              { id: 'focus', label: 'Dashboard', icon: Home },
-              { id: 'wealth', label: 'Wealth Jar', icon: Database }, 
-              { id: 'cycle', label: '36x10 Cycles', icon: Activity },
-              { id: 'calendar', label: 'Calendar', icon: CalIcon },
-              { id: 'board', label: 'Kanban', icon: Trello },
-              { id: 'yearly', label: 'Strategy', icon: TrendingUp },
-            ].map(item => (
-              <button
-                key={item.id}
-                onClick={() => { setView(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm tracking-wide ${
-                  view === item.id 
-                    ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <item.icon size={18} className={view === item.id ? "text-violet-300" : ""}/>
-                {item.label}
-              </button>
-            ))}
-          </nav>
-        </div>
+          <div className="mt-auto p-8 space-y-4">
+              {/* User Profile / Login */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
+                  {user ? (
+                      <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center font-bold">
+                              {user.email[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-slate-900 truncate">{user.email.split('@')[0]}</div>
+                              <button onClick={() => signOut(auth)} className="text-[10px] text-red-500 hover:underline flex items-center gap-1">Log Out <LogOut size={10}/></button>
+                          </div>
+                      </div>
+                  ) : (
+                      <button onClick={() => setIsAuthModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-slate-800 transition-colors">
+                          <LogIn size={14} /> Log In / Sign Up
+                      </button>
+                  )}
+              </div>
 
-        <div className="mt-auto p-8 space-y-4">
-             {/* User Profile / Login */}
-             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
-                {user ? (
-                   <div className="flex items-center gap-3 overflow-hidden">
-                       <div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center font-bold">
-                           {user.email[0].toUpperCase()}
-                       </div>
-                       <div className="flex-1 min-w-0">
-                           <div className="text-xs font-bold text-slate-900 truncate">{user.email.split('@')[0]}</div>
-                           <button onClick={() => signOut(auth)} className="text-[10px] text-red-500 hover:underline flex items-center gap-1">Log Out <LogOut size={10}/></button>
-                       </div>
-                   </div>
-                ) : (
-                   <button onClick={() => setIsAuthModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-slate-800 transition-colors">
-                       <LogIn size={14} /> Log In / Sign Up
-                   </button>
-                )}
-             </div>
+              {/* Total Assets Card (Replaces Pro Tip) */}
+              <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-lg relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-violet-900/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none group-hover:bg-violet-800/20 transition-all"></div>
+                  <div className="relative z-10">
+                      <div className="flex items-center gap-2 mb-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
+                          <PieChart size={14} /> Total Assets
+                      </div>
+                      <div className="text-2xl font-black text-white tracking-tight">
+                           <span className="text-xs text-slate-500 mr-1 font-normal">RM</span>
+                           {totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                        <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">
+                          Derived from Savings & Investment
+                      </p>
+                  </div>
+              </div>
+          </div>
+        </aside>
 
-             {/* Total Assets Card (Replaces Pro Tip) */}
-             <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-lg relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-900/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none group-hover:bg-violet-800/20 transition-all"></div>
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
-                        <PieChart size={14} /> Total Assets
-                    </div>
-                    <div className="text-2xl font-black text-white tracking-tight">
-                         <span className="text-xs text-slate-500 mr-1 font-normal">RM</span>
-                         {totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                     <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">
-                        Derived from Savings & Investment
-                    </p>
-                </div>
-             </div>
-        </div>
-      </aside>
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
+          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30">
+            <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button>
+            <span className="font-black text-slate-800 uppercase tracking-widest text-sm">{view}</span>
+            <button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button>
+          </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
-        <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30">
-          <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button>
-          <span className="font-black text-slate-800 uppercase tracking-widest text-sm">{view}</span>
-          <button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button>
-        </header>
+          <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
+            {view === 'focus' && <FocusView tasks={tasks} user={user} annualGoals={annualGoals} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={categoryColors} />}
+            {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances}/>}
+            {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
+            {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
+            {view === 'board' && <BoardView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={categoryColors} />}
+            {view === 'yearly' && <YearlyView currentDate={currentDate} monthlyGoals={monthlyGoals} addMonthlyGoal={addMonthlyGoal} toggleMonthlyGoal={toggleMonthlyGoal} updateMonthlyGoalText={updateMonthlyGoalText} handleMonthlyBlur={handleMonthlyBlur} handleMonthlyEnter={handleMonthlyEnter} deleteMonthlyGoal={deleteMonthlyGoal} setMonthlyGoals={setMonthlyGoals} />}
+          </div>
+        </main>
 
-        <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
-          {view === 'focus' && <FocusView tasks={tasks} user={user} annualGoals={annualGoals} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={categoryColors} />}
-          {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances}/>}
-          {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
-          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
-          {view === 'board' && <BoardView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={categoryColors} />}
-          {view === 'yearly' && <YearlyView currentDate={currentDate} monthlyGoals={monthlyGoals} addMonthlyGoal={addMonthlyGoal} toggleMonthlyGoal={toggleMonthlyGoal} updateMonthlyGoalText={updateMonthlyGoalText} handleMonthlyBlur={handleMonthlyBlur} handleMonthlyEnter={handleMonthlyEnter} deleteMonthlyGoal={deleteMonthlyGoal} setMonthlyGoals={setMonthlyGoals} />}
-        </div>
-      </main>
+        <AddTaskModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onAdd={addTask}
+          defaultDate={selectedDateForAdd}
+        />
+        
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
-      <AddTaskModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onAdd={addTask}
-        defaultDate={selectedDateForAdd}
-      />
-      
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: #cbd5e1;
-          border-radius: 20px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background-color: #94a3b8;
-        }
-      `}</style>
-    </div>
+        <style>{`
+          @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes shimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
+          }
+        `}</style>
+      </div>
+    </ErrorBoundary>
   );
 }
