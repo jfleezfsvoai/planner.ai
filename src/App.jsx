@@ -11,41 +11,54 @@ import {
 
 // --- Firebase Imports ---
 import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics"; // Added Analytics import
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "firebase/firestore";
 
 /**
- * --- Modern Future Planner ---
- * Style: Clean Tech / Future Minimalist (Light Mode)
- * Updates:
- * 1. Strategy: 10px rounded corners, larger containers.
- * 2. 36x10: Aligned Date Range column, Enter to add task, aligned textareas.
- * 3. Wealth Jar: Deduct commitment first, then split 30/30/20/20.
+ * --- FIREBASE CONFIGURATION & INITIALIZATION ---
  */
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// 1. 获取配置 (优先使用环境配置，否则使用你提供的配置)
+let firebaseConfig;
+try {
+  // 尝试从 Canvas 环境获取配置，以便在预览中无需配置即可运行
+  firebaseConfig = JSON.parse(__firebase_config);
+} catch (e) {
+  // 本地运行或导出后，将使用你刚才提供的配置：
+  firebaseConfig = {
+    apiKey: "AIzaSyBOa0GCtfFfv-UOeA9j-pM4YKJD9msovV0",
+    authDomain: "of-10-days.firebaseapp.com",
+    projectId: "of-10-days",
+    storageBucket: "of-10-days.firebasestorage.app",
+    messagingSenderId: "656607786498",
+    appId: "1:656607786498:web:5443936c673d6bd82ed91b",
+    measurementId: "G-KXR2TCFW7E"
+  };
+}
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBOa0GCtfFfv-UOeA9j-pM4YKJD9msovV0",
-  authDomain: "of-10-days.firebaseapp.com",
-  projectId: "of-10-days",
-  storageBucket: "of-10-days.firebasestorage.app",
-  messagingSenderId: "656607786498",
-  appId: "1:656607786498:web:5443936c673d6bd82ed91b",
-  measurementId: "G-KXR2TCFW7E"
-};
-
-// Initialize Firebase
+// 2. 初始化 Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
-// --- Utility: Get Local Date String (Fixes Timezone Issues) ---
+// 3. 初始化服务 (Analytics 可选，Auth 和 DB 必须保留)
+let analytics;
+try {
+  analytics = getAnalytics(app);
+} catch (e) {
+  console.log("Analytics not supported in this environment");
+}
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// 3. 定义 App ID
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-planner-app';
+
+/**
+ * --- Modern Future Planner ---
+ * Style: Clean Tech / Future Minimalist (Light Mode)
+ */
+
 const getLocalDateString = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -53,7 +66,7 @@ const getLocalDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-// --- Sub-Components (Defined Outside App) ---
+// --- Sub-Components ---
 
 const TaskCard = ({ task, onToggle, onDelete, categoryColors }) => {
   const getCategoryStyle = (cat) => {
@@ -297,7 +310,6 @@ const AuthModal = ({ isOpen, onClose }) => {
 };
 
 const WealthJarView = ({ balances, setBalances }) => {
-    // Config only for the distributable jars
     const JARS_CONFIG = [
       { id: 'savings', label: 'Savings 储蓄', percent: 30, icon: Shield, color: 'text-violet-500', bg: 'bg-violet-50' },
       { id: 'investment', label: 'Investment 投资', percent: 30, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -319,10 +331,8 @@ const WealthJarView = ({ balances, setBalances }) => {
       const netIncome = Math.max(0, income - commit);
       const newBalances = { ...balances };
 
-      // Add commitment directly to commitment jar
       newBalances.commitment = (newBalances.commitment || 0) + commit;
 
-      // Distribute remainder
       JARS_CONFIG.forEach(jar => {
         newBalances[jar.id] += netIncome * (jar.percent / 100);
       });
@@ -393,16 +403,15 @@ const WealthJarView = ({ balances, setBalances }) => {
         </div>
   
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Manual Commitment Jar Display */}
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg hover:shadow-slate-100 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-[180px]">
                <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
                       <div className={`p-3 rounded-2xl bg-rose-50 text-rose-500`}>
-                         <Layers size={22} />
+                          <Layers size={22} />
                       </div>
                       <div>
-                         <div className="text-sm font-bold text-slate-700">Commitment 开销</div>
-                         <div className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full mt-1 inline-block">Fixed</div>
+                          <div className="text-sm font-bold text-slate-700">Commitment 开销</div>
+                          <div className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full mt-1 inline-block">Fixed</div>
                       </div>
                   </div>
                </div>
@@ -415,7 +424,6 @@ const WealthJarView = ({ balances, setBalances }) => {
                </div>
             </div>
 
-            {/* Configured Jars */}
             {JARS_CONFIG.map(jar => (
                 <div key={jar.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg hover:shadow-slate-100 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-[180px]">
                 <div className="flex justify-between items-start">
@@ -442,17 +450,17 @@ const WealthJarView = ({ balances, setBalances }) => {
   
         <div className="bg-white border border-violet-100 rounded-3xl p-8 shadow-xl shadow-violet-50 relative overflow-hidden">
            <div className="flex justify-between items-end mb-4 relative z-10">
-              <div>
+             <div>
                  <h3 className="text-violet-600 font-bold text-sm tracking-widest uppercase mb-1 flex items-center gap-2">
                     <Target size={16}/> Yearly Savings Target
                  </h3>
                  <p className="text-xs text-slate-400 font-medium">(Savings + Investment Only)</p>
-              </div>
-              <div className="text-right">
+             </div>
+             <div className="text-right">
                  <div className="text-3xl font-black text-slate-800 tracking-tight">
                     RM {currentSavings.toLocaleString()} <span className="text-slate-300 text-xl font-medium">/ {targetAmount.toLocaleString()}</span>
                  </div>
-              </div>
+             </div>
            </div>
   
            <div className="h-6 bg-slate-100 rounded-full overflow-hidden relative">
@@ -460,16 +468,16 @@ const WealthJarView = ({ balances, setBalances }) => {
                 style={{ width: `${progressPercent}%` }}
                 className="h-full bg-gradient-to-r from-slate-900 via-indigo-950 to-violet-900 relative transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(76,29,149,0.5)] flex items-center justify-end pr-2"
               >
-                 <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
-                 {progressPercent > 5 && <span className="text-[10px] text-white font-bold relative z-10">{progressValue}%</span>}
+                  <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
+                  {progressPercent > 5 && <span className="text-[10px] text-white font-bold relative z-10">{progressValue}%</span>}
               </div>
               {progressPercent <= 5 && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">{progressValue}%</span>}
            </div>
            
            <div className="mt-3 flex justify-between text-xs font-bold text-slate-400">
-              <span>0%</span>
-              <span className={progressPercent >= 100 ? "text-violet-600" : ""}>{progressPercent >= 100 ? 'GOAL ACHIEVED' : 'IN PROGRESS'}</span>
-              <span>100%</span>
+             <span>0%</span>
+             <span className={progressPercent >= 100 ? "text-violet-600" : ""}>{progressPercent >= 100 ? 'GOAL ACHIEVED' : 'IN PROGRESS'}</span>
+             <span>100%</span>
            </div>
         </div>
       </div>
@@ -518,7 +526,6 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
       ));
     };
 
-    // Add task on Enter key
     const handleTaskKeyDown = (e, cycleId) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -608,21 +615,18 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
 
                 {data.map((row) => (
                     <div key={row.id} className="bg-white border border-slate-100 rounded-2xl p-5 md:grid md:grid-cols-12 md:gap-4 md:items-start hover:shadow-lg hover:shadow-slate-100 hover:-translate-y-[1px] transition-all group duration-300">
-                         {/* Cycle ID - Col 1 */}
                          <div className="col-span-1 flex items-start justify-center pt-2">
                              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-50 text-violet-600 font-bold text-sm shadow-sm">
                                 {row.id}
                              </span>
                          </div>
 
-                         {/* Date Range - Col 1 - Aligned with Header */}
                          <div className="col-span-1 flex items-start justify-center pt-2.5">
                             <span className="text-slate-500 text-[11px] font-bold text-center leading-tight">
                                 {row.dateRange}
                             </span>
                          </div>
 
-                         {/* Tasks - Col 5 */}
                          <div className="col-span-5 space-y-3 mb-5 md:mb-0">
                             {row.tasks.map((task) => (
                                 <div key={task.id} className="flex items-center gap-3 group/task">
@@ -647,7 +651,6 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
                             <button onClick={() => addTask(row.id)} className="text-[11px] text-violet-500 hover:text-violet-700 flex items-center gap-1 font-bold mt-2 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors w-max"><Plus size={12}/> ADD ITEM</button>
                          </div>
                          
-                         {/* Action Plan - Col 2 */}
                          <div className="col-span-2 pt-1">
                              <span className="md:hidden text-xs text-slate-400 font-bold block mb-1">Action Plan:</span>
                              <textarea 
@@ -659,7 +662,6 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
                              />
                          </div>
 
-                         {/* Feedback - Col 3 */}
                          <div className="col-span-3 pt-1">
                              <span className="md:hidden text-xs text-slate-400 font-bold block mb-1">Review & Feedback:</span>
                              <textarea 
@@ -678,7 +680,6 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
 };
 
 const FocusView = ({ tasks, user, annualGoals, openAddModal, toggleTask, deleteTask, categoryColors }) => {
-    // Replaced toISOString with getLocalDateString to fix timezone offset (UTC vs Local)
     const todayStr = getLocalDateString(new Date());
     const todaysTasks = tasks.filter(t => t.date === todayStr);
     const pendingCount = todaysTasks.filter(t => !t.completed).length;
@@ -689,7 +690,8 @@ const FocusView = ({ tasks, user, annualGoals, openAddModal, toggleTask, deleteT
       <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20 md:pb-0">
         <header className="flex justify-between items-end pb-4 border-b border-slate-100 md:border-none md:pb-0">
           <div>
-            <h2 className="text-4xl font-black text-slate-800 tracking-tight mb-2">{greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">{user ? (user.email.split('@')[0]) : 'Guest'}</span></h2>
+            {/* FIXED: Added null check for user.email to prevent crash */}
+            <h2 className="text-4xl font-black text-slate-800 tracking-tight mb-2">{greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">{user && user.email ? (user.email.split('@')[0]) : 'Guest'}</span></h2>
             <p className="text-slate-500 font-medium text-lg">
               You have <span className="text-violet-600 font-bold">{pendingCount}</span> pending tasks today.
             </p>
@@ -806,7 +808,6 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
           <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-50 gap-[1px]">
             {totalSlots.map((day, i) => {
               if (!day) return <div key={i} className="bg-white"></div>;
-              // Manually construct local date string to match Task storage format
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const dayTasks = tasks.filter(t => t.date === dateStr);
               const isToday = dateStr === getLocalDateString(new Date());
@@ -863,7 +864,6 @@ const BoardView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTas
         <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
           <div className="h-full flex gap-6 min-w-[1200px] pb-6 px-1">
             {weekDays.map((day, i) => {
-              // Replaced toISOString with getLocalDateString to ensure column matches local date
               const dateStr = getLocalDateString(day);
               const dayTasks = tasks.filter(t => t.date === dateStr);
               const isToday = dateStr === getLocalDateString(new Date());
@@ -908,7 +908,6 @@ const YearlyView = ({ currentDate, monthlyGoals, addMonthlyGoal, toggleMonthlyGo
                 <h2 className="text-3xl font-black text-slate-800 tracking-tight">Strategic Map {currentYear}</h2>
              </div>
 
-             {/* Progress HUD */}
              <div className="bg-slate-900 rounded-3xl p-10 mb-10 relative overflow-hidden shadow-2xl shadow-slate-200 flex-shrink-0">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/30 rounded-full blur-[100px] -mr-20 -mt-20 pointer-events-none"></div>
                 <div className="relative z-10 text-white">
@@ -924,7 +923,6 @@ const YearlyView = ({ currentDate, monthlyGoals, addMonthlyGoal, toggleMonthlyGo
                 </div>
              </div>
 
-             {/* Monthly Grid */}
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-8">
                  {months.map(m => {
                      const isSelected = m === currentMonth;
@@ -982,14 +980,12 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  // Replaced toISOString with getLocalDateString for Modal Date State
   const [selectedDateForAdd, setSelectedDateForAdd] = useState(getLocalDateString(new Date()));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
   
-  // Default to 1 task per container
   const generateInitialCycles = (startStr) => {
       const cycles = [];
       const startDate = new Date(startStr);
@@ -1017,11 +1013,21 @@ export default function App() {
   const [startYearDate, setStartYearDate] = useState(new Date().getFullYear() + '-01-01');
   const [newAnnualGoalInput, setNewAnnualGoalInput] = useState('');
 
-  // Lock ref for preventing blur conflicts
   const ignoreBlurRef = useRef(false);
 
   // --- Auth & Data Effects ---
   useEffect(() => {
+    const initAuth = async () => {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            try {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } catch (e) {
+                console.error("Custom token auth failed", e);
+            }
+        }
+    };
+    initAuth();
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) loadFromLocalStorage();
@@ -1032,10 +1038,12 @@ export default function App() {
   useEffect(() => {
       if (user) {
           const unsubs = [];
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), (doc) => { if (doc.exists()) setTasks(doc.data().list || []); }));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), (doc) => { if (doc.exists()) { const d = doc.data(); setAnnualGoals(d.annual || []); setMonthlyGoals(d.monthly || {}); } }));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), (doc) => { if (doc.exists()) setWealthBalances(doc.data().balances || { commitment: 0, savings: 0, investment: 0, education: 0, emergency: 0 }); }));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), (doc) => { if (doc.exists()) { setCyclesData(doc.data().list || []); setStartYearDate(doc.data().startDate || new Date().getFullYear() + '-01-01'); } else { const initial = generateInitialCycles(new Date().getFullYear() + '-01-01'); setCyclesData(initial); } }));
+          if (user.uid) {
+            unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), (doc) => { if (doc.exists()) setTasks(doc.data().list || []); }));
+            unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), (doc) => { if (doc.exists()) { const d = doc.data(); setAnnualGoals(d.annual || []); setMonthlyGoals(d.monthly || {}); } }));
+            unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), (doc) => { if (doc.exists()) setWealthBalances(doc.data().balances || { commitment: 0, savings: 0, investment: 0, education: 0, emergency: 0 }); }));
+            unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), (doc) => { if (doc.exists()) { setCyclesData(doc.data().list || []); setStartYearDate(doc.data().startDate || new Date().getFullYear() + '-01-01'); } else { const initial = generateInitialCycles(new Date().getFullYear() + '-01-01'); setCyclesData(initial); } }));
+          }
           return () => unsubs.forEach(u => u());
       } else { loadFromLocalStorage(); }
   }, [user]);
@@ -1052,7 +1060,7 @@ export default function App() {
   };
 
   const saveData = (type, data) => {
-      if (user) {
+      if (user && user.uid) {
          if (type === 'tasks') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), { list: data });
          if (type === 'goals') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'goals'), { annual: annualGoals, monthly: monthlyGoals });
          if (type === 'wealth') setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth'), { balances: data });
@@ -1080,7 +1088,6 @@ export default function App() {
   const addTask = (newTask) => setTasks([...tasks, { id: Date.now(), completed: false, ...newTask }]);
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
-  // Replaced toISOString with getLocalDateString for Modal Opening
   const openAddModal = (dateStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setIsModalOpen(true); };
 
   const addAnnualGoal = () => {
@@ -1112,7 +1119,6 @@ export default function App() {
   const handleMonthlyEnter = (year, month, id, e) => {
       if (e.key === 'Enter') {
           e.preventDefault();
-          // Lock blur to prevent double update / vibration
           ignoreBlurRef.current = true;
           
           const key = `${year}-${month}`;
@@ -1126,13 +1132,11 @@ export default function App() {
               return { ...prev, [key]: updated };
           });
 
-          // Release lock shortly
           setTimeout(() => ignoreBlurRef.current = false, 100);
       }
   };
 
   const handleMonthlyBlur = (year, month, id, text) => {
-      // If locked (due to Enter), skip blur logic
       if (ignoreBlurRef.current) return;
 
       if (!text.trim()) {
@@ -1156,7 +1160,6 @@ export default function App() {
     setMonthlyGoals(prev => ({ ...prev, [key]: (prev[key]||[]).filter(g => g.id !== id) }));
   };
   
-  // Calculate total assets for sidebar
   const totalAssets = wealthBalances.savings + wealthBalances.investment;
 
   // --- Main Layout ---
@@ -1207,10 +1210,12 @@ export default function App() {
                 {user ? (
                    <div className="flex items-center gap-3 overflow-hidden">
                        <div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center font-bold">
-                           {user.email[0].toUpperCase()}
+                           {/* FIXED: Added check for user.email */}
+                           {user.email ? user.email[0].toUpperCase() : 'U'}
                        </div>
                        <div className="flex-1 min-w-0">
-                           <div className="text-xs font-bold text-slate-900 truncate">{user.email.split('@')[0]}</div>
+                           {/* FIXED: Added check for user.email */}
+                           <div className="text-xs font-bold text-slate-900 truncate">{user.email ? user.email.split('@')[0] : 'User'}</div>
                            <button onClick={() => signOut(auth)} className="text-[10px] text-red-500 hover:underline flex items-center gap-1">Log Out <LogOut size={10}/></button>
                        </div>
                    </div>
@@ -1221,7 +1226,7 @@ export default function App() {
                 )}
              </div>
 
-             {/* Total Assets Card (Replaces Pro Tip) */}
+             {/* Total Assets Card */}
              <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-lg relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-violet-900/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none group-hover:bg-violet-800/20 transition-all"></div>
                 <div className="relative z-10">
