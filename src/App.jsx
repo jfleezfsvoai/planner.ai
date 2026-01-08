@@ -23,12 +23,27 @@ import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "fireb
  * 3. Wealth Jar: Deduct commitment first, then split 30/30/20/20.
  */
 
-// --- Firebase Initialization ---
-const firebaseConfig = JSON.parse(__firebase_config);
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBOa0GCtfFfv-UOeA9j-pM4YKJD9msovV0",
+  authDomain: "of-10-days.firebaseapp.com",
+  projectId: "of-10-days",
+  storageBucket: "of-10-days.firebasestorage.app",
+  messagingSenderId: "656607786498",
+  appId: "1:656607786498:web:5443936c673d6bd82ed91b",
+  measurementId: "G-KXR2TCFW7E"
+};
+
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const analytics = getAnalytics(app);
 
 // --- Utility: Get Local Date String (Fixes Timezone Issues) ---
 const getLocalDateString = (date) => {
