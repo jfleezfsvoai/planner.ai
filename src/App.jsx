@@ -41,7 +41,9 @@ try {
 } catch (e) {
   console.error("Firebase Init Error:", e);
 }
-const appId = 'future-planner-production';
+
+// FIX: Restore dynamic App ID to retrieve previous data
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'future-planner-production';
 
 // --- Utilities ---
 const getLocalDateString = (date) => {
