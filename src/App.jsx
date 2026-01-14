@@ -37,7 +37,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// CRITICAL FIX: Use the specific App ID where your data is stored
+// CRITICAL FIX: Fixed App ID as requested
 const appId = 'default-planner-app';
 
 // --- Utilities ---
@@ -308,7 +308,6 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
     const [isProcessing, setIsProcessing] = useState(false);
     const [jarvisResponse, setJarvisResponse] = useState(null);
     
-    // Safety check for user display name
     const displayName = user?.email ? user.email.split('@')[0] : (user?.isAnonymous ? 'Commander' : 'Guest');
 
     const handleJarvisPlan = (e) => {
@@ -403,7 +402,7 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
             <div className="md:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 min-h-[400px]">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><Target className="text-rose-500"/> Today's Focus</h3>
-                    <button onClick={() => openAddModal(todayStr)} className="bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-700"><Plus size={16}/></button>
+                    <button onClick={() => openAddModal(todayStr)} className="bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-700 transition-all"><Plus size={16}/></button>
                 </div>
                 <div className="space-y-2">
                     {todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10">No tasks for today.</div> : todaysTasks.map(task => (
@@ -452,6 +451,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         const netIncome = Math.max(0, amt - commit);
         const newBalances = { ...balances };
         const newTransactions = [...transactions]; 
+
         newTransactions.unshift({ id: Date.now(), amount: amt, category: 'Income 收入', remark: 'Manual Entry', date: getLocalDateString(new Date()), type: 'income' });
         if (wealthConfig.showCommitment && commit > 0) {
             newBalances.commitment = (newBalances.commitment || 0) + commit;
@@ -474,33 +474,10 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         setExpenseForm({ amount: '', category: 'Food', remark: '', date: getLocalDateString(new Date()) });
     };
 
-    const deleteCommitment = () => {
-        const balance = balances.commitment || 0;
-        if(balance > 0) {
-            const targetLabel = prompt(`Commitment jar has RM${balance}. Move to which jar? (Enter Jar Name exactly)`);
-            const targetJar = wealthConfig.jars.find(j => j.label === targetLabel);
-            if(targetJar) {
-                 const newBalances = {...balances};
-                 newBalances[targetJar.id] = (newBalances[targetJar.id] || 0) + balance;
-                 newBalances.commitment = 0;
-                 setBalances(newBalances);
-            } else { return; }
-        }
-        setWealthConfig({ ...wealthConfig, showCommitment: false, commitment: 0 });
-    };
-
     const deleteJar = (id) => {
-        const jarBalance = balances[id] || 0;
-        if (jarBalance > 0) {
-            const targetLabel = prompt(`This jar has RM${jarBalance}. Move to which jar? (Enter Jar Name exactly)`);
-            const targetJar = wealthConfig.jars.find(j => j.label === targetLabel);
-            if(targetJar) {
-                const newBalances = {...balances};
-                newBalances[targetJar.id] = (newBalances[targetJar.id] || 0) + jarBalance;
-                delete newBalances[id];
-                setBalances(newBalances);
-            } else { return; }
-        }
+        const newBalances = { ...balances };
+        delete newBalances[id];
+        setBalances(newBalances);
         setWealthConfig({ ...wealthConfig, jars: wealthConfig.jars.filter(j => j.id !== id) });
     };
 
@@ -542,13 +519,15 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {wealthConfig.showCommitment && (
                     <div className="bg-rose-50 border border-rose-100 p-6 rounded-3xl flex flex-col justify-between h-40 relative group">
-                        <div className="flex justify-between items-start"><div className="font-bold text-rose-700">Commitment</div><Lock size={16} className="text-rose-400"/></div>
+                        <div className="flex justify-between items-start">
+                            <div className="font-bold text-rose-700">Commitment</div>
+                            <Lock size={16} className="text-rose-400"/>
+                        </div>
                         <div className="text-2xl font-black text-rose-800">RM {(balances.commitment||0).toLocaleString()}</div>
-                        <button onClick={deleteCommitment} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-rose-400 hover:bg-rose-100 p-1 rounded transition-all"><X size={16}/></button>
                     </div>
                 )}
                 {wealthConfig.jars.map(jar => (
-                    <div key={jar.id} className="bg-white border border-slate-100 p-6 rounded-3xl flex flex-col justify-between h-40 shadow-sm hover:shadow-md relative group">
+                    <div key={jar.id} className="bg-white border border-slate-100 p-6 rounded-3xl flex flex-col justify-between h-40 shadow-sm hover:shadow-md transition-shadow relative group">
                         <div className="flex justify-between items-start">
                             <div><div className="font-bold text-slate-700">{jar.label}</div><div className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full inline-block mt-1 font-bold">{jar.percent}%</div></div>
                             <div className="p-2 bg-slate-50 rounded-full text-slate-400">{getIconForLabel(jar.label)}</div>
@@ -629,31 +608,100 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
     const deleteTask = (cycleId, taskId) => {
         setData(prev => prev.map(c => c.id === cycleId ? { ...c, tasks: (c.tasks || []).filter(t => t.id !== taskId) } : c));
     };
+
     return (
         <div className="h-full flex flex-col animate-fade-in pb-20">
             <div className="flex justify-between items-end mb-6 sticky top-0 bg-slate-50 z-20 py-2 border-b border-slate-200">
-                <div><h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3"><Activity className="text-violet-600" /> 36 x 10 Cycles</h2>
-                <div className="flex items-center gap-4 mt-2"><div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-2"><span className="text-xs font-bold text-slate-400 uppercase">Start</span><input type="date" value={startYearDate} onChange={e => setStartYearDate(e.target.value)} className="bg-transparent font-bold outline-none text-sm"/></div></div></div>
-                <div className="w-1/3"><div className="flex justify-between text-xs font-bold mb-1"><span>Progress</span><span className="text-violet-600">{progress}%</span></div><div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-1000" style={{width: `${progress}%`}}></div></div></div>
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
-                {data.map(cycle => (
-                    <div key={cycle.id} className="bg-white border border-slate-100 rounded-2xl p-6 grid grid-cols-12 gap-6 items-start shadow-sm">
-                        <div className="col-span-2 flex flex-col items-center border-r border-slate-50"><div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center font-black text-xl mb-2">{cycle.id}</div><div className="text-center text-[10px] font-bold text-slate-500">{cycle.dateRange}</div></div>
-                        <div className="col-span-4 space-y-3 pt-2">
-                            {(cycle.tasks || []).map(task => (
-                                <div key={task.id} className="flex items-center gap-2 group">
-                                    <button onClick={() => updateTask(cycle.id, task.id, 'done', !task.done)} className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'}`}><CheckSquare size={12} fill={task.done ? "currentColor" : "none"}/></button>
-                                    <input type="text" value={task.text} onChange={e => updateTask(cycle.id, task.id, 'text', e.target.value)} onKeyDown={e => e.key === 'Enter' && addTask(cycle.id)} className={`flex-1 bg-transparent border-b border-transparent focus:border-violet-400 outline-none text-sm ${task.done ? 'text-slate-400 line-through' : 'font-medium'}`} />
-                                    <button onClick={() => deleteTask(cycle.id, task.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"><X size={14}/></button>
-                                </div>
-                            ))}
-                            {(cycle.tasks || []).length < 5 && <button onClick={() => addTask(cycle.id)} className="text-xs font-bold text-violet-500">+ Start Task</button>}
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3"><Activity className="text-violet-600" /> 36 x 10 Cycles</h2>
+                    <div className="flex items-center gap-4 mt-2">
+                        <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-400 uppercase">Start</span>
+                            <input type="date" value={startYearDate} onChange={e => setStartYearDate(e.target.value)} className="bg-transparent font-bold outline-none text-sm"/>
                         </div>
-                        <div className="col-span-3 space-y-3 pt-2">{(cycle.tasks || []).map(task => (<div key={task.id} className="h-8"><input type="text" placeholder="Plan..." value={task.plan || ''} onChange={e => updateTask(cycle.id, task.id, 'plan', e.target.value)} className="w-full bg-slate-50 rounded-lg px-3 py-1 text-xs outline-none focus:bg-white" /></div>))}</div>
-                        <div className="col-span-3 space-y-3 pt-2">{(cycle.tasks || []).map(task => (<div key={task.id} className="h-8"><input type="text" placeholder="Review..." value={task.feedback || ''} onChange={e => updateTask(cycle.id, task.id, 'feedback', e.target.value)} className="w-full bg-slate-50 rounded-lg px-3 py-1 text-xs outline-none focus:bg-white" /></div>))}</div>
                     </div>
-                ))}
+                </div>
+                <div className="w-1/3">
+                    <div className="flex justify-between text-xs font-bold mb-1"><span>Progress</span><span className="text-violet-600">{progress}%</span></div>
+                    <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-1000" style={{width: `${progress}%`}}></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                {/* Headers */}
+                <div className="grid grid-cols-12 gap-4 px-6 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <div className="col-span-2 text-center">Cycle / Date</div>
+                    <div className="col-span-4">Task Name</div>
+                    <div className="col-span-3">Action Plan</div>
+                    <div className="col-span-3">Review / Feedback</div>
+                </div>
+
+                <div className="space-y-6">
+                    {data.map(cycle => (
+                        <div key={cycle.id} className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="grid grid-cols-12 gap-6">
+                                {/* Left Info */}
+                                <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-50 py-2">
+                                    <div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center font-black text-xl mb-1">{cycle.id}</div>
+                                    <div className="text-center text-[10px] font-bold text-slate-400">{cycle.dateRange}</div>
+                                    <button onClick={() => addTask(cycle.id)} className="mt-4 p-2 bg-slate-50 text-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all"><Plus size={16}/></button>
+                                </div>
+
+                                {/* Integrated Rows for perfect alignment */}
+                                <div className="col-span-10 space-y-3">
+                                    {cycle.tasks && cycle.tasks.length > 0 ? (
+                                        cycle.tasks.map(task => (
+                                            <div key={task.id} className="grid grid-cols-10 gap-4 items-center group bg-slate-50/50 p-2 rounded-2xl border border-transparent hover:border-violet-100 transition-all">
+                                                {/* Task Cell */}
+                                                <div className="col-span-4 flex items-center gap-2">
+                                                    <button onClick={() => updateTask(cycle.id, task.id, 'done', !task.done)} className={`w-5 h-5 rounded-lg border flex-shrink-0 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
+                                                        <CheckSquare size={12} fill={task.done ? "currentColor" : "none"}/>
+                                                    </button>
+                                                    <input 
+                                                        type="text" 
+                                                        value={task.text} 
+                                                        onChange={e => updateTask(cycle.id, task.id, 'text', e.target.value)} 
+                                                        placeholder="Task description..."
+                                                        className={`flex-1 bg-transparent outline-none text-sm transition-all ${task.done ? 'text-slate-400 line-through' : 'text-slate-700 font-bold'}`} 
+                                                    />
+                                                    <button onClick={() => deleteTask(cycle.id, task.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                                                        <Trash2 size={14}/>
+                                                    </button>
+                                                </div>
+
+                                                {/* Plan Cell */}
+                                                <div className="col-span-3">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Strategy..." 
+                                                        value={task.plan || ''} 
+                                                        onChange={e => updateTask(cycle.id, task.id, 'plan', e.target.value)} 
+                                                        className="w-full bg-white/50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-200 focus:bg-white transition-all" 
+                                                    />
+                                                </div>
+
+                                                {/* Review Cell */}
+                                                <div className="col-span-3">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Result..." 
+                                                        value={task.feedback || ''} 
+                                                        onChange={e => updateTask(cycle.id, task.id, 'feedback', e.target.value)} 
+                                                        className="w-full bg-white/50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-200 focus:bg-white transition-all" 
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-slate-300 text-xs italic font-medium">No tasks set for this cycle. Click the plus icon to start.</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -735,7 +783,7 @@ export default function App() {
   const [startYearDate, setStartYearDate] = useState(new Date().getFullYear() + '-01-01');
   const [wealthBalances, setWealthBalances] = useState({ commitment: 0 });
   const [wealthTransactions, setWealthTransactions] = useState([]);
-  const [wealthConfig, setWealthConfig] = useState({ yearlyTarget: 100000, commitment: 2000, showCommitment: true, jars: [{ id: 'savings', label: 'Savings 储蓄', percent: 50 }, { id: 'investment', label: 'Investment 投资', percent: 50 }] });
+  const [wealthConfig, setWealthConfig] = useState({ yearlyTarget: 100000, commitment: 2000, showCommitment: true, jars: [] });
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => { 
@@ -765,13 +813,12 @@ export default function App() {
                 setWealthBalances(data.balances || {}); 
                 setWealthTransactions(data.transactions || []); 
                 if(data.config) setWealthConfig(data.config);
-                setIsLoaded(true);
               } else {
                 getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth')).then(v1 => {
                     if(v1.exists()) setWealthBalances(v1.data().balances || {});
-                    setIsLoaded(true);
                 });
               }
+              setIsLoaded(true);
           }, () => {}));
           return () => unsubs.forEach(u => u());
       } else { loadLocalStorage(); }
@@ -779,10 +826,10 @@ export default function App() {
 
   const saveData = (type, data) => { if(user) { setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', type), data); } else { localStorage.setItem(`planner_${type}`, JSON.stringify(data)); } };
   
-  useEffect(() => { if(isLoaded && tasks.length > 0) saveData('tasks', { list: tasks }); }, [tasks, isLoaded]);
-  useEffect(() => { if(isLoaded && categories.length > 0) saveData('categories', { list: categories }); }, [categories, isLoaded]);
-  useEffect(() => { if(isLoaded && cyclesData.length > 0) saveData('cycles', { list: cyclesData, startDate: startYearDate }); }, [cyclesData, startYearDate, isLoaded]);
-  useEffect(() => { if(isLoaded && Object.keys(wealthBalances).length > 0) saveData('wealth_v2', { balances: wealthBalances, transactions: wealthTransactions, config: wealthConfig }); }, [wealthBalances, wealthTransactions, wealthConfig, isLoaded]);
+  useEffect(() => { if(isLoaded && tasks.length >= 0) saveData('tasks', { list: tasks }); }, [tasks, isLoaded]);
+  useEffect(() => { if(isLoaded && categories.length >= 0) saveData('categories', { list: categories }); }, [categories, isLoaded]);
+  useEffect(() => { if(isLoaded && cyclesData.length >= 0) saveData('cycles', { list: cyclesData, startDate: startYearDate }); }, [cyclesData, startYearDate, isLoaded]);
+  useEffect(() => { if(isLoaded && Object.keys(wealthBalances).length >= 0) saveData('wealth_v2', { balances: wealthBalances, transactions: wealthTransactions, config: wealthConfig }); }, [wealthBalances, wealthTransactions, wealthConfig, isLoaded]);
 
   const loadLocalStorage = () => {
       try {
@@ -806,6 +853,8 @@ export default function App() {
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
 
+  const catColors = {'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'};
+
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden">
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 md:translate-x-0 md:static flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -821,14 +870,14 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
-          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={{'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'}} />}
+          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
           {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
-          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={{'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'}} />}
+          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
           {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
         </div>
       </main>
-      <AddTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAdd={addTask} defaultDate={selectedDateForAdd} defaultTime={selectedTimeForAdd} categories={categories} setSetCategories={setCategories}/>
+      <AddTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAdd={addTask} defaultDate={selectedDateForAdd} defaultTime={selectedTimeForAdd} categories={categories} setCategories={setCategories}/>
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <style>{`@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }.animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }`}</style>
     </div>
