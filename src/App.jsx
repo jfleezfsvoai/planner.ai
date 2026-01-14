@@ -37,6 +37,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// CRITICAL: Fixed App ID for data persistence
 const appId = 'default-planner-app';
 
 // --- Utilities ---
@@ -74,7 +75,6 @@ const getIconForLabel = (label) => {
 const HorizontalBarChart = ({ data }) => {
   if (!data || data.length === 0) return <div className="text-center py-10 text-slate-400 text-sm italic font-medium">暂无图表数据</div>;
   
-  // Find max value to scale the bars
   const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1);
 
   return (
@@ -436,8 +436,8 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     const [showGraph, setShowGraph] = useState(false);
     const [isAddJarOpen, setIsAddJarOpen] = useState(false);
     const [newJarForm, setNewJarForm] = useState({ label: '', percent: '' });
+    const [editingTxId, setEditingTxId] = useState(null); // Track transaction being edited
 
-    // Derive transaction categories from history + defaults
     const defaultTxCats = ['饮食', '交通', '购物', '订阅', '医疗', '其他'];
     const usedTxCats = Array.from(new Set([...defaultTxCats, ...transactions.map(t => t.category)]));
 
@@ -474,11 +474,30 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         setIncome('');
     };
 
-    const addTransaction = (e) => {
+    // Consolidated add/edit logic
+    const submitTransaction = (e) => {
         e.preventDefault();
         if(!expenseForm.amount || !expenseForm.category) return;
-        const newTx = { id: Date.now(), ...expenseForm, amount: -Math.abs(parseFloat(expenseForm.amount)) };
-        setTransactions([newTx, ...transactions]);
+        
+        let finalAmount = parseFloat(expenseForm.amount);
+        // Automatic positive for income, negative for others
+        if (expenseForm.category !== '收入') {
+            finalAmount = -Math.abs(finalAmount);
+        } else {
+            finalAmount = Math.abs(finalAmount);
+        }
+
+        if (editingTxId) {
+            // Update existing
+            const updated = transactions.map(t => t.id === editingTxId ? { ...t, ...expenseForm, amount: finalAmount } : t);
+            setTransactions(updated);
+            setEditingTxId(null);
+        } else {
+            // Add new
+            const newTx = { id: Date.now(), ...expenseForm, amount: finalAmount };
+            setTransactions([newTx, ...transactions]);
+        }
+        
         setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
         setIsCustomCat(false);
     };
@@ -497,7 +516,30 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         }
     };
 
-    // FIX: Scan all jars for Savings/Investment
+    const startEditTx = (tx) => {
+        setEditingTxId(tx.id);
+        setExpenseForm({
+            amount: Math.abs(tx.amount).toString(),
+            category: tx.category,
+            remark: tx.remark || '',
+            date: tx.date
+        });
+        // If it's a custom category not in default list, ensure we handle it
+        if (!defaultTxCats.includes(tx.category) && tx.category !== '收入' && tx.category !== '固定开销') {
+            // It might be a custom one. We'll show it in select or can toggle isCustomCat
+        }
+        // Scroll to form for better UX
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const deleteTx = (id) => {
+        setTransactions(transactions.filter(t => t.id !== id));
+        if (editingTxId === id) {
+            setEditingTxId(null);
+            setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
+        }
+    };
+
     const getSavingsTotal = () => {
         let total = 0;
         wealthConfig.jars.forEach(jar => {
@@ -510,8 +552,6 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     };
 
     const netTransactionTotal = transactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
-    
-    // Group transactions by date
     const groupedTransactions = transactions.sort((a, b) => new Date(b.date) - new Date(a.date)).reduce((groups, tx) => {
         const date = tx.date;
         if (!groups[date]) groups[date] = [];
@@ -519,7 +559,6 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         return groups;
     }, {});
 
-    // Bar Chart Data Processing: Net per Category
     const barData = usedTxCats.map(cat => {
         const catTxs = transactions.filter(t => t.category === cat);
         const total = catTxs.reduce((acc, t) => acc + t.amount, 0);
@@ -579,8 +618,11 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm h-fit">
-                    <h3 className="font-bold text-slate-800 mb-4">记录收支</h3>
-                    <form onSubmit={addTransaction} className="space-y-4">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        {editingTxId ? <Edit3 size={18} className="text-amber-500"/> : <DollarSign size={18} className="text-slate-400"/>}
+                        {editingTxId ? '编辑交易记录' : '记录收支'}
+                    </h3>
+                    <form onSubmit={submitTransaction} className="space-y-4">
                         <input type="number" placeholder="金额" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:ring-2 ring-violet-100" />
                         <div className="flex gap-2">
                            {!isCustomCat ? (
@@ -609,7 +651,14 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
                         </div>
                         <input type="text" placeholder="备注" value={expenseForm.remark} onChange={e=>setExpenseForm({...expenseForm, remark: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none" />
                         <input type="date" value={expenseForm.date} onChange={e=>setExpenseForm({...expenseForm, date: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none" />
-                        <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition-all shadow-lg">录入数据</button>
+                        <div className="flex gap-2">
+                            {editingTxId && (
+                                <button type="button" onClick={() => {setEditingTxId(null); setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });}} className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition-all">取消</button>
+                            )}
+                            <button type="submit" className={`flex-[2] text-white font-bold py-3 rounded-xl transition-all shadow-lg ${editingTxId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-slate-800'}`}>
+                                {editingTxId ? '保存修改' : '录入数据'}
+                            </button>
+                        </div>
                     </form>
                 </div>
                 
@@ -638,16 +687,24 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
                                     </div>
                                     <div className="space-y-1">
                                         {txs.map(tx => (
-                                            <div key={tx.id} className="grid grid-cols-4 items-center p-3 hover:bg-slate-50 rounded-2xl transition-all border border-transparent hover:border-slate-100 group">
-                                                <div className="col-span-2">
+                                            <div key={tx.id} className="grid grid-cols-12 items-center p-3 hover:bg-slate-50 rounded-2xl transition-all border border-transparent hover:border-slate-100 group">
+                                                <div className="col-span-7">
                                                     <div className="font-bold text-slate-700 flex items-center gap-2">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
                                                         {tx.category}
                                                     </div>
                                                     <div className="text-[10px] text-slate-400 font-medium pl-3.5">{tx.remark || '无备注'}</div>
                                                 </div>
-                                                <div className={`col-span-2 text-right font-black text-sm ${tx.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                <div className={`col-span-3 text-right font-black text-sm ${tx.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                                     {tx.amount > 0 ? '+' : ''} RM {Math.abs(tx.amount).toFixed(2)}
+                                                </div>
+                                                <div className="col-span-2 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button onClick={() => startEditTx(tx)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="编辑">
+                                                        <Edit3 size={14}/>
+                                                    </button>
+                                                    <button onClick={() => deleteTx(tx.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="删除">
+                                                        <Trash2 size={14}/>
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
@@ -684,7 +741,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     );
 };
 
-// Memoized Row for Cycles Tracker
+// Memoized Row for Cycles Tracker to prevent IME issues
 const CycleTaskRow = memo(({ task, cycleId, onUpdate, onDelete }) => {
     const [localText, setLocalText] = useState(task.text);
     const [localPlan, setLocalPlan] = useState(task.plan);
@@ -967,6 +1024,8 @@ export default function App() {
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
 
+  const catColors = {'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'};
+
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden">
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 md:translate-x-0 md:static flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -982,10 +1041,10 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
-          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={{'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'}} />}
+          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
           {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
-          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={{'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'}} />}
+          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
           {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
         </div>
       </main>
