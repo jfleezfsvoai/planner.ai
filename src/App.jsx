@@ -57,7 +57,9 @@ const getTomorrowDateString = () => {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- Sub-Components (Helpers) ---
+// --- Sub-Components ---
+
+const SettingsIcon = ({size}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
 
 const getIconForLabel = (label) => {
     const l = label ? label.toLowerCase() : '';
@@ -69,8 +71,10 @@ const getIconForLabel = (label) => {
     return <Layers size={20}/>;
 };
 
+// Horizontal Bar Chart for Category Analysis
 const HorizontalBarChart = ({ data }) => {
-  if (!data || data.length === 0) return <div className="text-center py-10 text-slate-500 text-sm italic font-black uppercase">暂无统计数据</div>;
+  if (!data || data.length === 0) return <div className="text-center py-10 text-slate-400 text-sm italic font-medium">暂无图表数据</div>;
+  
   const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1);
 
   return (
@@ -80,15 +84,15 @@ const HorizontalBarChart = ({ data }) => {
         const isExpense = item.value < 0;
         return (
           <div key={index} className="space-y-1.5">
-            <div className="flex justify-between items-center text-xs font-black text-slate-900 uppercase tracking-widest">
+            <div className="flex justify-between items-center text-xs font-black text-slate-600 uppercase tracking-wider">
               <span>{item.name}</span>
-              <span className={isExpense ? 'text-rose-600' : 'text-emerald-600'}>
+              <span className={isExpense ? 'text-rose-500' : 'text-emerald-500'}>
                 {isExpense ? '-' : '+'} RM {Math.abs(item.value).toLocaleString()}
               </span>
             </div>
-            <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden flex border border-slate-200/50 shadow-inner">
+            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden flex shadow-inner">
               <div 
-                className={`h-full transition-all duration-1000 ${isExpense ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]'}`}
+                className={`h-full transition-all duration-1000 ${isExpense ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-emerald-400 to-emerald-500'}`}
                 style={{ width: `${percentage}%` }}
               ></div>
             </div>
@@ -100,45 +104,44 @@ const HorizontalBarChart = ({ data }) => {
 };
 
 const TaskCard = ({ task, onToggle, onDelete, categoryColors, showWarning }) => {
-  const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-900 border-slate-200';
+  const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-600 border-slate-200';
   return (
-    <div className={`bg-white p-4 rounded-2xl border transition-all group relative mb-3 ${showWarning ? 'border-amber-400 shadow-amber-50' : 'border-slate-200 shadow-sm hover:border-violet-200'}`}>
-      <div className="flex items-center justify-between gap-4">
-        {/* Left Side: Checkbox + Title */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button 
-            onClick={() => onToggle(task.id)}
-            className={`w-6 h-6 rounded-lg border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-              task.completed 
-                ? 'bg-[#A020F0] border-[#A020F0] text-white' 
-                : 'border-slate-300 hover:border-[#A020F0] text-transparent'
-            }`}
-          >
-            <CheckSquare size={14} fill={task.completed ? "currentColor" : "none"} />
-          </button>
-          <p className={`text-base font-black truncate transition-colors leading-tight ${task.completed ? 'text-slate-400 line-through' : 'text-slate-950'}`}>
-            {task.title}
-          </p>
-          {showWarning && <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 animate-pulse" />}
-        </div>
-
-        {/* Right Side: Category + Time */}
-        <div className="flex items-center gap-2 shrink-0 text-right">
-          <span className={`text-[10px] px-2 py-0.5 rounded-lg font-black uppercase tracking-widest border ${getCategoryStyle(task.category)}`}>
-            {task.category}
-          </span>
-          {task.time && (
-            <span className="text-[11px] text-slate-500 flex items-center gap-1 font-black bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
-              <Clock size={10} /> {task.time}
+    <div className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}`}>
+      <div className="flex items-start gap-3">
+        <button 
+          onClick={() => onToggle(task.id)}
+          className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
+            task.completed 
+              ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 border-transparent text-white' 
+              : 'border-slate-300 hover:border-violet-500 text-transparent'
+          }`}
+        >
+          <CheckSquare size={10} fill={task.completed ? "currentColor" : "none"} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+             <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                {task.title}
+             </p>
+             {showWarning && <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 animate-pulse" title="时间冲突" />}
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${getCategoryStyle(task.category)}`}>
+              {task.category}
             </span>
-          )}
-          <button 
-            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-            className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1"
-          >
-            <Trash2 size={16} />
-          </button>
+            {task.time && (
+              <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono bg-slate-50 px-1 rounded">
+                <Clock size={8} /> {task.time}
+              </span>
+            )}
+          </div>
         </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+          className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all absolute top-2 right-2"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
     </div>
   );
@@ -172,35 +175,37 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
         if (!categories.includes(finalCategory)) {
             setCategories([...categories, finalCategory]);
         }
+    } else if (isCustomCategory && !category.trim()) {
+        finalCategory = 'Uncategorized';
     }
     onAdd({ title, category: finalCategory, time, date: defaultDate });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-lg overflow-hidden border border-white/50">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h3 className="text-lg font-black text-slate-950 flex items-center gap-2">
-            <Zap size={20} className="text-violet-600" fill="currentColor"/> 新增任务部署
+    <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-white/50">
+        <div className="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <Zap size={16} className="text-violet-500" fill="currentColor"/> 新任务
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2"><X size={24}/></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
-            <label className="block text-xs font-black text-slate-950 mb-2 uppercase tracking-widest">任务描述</label>
+            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">内容</label>
             <input 
               ref={inputRef}
               type="text" 
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-base font-bold focus:border-violet-500 outline-none transition-all"
-              placeholder="需要执行什么内容？"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:border-violet-500 outline-none"
+              placeholder="需要做什么？"
             />
           </div>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-black text-slate-950 mb-2 uppercase tracking-widest">任务分类</label>
+              <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">类别</label>
               <div className="flex gap-2">
                  {isCustomCategory ? (
                    <div className="flex-1 relative">
@@ -208,37 +213,37 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
                         type="text"
                         value={category}
                         onChange={e => setCategory(e.target.value)}
-                        placeholder="新分类"
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-violet-500"
+                        placeholder="新类别"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500"
                         autoFocus
                       />
-                      <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><X size={16}/></button>
+                      <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><X size={14}/></button>
                    </div>
                  ) : (
                     <div className="flex gap-2 w-full">
                         <select 
                             value={category} 
                             onChange={e => setCategory(e.target.value)}
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-violet-500 appearance-none cursor-pointer"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500 appearance-none"
                         >
                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <button type="button" onClick={() => { setIsCustomCategory(true); setCategory(''); }} className="p-4 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded-2xl transition-all"><Plus size={20}/></button>
+                        <button type="button" onClick={() => { setIsCustomCategory(true); setCategory(''); }} className="p-3 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded-xl"><Plus size={18}/></button>
                     </div>
                  )}
               </div>
             </div>
             <div>
-              <label className="block text-xs font-black text-slate-950 mb-2 uppercase tracking-widest">执行时间</label>
+              <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">时间</label>
               <input 
                 type="time" 
                 value={time}
                 onChange={e => setTime(e.target.value)}
-                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-violet-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500"
               />
             </div>
           </div>
-          <button type="submit" className="w-full bg-slate-950 hover:bg-black text-white font-black py-4 rounded-2xl transition-all shadow-xl text-lg tracking-widest mt-4">确认部署</button>
+          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg">添加任务</button>
         </form>
       </div>
     </div>
@@ -270,27 +275,27 @@ const AuthModal = ({ isOpen, onClose }) => {
       }
     };
     return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in">
-        <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden p-10 border border-white/50 relative">
-          <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-2"><X size={28}/></button>
-          <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white mb-6 shadow-xl">
-               <User size={32} />
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-8 border border-white/50 relative">
+          <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X size={20}/></button>
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-lg shadow-violet-200">
+               <User size={24} />
             </div>
-            <h2 className="text-2xl font-black text-slate-950">{isLogin ? '欢迎回来' : '开启未来'}</h2>
-            <p className="text-slate-500 text-sm font-bold mt-1">云端实时同步您的所有数据</p>
+            <h2 className="text-2xl font-black text-slate-800">{isLogin ? '欢迎回来' : '创建账户'}</h2>
+            <p className="text-slate-500 text-sm mt-1">跨设备同步您的数据</p>
           </div>
-          {error && <div className="bg-red-50 text-red-600 text-xs p-3 rounded-xl mb-4 text-center font-black border border-red-100">{error}</div>}
+          {error && <div className="bg-red-50 text-red-500 text-xs p-3 rounded-xl mb-4 text-center font-bold">{error}</div>}
           <form onSubmit={handleAuth} className="space-y-4">
-            <input type="email" placeholder="电子邮箱" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-base font-bold outline-none focus:border-violet-500" required />
-            <input type="password" placeholder="通行密码" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-base font-bold outline-none focus:border-violet-500" required />
-            <button type="submit" disabled={loading} className="w-full bg-slate-950 text-white font-black py-4 rounded-2xl hover:bg-black transition-all disabled:opacity-50 text-base shadow-lg">
-              {loading ? '处理中...' : (isLogin ? '登 录' : '创建账户')}
+            <input type="email" placeholder="邮箱地址" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-violet-500" required />
+            <input type="password" placeholder="密码" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm outline-none focus:border-violet-500" required />
+            <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50">
+              {loading ? '处理中...' : (isLogin ? '登录' : '注册')}
             </button>
           </form>
-          <div className="mt-8 text-center text-xs text-slate-500 font-bold">
-             {isLogin ? "还没有账号？ " : "已经是成员？ "}
-             <button onClick={() => setIsLogin(!isLogin)} className="text-violet-600 font-black hover:underline">{isLogin ? '注册新账号' : '立即登录'}</button>
+          <div className="mt-6 text-center text-xs text-slate-500 font-medium">
+             {isLogin ? "还没有账号？ " : "已有账号？ "}
+             <button onClick={() => setIsLogin(!isLogin)} className="text-violet-600 font-bold hover:underline">{isLogin ? '注册' : '登录'}</button>
           </div>
         </div>
       </div>
@@ -318,7 +323,7 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
             const timeMatch = aiInput.match(timeRegex);
             const isTomorrow = aiInput.toLowerCase().includes('tomorrow') || aiInput.toLowerCase().includes('明天');
             const targetDate = isTomorrow ? getTomorrowDateString() : getLocalDateString(new Date());
-            let eventName = aiInput.replace(timeRegex, '').replace(/tomorrow|today|明天|今天|arrive|start|at|by/gi, '').trim() || "活动";
+            let eventName = aiInput.replace(timeRegex, '').replace(/tomorrow|today|明天|今天|arrive|start|at|by/gi, '').trim() || "Event";
             let anchorHour = 14; let anchorMin = 0;
             if (timeMatch) {
                 let h = parseInt(timeMatch[1]);
@@ -336,26 +341,26 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
             };
             const tasksToAdd = [];
             const anchorTimeStr = fmt(anchorHour, anchorMin);
-            tasksToAdd.push({ id: generateId(), title: `📍 锚点活动: ${eventName}`, time: anchorTimeStr, category: '工作', date: targetDate });
+            tasksToAdd.push({ id: generateId(), title: `📍 Anchor: ${eventName}`, time: anchorTimeStr, category: '工作', date: targetDate });
             const travelHour = anchorHour - 1;
             const travelTimeStr = fmt(travelHour, anchorMin);
-            tasksToAdd.push({ id: generateId(), title: `🚗 前往目的地 (交通缓冲)`, time: travelTimeStr, category: '生活', date: targetDate });
+            tasksToAdd.push({ id: generateId(), title: `🚗 Travel to Location (KL Traffic Buffer)`, time: travelTimeStr, category: '生活', date: targetDate });
             const prepTimeStr = fmt(travelHour, anchorMin - 45);
-            tasksToAdd.push({ id: generateId(), title: `🚿 洗漱与着装准备`, time: prepTimeStr, category: '生活', date: targetDate });
+            tasksToAdd.push({ id: generateId(), title: `🚿 Shower & Prep`, time: prepTimeStr, category: '生活', date: targetDate });
             const wakeTimeStr = fmt(travelHour, anchorMin - 45 - 15);
-            tasksToAdd.push({ id: generateId(), title: `☀️ 起床洗漱`, time: wakeTimeStr, category: '健康', date: targetDate });
-            tasksToAdd.push({ id: generateId(), title: `🌙 晚间复盘与日记`, time: "22:00", category: '健康', date: targetDate });
-            if (anchorHour >= 12) tasksToAdd.push({ id: generateId(), title: `🧠 深度工作: 核心项目`, time: "09:00", category: '工作', date: targetDate });
+            tasksToAdd.push({ id: generateId(), title: `☀️ Wake Up`, time: wakeTimeStr, category: '健康', date: targetDate });
+            tasksToAdd.push({ id: generateId(), title: `🌙 Wind Down & Journal`, time: "22:00", category: '健康', date: targetDate });
+            if (anchorHour >= 12) tasksToAdd.push({ id: generateId(), title: `🧠 Deep Work: Priority Project`, time: "09:00", category: '工作', date: targetDate });
             const isLunchBusy = (anchorHour === 12) || (travelHour === 12);
-            if (!isLunchBusy) tasksToAdd.push({ id: generateId(), title: `🍱 午餐休息`, time: "12:30", category: '生活', date: targetDate });
+            if (!isLunchBusy) tasksToAdd.push({ id: generateId(), title: `🍱 Lunch Break`, time: "12:30", category: '生活', date: targetDate });
             if (anchorHour < 12) {
-                tasksToAdd.push({ id: generateId(), title: `💼 杂务处理与邮件`, time: "14:00", category: '工作', date: targetDate });
-                tasksToAdd.push({ id: generateId(), title: `💪 健身训练 / 运动`, time: "17:00", category: '健康', date: targetDate });
+                tasksToAdd.push({ id: generateId(), title: `💼 Admin & Emails`, time: "14:00", category: '工作', date: targetDate });
+                tasksToAdd.push({ id: generateId(), title: `💪 Gym / Exercise`, time: "17:00", category: '健康', date: targetDate });
             } else if (anchorHour < 16) {
-                tasksToAdd.push({ id: generateId(), title: `💪 健身训练 / 运动`, time: "17:30", category: '健康', date: targetDate });
+                tasksToAdd.push({ id: generateId(), title: `💪 Gym / Exercise`, time: "17:30", category: '健康', date: targetDate });
             }
             tasksToAdd.forEach(t => onAddTask(t));
-            const responseText = `先生，我已经为您编排了行程。起床设定在 ${wakeTimeStr}，建议 ${travelTimeStr} 出发以避开路上的拥堵。`;
+            const responseText = `先生，我已经为您全天的计划进行了编排。起床时间定在 ${wakeTimeStr}，建议 ${travelTimeStr} 出发以避开吉隆坡的早高峰。剩余空档已填补深度工作和健身。`;
             setJarvisResponse(responseText);
             setAiInput('');
             setIsProcessing(false);
@@ -372,52 +377,51 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
     return (
       <div className="max-w-5xl mx-auto space-y-6 animate-fade-in pb-24">
         <header>
-            <h2 className="text-3xl font-black text-slate-950 tracking-tight">指挥中心</h2>
-            <p className="text-slate-600 font-bold text-base mt-1">欢迎回来, <span className="text-violet-600">{displayName}</span></p>
+            <h2 className="text-3xl font-black text-slate-800">仪表盘</h2>
+            <p className="text-slate-500 font-medium">欢迎回来, <span className="text-violet-600">{displayName}</span></p>
         </header>
-        <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
-            <div className="flex items-start gap-6 relative z-10">
-                <div className="bg-cyan-900/50 p-4 rounded-2xl border border-cyan-500/30 shadow-inner"><Bot className="text-cyan-400" size={32}/></div>
+        <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="flex items-start gap-4 relative z-10">
+                <div className="bg-cyan-900/50 p-3 rounded-2xl border border-cyan-500/30"><Bot className="text-cyan-400" size={28}/></div>
                 <div className="flex-1">
-                    <h3 className="font-black text-xl font-mono tracking-wide text-cyan-50">J.A.R.V.I.S. 协议</h3>
-                    <p className="text-slate-400 text-xs font-black mb-6 uppercase tracking-widest">生活编排器 | 全局物流调度优化</p>
+                    <h3 className="font-bold text-lg font-mono tracking-wide text-cyan-50">J.A.R.V.I.S. 协议</h3>
+                    <p className="text-slate-400 text-xs mb-4">生活编排器 & 物流优化器</p>
                     {jarvisResponse && (
-                        <div className="bg-cyan-950/50 border-2 border-cyan-500/30 p-5 rounded-2xl mb-6 text-cyan-100 text-base font-mono animate-fade-in leading-relaxed">
-                            <span className="text-cyan-400 mr-2 font-black">JARVIS:</span> {jarvisResponse}
+                        <div className="bg-cyan-900/20 border border-cyan-500/30 p-4 rounded-xl mb-4 text-cyan-100 text-sm font-mono animate-fade-in leading-relaxed">
+                            <span className="text-cyan-400 mr-2 font-bold">JARVIS:</span> {jarvisResponse}
                         </div>
                     )}
                     <form onSubmit={handleJarvisPlan} className="flex gap-3">
-                        <input type="text" value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder='例如: "明天 9:30am 活动 at KLCC"' className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-5 py-3.5 text-white outline-none focus:border-cyan-500 transition-all font-bold text-base" />
-                        <button type="submit" disabled={isProcessing} className="bg-cyan-600 text-white px-8 py-3.5 rounded-xl font-black hover:bg-cyan-500 transition-all disabled:opacity-50 min-w-[120px]">
-                            {isProcessing ? <Activity className="animate-spin" size={20}/> : '执行'}
+                        <input type="text" value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder='例如: "明天 9:30am 到达 ING LIVE KL"' className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-cyan-500 transition-all font-medium text-sm" />
+                        <button type="submit" disabled={isProcessing} className="bg-cyan-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-cyan-500 transition-colors disabled:opacity-50 min-w-[120px] justify-center">
+                            {isProcessing ? <Activity className="animate-spin" size={18}/> : '执行'}
                         </button>
                     </form>
                 </div>
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 min-h-[500px]">
-                <div className="flex justify-between items-center mb-8">
-                    <h3 className="text-xl font-black text-slate-950 flex items-center gap-3"><Target className="text-rose-600" size={24}/> 今日核心任务</h3>
-                    <button onClick={() => openAddModal(todayStr)} className="bg-slate-950 text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-black transition-all"><Plus size={20}/></button>
+            <div className="md:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 min-h-[400px]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><Target className="text-rose-500"/> 今日焦点</h3>
+                    <button onClick={() => openAddModal(todayStr)} className="bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-700"><Plus size={16}/></button>
                 </div>
-                <div className="space-y-3">
-                    {todaysTasks.length === 0 ? <div className="text-center text-slate-500 py-20 text-base font-bold italic">暂无任务安排，设定一个目标开始吧</div> : todaysTasks.map(task => (
+                <div className="space-y-2">
+                    {todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10">今日暂无任务。</div> : todaysTasks.map(task => (
                         <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} />
                     ))}
                 </div>
             </div>
-            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8">
-                <h3 className="text-lg font-black text-slate-950 flex items-center gap-3 mb-8"><PieChart className="text-blue-600" size={20}/> 任务透视</h3>
-                <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><PieChart className="text-blue-500"/> 任务分析</h3>
+                <div className="space-y-4">
                     {Object.entries(catStats).map(([cat, stat]) => (
-                        <div key={cat} className="space-y-1.5">
-                            <div className="flex justify-between text-xs font-black text-slate-950"><span>{cat}</span><span>{stat.completed} / {stat.total}</span></div>
-                            <div className="w-full bg-slate-100 rounded-full h-3 border border-slate-200/50"><div className="bg-blue-600 h-full rounded-full transition-all duration-700 shadow-sm" style={{width: `${(stat.completed/stat.total)*100}%`}}></div></div>
+                        <div key={cat}>
+                            <div className="flex justify-between text-xs font-bold text-slate-600 mb-1"><span>{cat}</span><span>{stat.completed}/{stat.total}</span></div>
+                            <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${(stat.completed/stat.total)*100}%`}}></div></div>
                         </div>
                     ))}
-                    {Object.keys(catStats).length === 0 && <p className="text-slate-500 text-sm font-bold italic">暂无数据记录</p>}
                 </div>
             </div>
         </div>
@@ -432,7 +436,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     const [showGraph, setShowGraph] = useState(false);
     const [isAddJarOpen, setIsAddJarOpen] = useState(false);
     const [newJarForm, setNewJarForm] = useState({ label: '', percent: '' });
-    const [editingTxId, setEditingTxId] = useState(null);
+    const [editingTxId, setEditingTxId] = useState(null); // Track transaction being edited
 
     const defaultTxCats = ['饮食', '交通', '购物', '订阅', '医疗', '其他'];
     const usedTxCats = Array.from(new Set([...defaultTxCats, ...transactions.map(t => t.category)]));
@@ -441,7 +445,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         e.preventDefault();
         const { label, percent } = newJarForm;
         if (!label || !percent) return;
-        const newJar = { id: generateId(), label, percent: parseFloat(percent), color: 'bg-slate-100 text-slate-700' };
+        const newJar = { id: generateId(), label, percent: parseFloat(percent), color: 'bg-slate-100 text-slate-600' };
         setWealthConfig({ ...wealthConfig, jars: [...wealthConfig.jars, newJar] });
         setNewJarForm({ label: '', percent: '' });
         setIsAddJarOpen(false);
@@ -456,7 +460,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         const newBalances = { ...balances };
         const newTransactions = [...transactions]; 
 
-        newTransactions.unshift({ id: Date.now(), amount: amt, category: '收入', remark: '分配录入', date: getLocalDateString(new Date()), type: 'income' });
+        newTransactions.unshift({ id: Date.now(), amount: amt, category: '收入', remark: '手动录入', date: getLocalDateString(new Date()), type: 'income' });
         if (wealthConfig.showCommitment && commit > 0) {
             newBalances.commitment = (newBalances.commitment || 0) + commit;
             newTransactions.unshift({ id: Date.now() + 1, amount: -commit, category: '固定开销', remark: '自动扣除', date: getLocalDateString(new Date()), type: 'expense' });
@@ -470,24 +474,30 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
         setIncome('');
     };
 
+    // Consolidated add/edit logic
     const submitTransaction = (e) => {
         e.preventDefault();
         if(!expenseForm.amount || !expenseForm.category) return;
+        
         let finalAmount = parseFloat(expenseForm.amount);
-        if (expenseForm.category !== '收入' && !expenseForm.category.includes('收入')) { 
-            finalAmount = -Math.abs(finalAmount); 
-        } else { 
-            finalAmount = Math.abs(finalAmount); 
+        // Automatic positive for income, negative for others
+        if (expenseForm.category !== '收入') {
+            finalAmount = -Math.abs(finalAmount);
+        } else {
+            finalAmount = Math.abs(finalAmount);
         }
 
         if (editingTxId) {
+            // Update existing
             const updated = transactions.map(t => t.id === editingTxId ? { ...t, ...expenseForm, amount: finalAmount } : t);
             setTransactions(updated);
             setEditingTxId(null);
         } else {
+            // Add new
             const newTx = { id: Date.now(), ...expenseForm, amount: finalAmount };
             setTransactions([newTx, ...transactions]);
         }
+        
         setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
         setIsCustomCat(false);
     };
@@ -501,25 +511,40 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
 
     const restoreCommitment = () => {
         const val = prompt("输入固定开销金额 (RM):", "2000");
-        if (val !== null) { setWealthConfig({ ...wealthConfig, showCommitment: true, commitment: parseFloat(val) || 0 }); }
+        if (val !== null) {
+            setWealthConfig({ ...wealthConfig, showCommitment: true, commitment: parseFloat(val) || 0 });
+        }
     };
 
     const startEditTx = (tx) => {
         setEditingTxId(tx.id);
-        setExpenseForm({ amount: Math.abs(tx.amount).toString(), category: tx.category, remark: tx.remark || '', date: tx.date });
+        setExpenseForm({
+            amount: Math.abs(tx.amount).toString(),
+            category: tx.category,
+            remark: tx.remark || '',
+            date: tx.date
+        });
+        // If it's a custom category not in default list, ensure we handle it
+        if (!defaultTxCats.includes(tx.category) && tx.category !== '收入' && tx.category !== '固定开销') {
+            // It might be a custom one. We'll show it in select or can toggle isCustomCat
+        }
+        // Scroll to form for better UX
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const deleteTx = (id) => {
         setTransactions(transactions.filter(t => t.id !== id));
-        if (editingTxId === id) { setEditingTxId(null); setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) }); }
+        if (editingTxId === id) {
+            setEditingTxId(null);
+            setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
+        }
     };
 
     const getSavingsTotal = () => {
         let total = 0;
         wealthConfig.jars.forEach(jar => {
             const label = jar.label.toLowerCase();
-            if (label.includes('save') || label.includes('invest') || label.includes('储蓄') || label.includes('投资')) {
+            if (label.includes('savings') || label.includes('investment') || label.includes('储蓄') || label.includes('投资')) {
                 total += (balances[jar.id] || 0);
             }
         });
@@ -544,153 +569,142 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-24">
-            <div className="bg-slate-950 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl">
+            <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
                 <div className="relative z-10 flex justify-between items-end">
                     <div>
-                        <div className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">年度资产增长 (储蓄+投资)</div>
-                        <div className="text-4xl font-black">RM {savingsPlusInvestment.toLocaleString()} <span className="text-slate-600 text-xl font-bold"> / {wealthConfig.yearlyTarget.toLocaleString()}</span></div>
+                        <div className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">年度储蓄目标 (储蓄+投资)</div>
+                        <div className="text-4xl font-black">RM {savingsPlusInvestment.toLocaleString()} <span className="text-slate-500 text-2xl font-bold"> / {wealthConfig.yearlyTarget.toLocaleString()}</span></div>
                     </div>
-                    <button onClick={() => { const n = prompt("新目标金额:", wealthConfig.yearlyTarget); if(n) setWealthConfig({...wealthConfig, yearlyTarget: parseFloat(n)}); }} className="bg-white/10 px-5 py-2.5 rounded-xl text-xs font-black hover:bg-white/20 transition-all border border-white/10">修改目标</button>
+                    <button onClick={() => { const n = prompt("新目标:", wealthConfig.yearlyTarget); if(n) setWealthConfig({...wealthConfig, yearlyTarget: parseFloat(n)}); }} className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold transition-all">编辑</button>
                 </div>
-                <div className="mt-8 w-full bg-white/10 rounded-full h-4 shadow-inner border border-white/5"><div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.5)]" style={{ width: `${Math.min(100, (savingsPlusInvestment / wealthConfig.yearlyTarget) * 100)}%` }}></div></div>
+                <div className="mt-6 w-full bg-white/10 rounded-full h-2"><div className="bg-emerald-400 h-2 rounded-full transition-all duration-700" style={{ width: `${Math.min(100, (savingsPlusInvestment / wealthConfig.yearlyTarget) * 100)}%` }}></div></div>
             </div>
             
-            <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
-                <h3 className="text-xl font-black text-slate-950 mb-6 flex items-center gap-3"><DollarSign className="text-emerald-600" size={24}/> 资产调度中心</h3>
-                <form onSubmit={handleDistribute} className="flex flex-col md:flex-row gap-6">
-                    <div className="flex-1 space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">输入本期总收入 (RM)</label>
-                        <input type="number" placeholder="0.00" value={income} onChange={e=>setIncome(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 outline-none focus:border-emerald-500 font-black text-xl" />
-                    </div>
+            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><DollarSign className="text-emerald-500"/> 收入分配器</h3>
+                <form onSubmit={handleDistribute} className="flex flex-col md:flex-row gap-4">
+                    <input type="number" placeholder="输入收入 (RM)" value={income} onChange={e=>setIncome(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 font-bold text-lg"/>
                     {wealthConfig.showCommitment && (
-                        <div className="flex items-center gap-3 px-5 py-4 bg-rose-50 rounded-2xl border border-rose-100 text-rose-600 font-black min-w-[200px] mt-auto">
-                            <span className="text-[10px] uppercase tracking-widest">固定开销:</span> 
-                            <input type="number" value={wealthConfig.commitment} onChange={e => setWealthConfig({...wealthConfig, commitment: parseFloat(e.target.value)||0})} className="bg-transparent border-b-2 border-rose-200 outline-none w-full text-right font-black text-xl" />
+                        <div className="flex items-center gap-2 px-4 py-3 bg-rose-50 rounded-xl border border-rose-100 text-rose-600 font-bold min-w-[200px]">
+                            <span className="text-xs uppercase whitespace-nowrap">固定开销:</span> 
+                            <input type="number" value={wealthConfig.commitment} onChange={e => setWealthConfig({...wealthConfig, commitment: parseFloat(e.target.value)||0})} className="bg-transparent border-b border-rose-200 outline-none w-full text-right font-bold" />
                         </div>
                     )}
-                    <button type="submit" className="bg-slate-950 text-white px-10 py-4 rounded-2xl font-black hover:bg-black transition-all text-base shadow-xl mt-auto">确认分配</button>
+                    <button type="submit" className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition-all">全部分配</button>
                 </form>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {wealthConfig.showCommitment ? (
-                    <div className="bg-rose-50 border border-rose-100 p-8 rounded-[2rem] flex flex-col justify-between h-44 relative group shadow-sm">
-                        <div className="flex justify-between items-start"><div className="font-black text-rose-800 text-base">固定开销罐</div><Lock size={18} className="text-rose-400"/></div>
-                        <div className="text-3xl font-black text-rose-950">RM {(balances.commitment||0).toLocaleString()}</div>
+                    <div className="bg-rose-50 border border-rose-100 p-6 rounded-3xl flex flex-col justify-between h-40 relative group">
+                        <div className="flex justify-between items-start"><div className="font-bold text-rose-700">固定开销</div><Lock size={16} className="text-rose-400"/></div>
+                        <div className="text-2xl font-black text-rose-800">RM {(balances.commitment||0).toLocaleString()}</div>
                     </div>
                 ) : (
-                    <button onClick={restoreCommitment} className="bg-rose-50/50 border-2 border-dashed border-rose-200 p-8 rounded-[2rem] flex flex-col items-center justify-center h-44 text-rose-400 hover:bg-rose-50 hover:text-rose-700 transition-all font-black gap-3 text-base"><RefreshCw size={28}/> 恢复固定开销</button>
+                    <button onClick={restoreCommitment} className="bg-rose-50/50 border-2 border-dashed border-rose-200 p-6 rounded-3xl flex flex-col items-center justify-center h-40 text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-all font-bold gap-2"><RefreshCw size={24}/> 恢复固定开销</button>
                 )}
                 {wealthConfig.jars.map(jar => (
-                    <div key={jar.id} className="bg-white border border-slate-200 p-8 rounded-[2rem] flex flex-col justify-between h-44 shadow-sm hover:shadow-md transition-all relative group">
+                    <div key={jar.id} className="bg-white border border-slate-100 p-6 rounded-3xl flex flex-col justify-between h-40 shadow-sm hover:shadow-md transition-all relative group">
                         <div className="flex justify-between items-start">
-                            <div><div className="font-black text-slate-950 text-base">{jar.label}</div><div className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg inline-block mt-1 font-black text-slate-500">{jar.percent}%</div></div>
-                            <div className="p-3 bg-slate-50 rounded-2xl text-slate-400 border border-slate-100 shadow-inner">{getIconForLabel(jar.label)}</div>
+                            <div><div className="font-bold text-slate-700">{jar.label}</div><div className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full inline-block mt-1 font-bold">{jar.percent}%</div></div>
+                            <div className="p-2 bg-slate-50 rounded-full text-slate-400">{getIconForLabel(jar.label)}</div>
                         </div>
-                        <div className="text-3xl font-black text-slate-950">RM {(balances[jar.id]||0).toLocaleString()}</div>
-                        <button onClick={() => deleteJar(jar.id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-50 p-2 rounded-xl transition-all"><X size={20}/></button>
+                        <div className="text-2xl font-black text-slate-800">RM {(balances[jar.id]||0).toLocaleString()}</div>
+                        <button onClick={() => deleteJar(jar.id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-50 p-1 rounded transition-all"><X size={16}/></button>
                     </div>
                 ))}
-                <button onClick={() => setIsAddJarOpen(true)} className="border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center h-44 text-slate-400 hover:border-violet-400 hover:text-violet-600 transition-all font-black gap-3 text-base"><Plus size={28}/> 添加存钱罐</button>
+                <button onClick={() => setIsAddJarOpen(true)} className="border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center h-40 text-slate-400 hover:border-violet-400 font-bold gap-2 transition-all"><Plus size={24}/> 添加存钱罐</button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div className="lg:col-span-1 bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm h-fit">
-                    <h3 className="font-black text-slate-950 text-xl mb-6 flex items-center gap-3">
-                        {editingTxId ? <Edit3 size={24} className="text-amber-500"/> : <DollarSign size={24} className="text-emerald-600"/>}
-                        {editingTxId ? '编辑流水' : '新增账单'}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm h-fit">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        {editingTxId ? <Edit3 size={18} className="text-amber-500"/> : <DollarSign size={18} className="text-slate-400"/>}
+                        {editingTxId ? '编辑交易记录' : '记录收支'}
                     </h3>
-                    <form onSubmit={submitTransaction} className="space-y-5">
-                        <div className="space-y-1.5">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">收支金额 (RM)</label>
-                           <input type="number" placeholder="0.00" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-violet-500 font-black text-lg" />
-                        </div>
-                        <div className="space-y-1.5">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">选择/输入分类</label>
-                           <div className="flex gap-2">
+                    <form onSubmit={submitTransaction} className="space-y-4">
+                        <input type="number" placeholder="金额" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:ring-2 ring-violet-100" />
+                        <div className="flex gap-2">
                            {!isCustomCat ? (
                                <select 
                                  value={expenseForm.category} 
                                  onChange={e => e.target.value === 'NEW' ? setIsCustomCat(true) : setExpenseForm({...expenseForm, category: e.target.value})}
-                                 className="flex-1 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-bold cursor-pointer"
+                                 className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none"
                                >
                                  <option value="">选择类别</option>
-                                 <option value="收入" className="text-emerald-600 font-black">💰 收入 (加钱)</option>
-                                 {usedTxCats.filter(c => c !== '收入').map(c => <option key={c} value={c}>{c}</option>)}
-                                 <option value="NEW" className="font-black text-violet-600">+ 自定义新分类</option>
+                                 {usedTxCats.map(c => <option key={c} value={c}>{c}</option>)}
+                                 <option value="NEW" className="font-bold text-violet-600">+ 新增类别</option>
                                </select>
                            ) : (
                                <div className="flex-1 relative">
                                    <input 
                                        type="text" 
-                                       placeholder="分类名称"
+                                       placeholder="新类别名称"
                                        value={expenseForm.category}
                                        onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}
-                                       className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-bold"
+                                       className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none"
                                        autoFocus
                                    />
-                                   <button type="button" onClick={() => setIsCustomCat(false)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 p-1"><X size={20}/></button>
+                                   <button type="button" onClick={() => setIsCustomCat(false)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><X size={14}/></button>
                                </div>
                            )}
-                           </div>
                         </div>
-                        <div className="space-y-1.5">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">备注说明</label>
-                           <input type="text" placeholder="详情描述..." value={expenseForm.remark} onChange={e=>setExpenseForm({...expenseForm, remark: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-bold" />
-                        </div>
-                        <div className="space-y-1.5">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">记录日期</label>
-                           <input type="date" value={expenseForm.date} onChange={e=>setExpenseForm({...expenseForm, date: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-bold text-slate-700" />
-                        </div>
-                        <div className="flex gap-3 pt-2">
+                        <input type="text" placeholder="备注" value={expenseForm.remark} onChange={e=>setExpenseForm({...expenseForm, remark: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none" />
+                        <input type="date" value={expenseForm.date} onChange={e=>setExpenseForm({...expenseForm, date: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none" />
+                        <div className="flex gap-2">
                             {editingTxId && (
-                                <button type="button" onClick={() => {setEditingTxId(null); setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });}} className="flex-1 bg-slate-200 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-300 transition-all">取消</button>
+                                <button type="button" onClick={() => {setEditingTxId(null); setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });}} className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition-all">取消</button>
                             )}
-                            <button type="submit" className={`flex-[2] text-white font-black py-4 rounded-2xl transition-all shadow-lg text-base ${editingTxId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-950 hover:bg-black'}`}>
-                                {editingTxId ? '更新记录' : '录入账单'}
+                            <button type="submit" className={`flex-[2] text-white font-bold py-3 rounded-xl transition-all shadow-lg ${editingTxId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-slate-800'}`}>
+                                {editingTxId ? '保存修改' : '录入数据'}
                             </button>
                         </div>
                     </form>
                 </div>
                 
-                <div className="lg:col-span-2 bg-white rounded-[3rem] border border-slate-200 p-10 shadow-sm min-h-[500px]">
-                    <div className="flex justify-between items-center mb-8">
+                <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm min-h-[400px]">
+                    <div className="flex justify-between items-center mb-6">
                         <div>
-                            <h3 className="text-2xl font-black text-slate-950 tracking-tight">近期收支</h3>
-                            <div className="text-xs font-black text-slate-500 mt-1 uppercase tracking-widest">账户净余额变动: <span className={`text-base ${netTransactionTotal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{netTransactionTotal >= 0 ? '+' : ''} RM {netTransactionTotal.toLocaleString()}</span></div>
+                            <h3 className="font-bold text-slate-800">近期流水</h3>
+                            <div className="text-xs font-bold text-slate-400 mt-1">余额变动: <span className={netTransactionTotal >= 0 ? 'text-emerald-500' : 'text-rose-500'}>{netTransactionTotal >= 0 ? '+' : ''} RM {netTransactionTotal.toLocaleString()}</span></div>
                         </div>
-                        <button onClick={() => setShowGraph(!showGraph)} className={`px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 transition-all ${showGraph ? 'bg-[#A020F0] text-white shadow-lg shadow-purple-200' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
-                            {showGraph ? <Layout size={18}/> : <BarChart2 size={18}/>} {showGraph ? '查看清单' : '分类统计'}
+                        <button onClick={() => setShowGraph(!showGraph)} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${showGraph ? 'bg-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-slate-100 text-slate-600'}`}>
+                            {showGraph ? <Layout size={14}/> : <BarChart2 size={14}/>} {showGraph ? '返回列表' : '分类统计'}
                         </button>
                     </div>
 
                     {showGraph ? (
-                        <div className="py-6">
+                        <div className="py-4">
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">各类别净额对比 (横向)</h4>
                             <HorizontalBarChart data={barData} />
                         </div>
                     ) : (
-                        <div className="space-y-8 max-h-[600px] overflow-y-auto custom-scrollbar pr-4">
-                            {Object.keys(groupedTransactions).length === 0 ? <div className="text-center text-slate-400 py-20 italic text-base font-bold">暂无收支记录</div> : Object.entries(groupedTransactions).map(([date, txs]) => (
-                                <div key={date} className="space-y-3">
-                                    <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-2 border-b border-slate-100 mb-2">
-                                        <span className="text-[10px] font-black text-slate-950 uppercase tracking-[0.3em]">{date === getLocalDateString(new Date()) ? '今日流水' : date}</span>
+                        <div className="space-y-6 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                            {Object.keys(groupedTransactions).length === 0 ? <div className="text-center text-slate-400 py-10 italic">暂无收支记录。</div> : Object.entries(groupedTransactions).map(([date, txs]) => (
+                                <div key={date} className="space-y-2">
+                                    <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-1 border-b border-slate-50">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{date === getLocalDateString(new Date()) ? '今天' : date}</span>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-1">
                                         {txs.map(tx => (
-                                            <div key={tx.id} className="grid grid-cols-12 items-center p-4 bg-slate-50/50 hover:bg-slate-50 rounded-[1.5rem] transition-all border border-transparent hover:border-slate-200 group">
+                                            <div key={tx.id} className="grid grid-cols-12 items-center p-3 hover:bg-slate-50 rounded-2xl transition-all border border-transparent hover:border-slate-100 group">
                                                 <div className="col-span-7">
-                                                    <div className="font-black text-slate-950 text-base flex items-center gap-2">
-                                                        <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+                                                    <div className="font-bold text-slate-700 flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
                                                         {tx.category}
                                                     </div>
-                                                    <div className="text-xs text-slate-600 font-bold pl-4 mt-0.5">{tx.remark || '无备注'}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium pl-3.5">{tx.remark || '无备注'}</div>
                                                 </div>
-                                                <div className={`col-span-3 text-right font-black text-lg ${tx.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                <div className={`col-span-3 text-right font-black text-sm ${tx.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                                     {tx.amount > 0 ? '+' : ''} RM {Math.abs(tx.amount).toFixed(2)}
                                                 </div>
-                                                <div className="col-span-2 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                    <button onClick={() => startEditTx(tx)} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-white rounded-xl shadow-sm" title="修改"><Edit3 size={16}/></button>
-                                                    <button onClick={() => deleteTx(tx.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm" title="删除"><Trash2 size={16}/></button>
+                                                <div className="col-span-2 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button onClick={() => startEditTx(tx)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="编辑">
+                                                        <Edit3 size={14}/>
+                                                    </button>
+                                                    <button onClick={() => deleteTx(tx.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="删除">
+                                                        <Trash2 size={14}/>
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
@@ -703,21 +717,21 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
             </div>
 
             {isAddJarOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl border border-white/50">
-                        <h3 className="font-black text-2xl mb-8 text-slate-950 tracking-tight">创建新存钱罐</h3>
-                        <form onSubmit={handleAddJar} className="space-y-6">
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest pl-1">罐子标签 (如: 退休基金)</label>
-                                <input className="w-full border-2 border-slate-100 rounded-2xl p-4 outline-none focus:border-violet-500 bg-slate-50 font-black text-lg" value={newJarForm.label} onChange={e => setNewJarForm({...newJarForm, label: e.target.value})} placeholder="输入名称..." autoFocus />
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-white/50">
+                        <h3 className="font-bold text-xl mb-6 text-slate-800">添加新存钱罐</h3>
+                        <form onSubmit={handleAddJar} className="space-y-5">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">罐子名称</label>
+                                <input className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:border-violet-500 bg-slate-50" value={newJarForm.label} onChange={e => setNewJarForm({...newJarForm, label: e.target.value})} placeholder="例如: 长期储蓄" autoFocus />
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest pl-1">自动分配比例 (%)</label>
-                                <input type="number" className="w-full border-2 border-slate-100 rounded-2xl p-4 outline-none focus:border-violet-500 bg-slate-50 font-black text-lg" value={newJarForm.percent} onChange={e => setNewJarForm({...newJarForm, percent: e.target.value})} placeholder="0 - 100" />
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">分配比例 (%)</label>
+                                <input type="number" className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:border-violet-500 bg-slate-50" value={newJarForm.percent} onChange={e => setNewJarForm({...newJarForm, percent: e.target.value})} placeholder="0 - 100" />
                             </div>
-                            <div className="flex gap-4 pt-4">
-                                <button type="button" onClick={() => setIsAddJarOpen(false)} className="flex-1 py-4 text-slate-500 font-black hover:bg-slate-100 rounded-2xl transition-all">取消</button>
-                                <button type="submit" className="flex-1 py-4 bg-slate-950 text-white rounded-2xl font-black hover:bg-black transition-all shadow-lg text-lg">确认创建</button>
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => setIsAddJarOpen(false)} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all">取消</button>
+                                <button type="submit" className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg">创建罐子</button>
                             </div>
                         </form>
                     </div>
@@ -727,7 +741,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     );
 };
 
-// Memoized Row for Cycles Tracker
+// Memoized Row for Cycles Tracker to prevent IME issues
 const CycleTaskRow = memo(({ task, cycleId, onUpdate, onDelete }) => {
     const [localText, setLocalText] = useState(task.text);
     const [localPlan, setLocalPlan] = useState(task.plan);
@@ -740,14 +754,16 @@ const CycleTaskRow = memo(({ task, cycleId, onUpdate, onDelete }) => {
     }, [task.id, task.text, task.plan, task.feedback]);
 
     const handleBlur = (field, val) => {
-        if (task[field] !== val) { onUpdate(cycleId, task.id, field, val); }
+        if (task[field] !== val) {
+            onUpdate(cycleId, task.id, field, val);
+        }
     };
 
     return (
-        <div className="grid grid-cols-12 gap-6 items-center group bg-slate-50/70 p-4 rounded-[2rem] border-2 border-transparent hover:border-violet-200 transition-all hover:shadow-md">
-            <div className="col-span-5 flex items-center gap-4 min-w-0">
-                <button onClick={() => onUpdate(cycleId, task.id, 'done', !task.done)} className={`w-8 h-8 rounded-xl border-2 flex-shrink-0 flex items-center justify-center transition-all ${task.done ? 'bg-[#A020F0] border-[#A020F0] text-white shadow-md shadow-purple-100' : 'bg-white border-slate-300'}`}>
-                    <CheckSquare size={18} fill={task.done ? "currentColor" : "none"}/>
+        <div className="grid grid-cols-10 gap-4 items-center group bg-slate-50/50 p-2 rounded-2xl border border-transparent hover:border-violet-100 transition-all">
+            <div className="col-span-4 flex items-center gap-2">
+                <button onClick={() => onUpdate(cycleId, task.id, 'done', !task.done)} className={`w-5 h-5 rounded-lg border flex-shrink-0 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
+                    <CheckSquare size={12} fill={task.done ? "currentColor" : "none"}/>
                 </button>
                 <input 
                     type="text" 
@@ -755,10 +771,10 @@ const CycleTaskRow = memo(({ task, cycleId, onUpdate, onDelete }) => {
                     onChange={e => setLocalText(e.target.value)}
                     onBlur={e => handleBlur('text', e.target.value)}
                     placeholder="任务描述..."
-                    className={`flex-1 bg-transparent outline-none text-base transition-all truncate ${task.done ? 'text-slate-400 line-through' : 'text-slate-950 font-black'}`} 
+                    className={`flex-1 bg-transparent outline-none text-sm transition-all ${task.done ? 'text-slate-400 line-through' : 'text-slate-700 font-bold'}`} 
                 />
-                <button onClick={() => onDelete(cycleId, task.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 flex-shrink-0">
-                    <Trash2 size={18}/>
+                <button onClick={() => onDelete(cycleId, task.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                    <Trash2 size={14}/>
                 </button>
             </div>
             <div className="col-span-3">
@@ -768,17 +784,17 @@ const CycleTaskRow = memo(({ task, cycleId, onUpdate, onDelete }) => {
                     value={localPlan || ''} 
                     onChange={e => setLocalPlan(e.target.value)}
                     onBlur={e => handleBlur('plan', e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-violet-300 transition-all shadow-sm" 
+                    className="w-full bg-white/50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-200 focus:bg-white transition-all" 
                 />
             </div>
-            <div className="col-span-4">
+            <div className="col-span-3">
                 <input 
                     type="text" 
-                    placeholder="复盘反馈..." 
+                    placeholder="结果..." 
                     value={localFeedback || ''} 
                     onChange={e => setLocalFeedback(e.target.value)}
                     onBlur={e => handleBlur('feedback', e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-violet-300 transition-all shadow-sm" 
+                    className="w-full bg-white/50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-200 focus:bg-white transition-all" 
                 />
             </div>
         </div>
@@ -797,58 +813,60 @@ const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) =>
             return { ...cycle, tasks: [...(cycle.tasks || []), { id: generateId(), text: '', done: false, plan: '', feedback: '' }] };
         }));
     };
+
     const updateTask = (cycleId, taskId, field, val) => {
         setData(prev => prev.map(c => c.id === cycleId ? { ...c, tasks: (c.tasks || []).map(t => t.id === taskId ? { ...t, [field]: val } : t) } : c));
     };
+
     const deleteTask = (cycleId, taskId) => {
         setData(prev => prev.map(c => c.id === cycleId ? { ...c, tasks: (c.tasks || []).filter(t => t.id !== taskId) } : c));
     };
 
     return (
         <div className="h-full flex flex-col animate-fade-in pb-20">
-            <div className="flex justify-between items-end mb-10 sticky top-0 bg-slate-50/95 backdrop-blur-md z-20 py-5 border-b border-slate-200">
+            <div className="flex justify-between items-end mb-6 sticky top-0 bg-slate-50/90 backdrop-blur-md z-20 py-2 border-b border-slate-200">
                 <div>
-                    <h2 className="text-4xl font-black text-slate-950 flex items-center gap-4"><Activity className="text-violet-600" size={36} /> 36 x 10 周期追踪</h2>
-                    <div className="flex items-center gap-4 mt-4">
-                        <div className="bg-white border border-slate-200 px-5 py-2.5 rounded-2xl shadow-sm flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">起始节点</span>
-                            <input type="date" value={startYearDate} onChange={e => setStartYearDate(e.target.value)} className="bg-transparent font-black outline-none text-sm text-slate-950"/>
+                    <h2 className="text-3xl font-black text-slate-800 flex items-center gap-3"><Activity className="text-violet-600" /> 36 x 10 周期追踪</h2>
+                    <div className="flex items-center gap-4 mt-2">
+                        <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">起始日期</span>
+                            <input type="date" value={startYearDate} onChange={e => setStartYearDate(e.target.value)} className="bg-transparent font-bold outline-none text-xs text-slate-700"/>
                         </div>
                     </div>
                 </div>
                 <div className="w-1/3">
-                    <div className="flex justify-between text-xs font-black text-slate-950 mb-2 uppercase tracking-widest"><span>全年执行进度</span><span className="text-violet-600">{progress}%</span></div>
-                    <div className="h-4 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner border border-slate-100">
-                        <div className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600 transition-all duration-1000 shadow-md" style={{width: `${progress}%`}}></div>
+                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><span>全年达成率</span><span className="text-violet-600">{progress}%</span></div>
+                    <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
+                        <div className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600 transition-all duration-1000" style={{width: `${progress}%`}}></div>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
-                <div className="grid grid-cols-12 gap-8 px-8 mb-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                    <div className="col-span-2 text-center">周期 / 时间</div>
-                    <div className="col-span-5">核心部署 (电紫色勾选)</div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="grid grid-cols-12 gap-4 px-6 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <div className="col-span-2 text-center">周期 / 日期</div>
+                    <div className="col-span-4">任务内容</div>
                     <div className="col-span-3">执行策略</div>
-                    <div className="col-span-2 text-right">状态反馈</div>
+                    <div className="col-span-3">复盘反馈</div>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-6">
                     {data.map(cycle => (
-                        <div key={cycle.id} className="bg-white border border-slate-100 rounded-[3rem] p-8 shadow-sm hover:shadow-lg transition-all">
-                            <div className="grid grid-cols-12 gap-10">
-                                <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-100 py-4">
-                                    <div className="w-16 h-16 bg-violet-50 text-violet-600 rounded-[1.5rem] flex items-center justify-center font-black text-2xl mb-2 shadow-inner">{cycle.id}</div>
-                                    <div className="text-center text-[10px] font-black text-slate-500 tracking-tighter uppercase">{cycle.dateRange}</div>
-                                    <button onClick={() => addTask(cycle.id)} className="mt-6 p-3 bg-slate-950 text-white rounded-2xl hover:bg-black transition-all shadow-xl"><Plus size={20}/></button>
+                        <div key={cycle.id} className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all">
+                            <div className="grid grid-cols-12 gap-6">
+                                <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-50 py-2">
+                                    <div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center font-black text-xl mb-1 shadow-inner">{cycle.id}</div>
+                                    <div className="text-center text-[10px] font-bold text-slate-400">{cycle.dateRange}</div>
+                                    <button onClick={() => addTask(cycle.id)} className="mt-4 p-2 bg-slate-50 text-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all shadow-sm"><Plus size={16}/></button>
                                 </div>
 
-                                <div className="col-span-10 space-y-4">
+                                <div className="col-span-10 space-y-3">
                                     {cycle.tasks && cycle.tasks.length > 0 ? (
                                         cycle.tasks.map(task => (
                                             <CycleTaskRow key={task.id} task={task} cycleId={cycle.id} onUpdate={updateTask} onDelete={deleteTask} />
                                         ))
                                     ) : (
-                                        <div className="h-full flex items-center justify-center text-slate-400 text-sm font-bold py-16 bg-slate-50/50 rounded-[2.5rem] border border-dashed border-slate-200">本阶段暂无任务。点击左侧按钮开启。</div>
+                                        <div className="h-full flex items-center justify-center text-slate-300 text-xs italic font-medium py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">本周期暂无任务，开启你的 10 天挑战吧！</div>
                                     )}
                                 </div>
                             </div>
@@ -867,20 +885,20 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
     const totalSlots = [...Array(firstDay).fill(null), ...Array(daysInMonth).fill(0).map((_, i) => i + 1)];
     return (
       <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0">
-        <div className="flex justify-between items-center mb-8"><h2 className="text-4xl font-black text-slate-950 tracking-tight">星历坐标</h2>
-          <div className="flex gap-2 bg-white p-2 rounded-3xl border border-slate-200 shadow-sm"><button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-50 rounded-2xl transition text-slate-400 hover:text-slate-950"><ChevronLeft size={28}/></button><span className="px-6 py-2 font-black text-slate-950 text-base flex items-center tracking-tight">{new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-50 rounded-2xl transition text-slate-400 hover:text-slate-950"><ChevronRight size={28}/></button></div>
+        <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-black text-slate-800 tracking-tight">日历</h2>
+          <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm"><button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-slate-800"><ChevronLeft size={20}/></button><span className="px-4 py-2 font-bold text-slate-700 text-sm flex items-center">{new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-slate-800"><ChevronRight size={20}/></button></div>
         </div>
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 flex-1 flex flex-col overflow-hidden min-h-[600px]">
-          <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map(d => (<div key={d} className="py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">{d}</div>))}</div>
-          <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-100/10 gap-[1px]">
+        <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 flex-1 flex flex-col overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map(d => (<div key={d} className="py-4 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">{d}</div>))}</div>
+          <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-50 gap-[1px]">
             {totalSlots.map((day, i) => {
               if (!day) return <div key={i} className="bg-white"></div>;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const dayTasks = tasks.filter(t => t.date === dateStr);
               const isToday = dateStr === getLocalDateString(new Date());
-              return (<div key={i} onClick={() => openAddModal(dateStr)} className="bg-white p-4 hover:bg-violet-50/30 transition-all cursor-pointer group flex flex-col min-h-[120px] border-b border-r border-slate-50">
-                  <div className={`text-base font-black w-9 h-9 flex items-center justify-center rounded-2xl mb-2 ${isToday ? 'bg-violet-600 text-white shadow-lg shadow-purple-200' : 'text-slate-950'}`}>{day}</div>
-                  <div className="space-y-1.5 overflow-hidden">{dayTasks.slice(0, 3).map(t => (<div key={t.id} className="text-[10px] px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 truncate text-slate-950 font-black">{t.title}</div>))}{dayTasks.length > 3 && <div className="text-[9px] text-slate-500 pl-1 font-black">+ {dayTasks.length - 3} 更多</div>}</div>
+              return (<div key={i} onClick={() => openAddModal(dateStr)} className="bg-white p-2 hover:bg-violet-50/30 transition-colors cursor-pointer group flex flex-col min-h-[100px] border-b border-r border-slate-50">
+                  <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-violet-600 text-white' : 'text-slate-700'}`}>{day}</div>
+                  <div className="space-y-1 overflow-hidden">{dayTasks.slice(0, 3).map(t => (<div key={t.id} className="text-[10px] px-2 py-1 rounded bg-slate-50 border border-slate-100 truncate text-slate-600">{t.title}</div>))}{dayTasks.length > 3 && <div className="text-[9px] text-slate-400 pl-1 font-bold">+ {dayTasks.length - 3} 更多</div>}</div>
                 </div>);
             })}
           </div>
@@ -893,23 +911,23 @@ const KanbanView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTa
     const hours = Array.from({length: 18}, (_, i) => i + 6); const dateStr = getLocalDateString(currentDate);
     const isToday = dateStr === getLocalDateString(new Date());
     return (
-      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 bg-white/50 rounded-[3rem] border border-slate-200 shadow-sm">
-        <div className="flex justify-between items-center p-8 border-b border-slate-100 bg-white rounded-t-[3rem] sticky top-0 z-10 shadow-sm">
-            <div><h2 className="text-3xl font-black text-slate-950 tracking-tight">时间轴线</h2><p className="text-slate-600 text-base font-black mt-1 uppercase tracking-[0.2em]">{currentDate.toLocaleDateString('default', {weekday: 'long', month: 'long', day: 'numeric'})}</p></div>
-            <div className="flex items-center gap-3 bg-slate-100 p-2 rounded-2xl"><button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()-1)))} className="p-3 hover:bg-white rounded-xl transition text-slate-500 hover:text-slate-950 shadow-sm"><ChevronLeft size={20}/></button><button onClick={() => setCurrentDate(new Date())} className="text-sm font-black px-6 py-2.5 bg-white text-violet-600 rounded-xl shadow-md border border-violet-100">今日</button><button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()+1)))} className="p-3 hover:bg-white rounded-xl transition text-slate-500 hover:text-slate-950 shadow-sm"><ChevronRight size={20}/></button></div>
+      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 bg-white/50 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white rounded-t-3xl sticky top-0 z-10">
+            <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">每日焦点</h2><p className="text-slate-500 text-sm font-bold">{currentDate.toLocaleDateString('default', {weekday: 'long', month: 'long', day: 'numeric'})}</p></div>
+            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl"><button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()-1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronLeft size={18}/></button><button onClick={() => setCurrentDate(new Date())} className="text-xs font-bold px-3 py-1.5 bg-white text-violet-600 rounded-lg shadow-sm">今天</button><button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()+1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronRight size={18}/></button></div>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-          <div className="space-y-4"> 
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+          <div className="space-y-2"> 
             {hours.map((hour) => {
               const ampm = hour >= 12 ? 'pm' : 'am'; const hour12 = hour > 12 ? hour - 12 : hour;
               const displayHour = `${hour12}:00 ${ampm.toUpperCase()}`; const timeLabel = `${hour.toString().padStart(2, '0')}:00`;
               const hourTasks = tasks.filter(t => t.date === dateStr && t.time && parseInt(t.time.split(':')[0]) === hour);
               const isCurrentHour = isToday && hour === new Date().getHours();
-              return (<div key={hour} className={`flex items-start gap-8 p-8 rounded-[2.5rem] transition-all border-2 ${isCurrentHour ? 'bg-violet-50/50 border-violet-200 ring-8 ring-violet-50' : 'bg-white border-slate-50 hover:border-slate-100 hover:shadow-xl'}`}>
-                   <div className="w-28 flex-shrink-0 pt-2 border-r-2 border-slate-100 mr-2"><span className={`text-lg font-black ${isCurrentHour ? 'text-violet-600' : 'text-slate-400'}`}>{displayHour}</span></div>
-                   <div className="flex-1 min-h-[80px] flex flex-col justify-center">
-                      {hourTasks.length > 0 ? (<div className="space-y-3 w-full">{hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} showWarning={hourTasks.length > 1} />))}</div>) : 
-                      (<button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-lg font-black hover:text-violet-500 flex items-center gap-5 py-6 w-full h-full group"><Plus size={28} className="opacity-50 group-hover:scale-125 transition-transform"/> 指令部署</button>)}
+              return (<div key={hour} className={`flex items-start gap-4 p-4 rounded-2xl transition-all border ${isCurrentHour ? 'bg-violet-50/40 border-violet-100 ring-1 ring-violet-100' : 'bg-white border-slate-100 hover:border-slate-200'}`}>
+                   <div className="w-20 flex-shrink-0 pt-2 border-r border-slate-100 mr-2"><span className={`text-sm font-black ${isCurrentHour ? 'text-violet-600' : 'text-slate-400'}`}>{displayHour}</span></div>
+                   <div className="flex-1 min-h-[60px] flex flex-col justify-center">
+                      {hourTasks.length > 0 ? (<div className="space-y-2 w-full">{hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} showWarning={hourTasks.length > 1} />))}</div>) : 
+                      (<button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-sm font-medium hover:text-violet-500 flex items-center gap-2 py-2 w-full h-full"><Plus size={16} className="opacity-50"/> 添加焦点</button>)}
                    </div>
                 </div>);
             })}
@@ -941,8 +959,11 @@ export default function App() {
 
   useEffect(() => { 
     const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } 
-      else { await signInAnonymously(auth); }
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); if(!u) loadLocalStorage(); }); 
@@ -952,37 +973,40 @@ export default function App() {
   useEffect(() => {
       if (user) {
           const unsubs = [];
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), d => d.exists() && setTasks(d.data().list || [])));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => d.exists() && setCategories(d.data().list || ['工作', '生活', '健康', '学习'])));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), d => d.exists() && setTasks(d.data().list || []), () => {}));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => d.exists() && setCategories(d.data().list || ['工作', '生活', '健康', '学习']), () => {}));
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), d => {
-              if(d.exists()) { setCyclesData(d.data().list || []); setStartYearDate(d.data().startDate || new Date().getFullYear() + '-01-01'); } 
-              else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
-          }));
+              if(d.exists()) { setCyclesData(d.data().list || []); setStartYearDate(d.data().startDate || new Date().getFullYear() + '-01-01'); } else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
+          }, () => {}));
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth_v2'), d => {
               if(d.exists()) { 
-                const data = d.data(); setWealthBalances(data.balances || {}); setWealthTransactions(data.transactions || []); if(data.config) setWealthConfig(data.config);
+                const data = d.data(); 
+                setWealthBalances(data.balances || {}); 
+                setWealthTransactions(data.transactions || []); 
+                if(data.config) setWealthConfig(data.config);
               } else {
-                getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth')).then(v1 => { if(v1.exists()) setWealthBalances(v1.data().balances || {}); });
+                getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth')).then(v1 => {
+                    if(v1.exists()) setWealthBalances(v1.data().balances || {});
+                });
               }
               setIsLoaded(true);
-          }));
+          }, () => {}));
           return () => unsubs.forEach(u => u());
       } else { loadLocalStorage(); }
   }, [user]);
 
   const saveData = (type, data) => { if(user) { setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', type), data); } else { localStorage.setItem(`planner_${type}`, JSON.stringify(data)); } };
   
-  useEffect(() => { if(isLoaded) saveData('tasks', { list: tasks }); }, [tasks, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('categories', { list: categories }); }, [categories, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('cycles', { list: cyclesData, startDate: startYearDate }); }, [cyclesData, startYearDate, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('wealth_v2', { balances: wealthBalances, transactions: wealthTransactions, config: wealthConfig }); }, [wealthBalances, wealthTransactions, wealthConfig, isLoaded]);
+  useEffect(() => { if(isLoaded && tasks.length >= 0) saveData('tasks', { list: tasks }); }, [tasks, isLoaded]);
+  useEffect(() => { if(isLoaded && categories.length >= 0) saveData('categories', { list: categories }); }, [categories, isLoaded]);
+  useEffect(() => { if(isLoaded && cyclesData.length >= 0) saveData('cycles', { list: cyclesData, startDate: startYearDate }); }, [cyclesData, startYearDate, isLoaded]);
+  useEffect(() => { if(isLoaded && Object.keys(wealthBalances).length >= 0) saveData('wealth_v2', { balances: wealthBalances, transactions: wealthTransactions, config: wealthConfig }); }, [wealthBalances, wealthTransactions, wealthConfig, isLoaded]);
 
   const loadLocalStorage = () => {
       try {
           const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
           const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
-          const cy = localStorage.getItem('planner_cycles'); if(cy) { const d = JSON.parse(cy); setCyclesData(d.list || []); setStartYearDate(d.startDate); } 
-          else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
+          const cy = localStorage.getItem('planner_cycles'); if(cy) { const d = JSON.parse(cy); setCyclesData(d.list || []); setStartYearDate(d.startDate); } else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
           const w = localStorage.getItem('planner_wealth_v2'); if(w) { const d = JSON.parse(w); setWealthBalances(d.balances || {}); setWealthTransactions(d.transactions || []); if(d.config) setWealthConfig(d.config); }
           setIsLoaded(true);
       } catch(e) { console.error(e); }
@@ -1000,31 +1024,33 @@ export default function App() {
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
 
+  const catColors = {'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'};
+
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-950 overflow-hidden antialiased">
-      <aside className={`fixed inset-y-0 left-0 z-40 w-80 bg-white border-r-2 border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 md:translate-x-0 md:static flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-10">
-          <div className="flex items-center gap-4 text-slate-900 font-black text-3xl mb-12 tracking-tighter"><div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-[1.2rem] flex items-center justify-center text-white shadow-xl"><Layout size={28} /></div>Planner<span className="text-violet-600">.AI</span></div>
-          <nav className="space-y-2">{[{ id: 'focus', label: '指挥中心', icon: Home }, { id: 'wealth', label: '资产调度', icon: Database }, { id: 'calendar', label: '星历坐标', icon: CalIcon }, { id: 'kanban', label: '时间轴线', icon: Trello }, { id: 'cycle', label: '周期演化', icon: Activity }].map(item => (
-              <button key={item.id} onClick={() => { setView(item.id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-5 px-6 py-4 rounded-2xl transition-all font-black text-base tracking-tight ${view === item.id ? 'bg-slate-950 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon size={22} className={view === item.id ? "text-violet-300" : ""}/>{item.label}</button>
+    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden">
+      <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 md:translate-x-0 md:static flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-8">
+          <div className="flex items-center gap-3 text-slate-900 font-black text-2xl mb-10 tracking-tight"><div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200"><Layout size={20} /></div>Planner<span className="text-violet-600">.AI</span></div>
+          <nav className="space-y-1.5">{[{ id: 'focus', label: '仪表盘', icon: Home }, { id: 'wealth', label: '存钱罐', icon: Database }, { id: 'calendar', label: '日历', icon: CalIcon }, { id: 'kanban', label: '焦点轴', icon: Trello }, { id: 'cycle', label: '36x10 周期追踪', icon: Activity }].map(item => (
+              <button key={item.id} onClick={() => { setView(item.id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm tracking-wide ${view === item.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon size={18} className={view === item.id ? "text-violet-300" : ""}/>{item.label}</button>
             ))}</nav>
         </div>
-        <div className="mt-auto p-10">{user ? (<div className="flex items-center gap-4 p-4 bg-slate-50 rounded-[1.5rem] border border-slate-200 shadow-inner"><div className="w-12 h-12 bg-violet-600 text-white rounded-full flex items-center justify-center font-black text-xl shadow-md">{user.email ? user.email[0].toUpperCase() : 'U'}</div><div className="flex-1 min-w-0"><div className="text-sm font-black text-slate-950 truncate">{user.email ? user.email.split('@')[0] : '特工'}</div><button onClick={() => signOut(auth)} className="text-xs font-black text-red-500 hover:underline">断开连接</button></div></div>) : 
-            (<button onClick={() => setIsAuthModalOpen(true)} className="w-full flex items-center justify-center gap-3 bg-slate-950 text-white py-4 rounded-2xl font-black text-base hover:bg-black shadow-xl"><LogIn size={20} /> 建立连接</button>)}</div>
+        <div className="mt-auto p-8">{user ? (<div className="flex items-center gap-3 overflow-hidden"><div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center font-bold">{user.email ? user.email[0].toUpperCase() : 'U'}</div><div className="flex-1 min-w-0"><div className="text-xs font-bold text-slate-900 truncate">{user.email ? user.email.split('@')[0] : '指挥官'}</div><button onClick={() => signOut(auth)} className="text-[10px] text-red-500 hover:underline">注销</button></div></div>) : 
+            (<button onClick={() => setIsAuthModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-slate-800"><LogIn size={14} /> 登录</button>)}</div>
       </aside>
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
-        <header className="md:hidden flex items-center justify-between p-6 bg-white border-b-2 border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={32} /></button><span className="font-black text-slate-950 tracking-widest text-lg uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={32} /></button></header>
-        <div className="flex-1 p-6 md:p-12 overflow-y-auto custom-scrollbar relative">
-          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={{'工作': 'bg-blue-50 text-blue-800 border-blue-200', '生活': 'bg-emerald-50 text-emerald-800 border-emerald-200', '健康': 'bg-orange-50 text-orange-800 border-orange-200', '学习': 'bg-violet-50 text-violet-800 border-violet-200'}} />}
+        <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
+        <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
+          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
           {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
-          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={{'工作': 'bg-blue-50 text-blue-800 border-blue-200', '生活': 'bg-emerald-50 text-emerald-800 border-emerald-200', '健康': 'bg-orange-50 text-orange-800 border-orange-200', '学习': 'bg-violet-50 text-violet-800 border-violet-200'}} />}
+          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
           {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
         </div>
       </main>
       <AddTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAdd={addTask} defaultDate={selectedDateForAdd} defaultTime={selectedTimeForAdd} categories={categories} setCategories={setCategories}/>
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e2e8f0; border-radius: 20px; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #cbd5e1; }`}</style>
+      <style>{`@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }.animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }`}</style>
     </div>
   );
 }
