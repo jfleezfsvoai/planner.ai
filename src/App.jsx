@@ -207,8 +207,8 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">类别</label>
               <div className="flex gap-2">
-                 {isCustomCategory ? (
-                   <div className="flex-1 relative">
+                  {isCustomCategory ? (
+                    <div className="flex-1 relative">
                       <input 
                         type="text"
                         value={category}
@@ -218,9 +218,9 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
                         autoFocus
                       />
                       <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><X size={14}/></button>
-                   </div>
-                 ) : (
-                    <div className="flex gap-2 w-full">
+                    </div>
+                  ) : (
+                     <div className="flex gap-2 w-full">
                         <select 
                             value={category} 
                             onChange={e => setCategory(e.target.value)}
@@ -229,8 +229,8 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <button type="button" onClick={() => { setIsCustomCategory(true); setCategory(''); }} className="p-3 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded-xl"><Plus size={18}/></button>
-                    </div>
-                 )}
+                     </div>
+                  )}
               </div>
             </div>
             <div>
@@ -908,8 +908,12 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
 };
 
 const KanbanView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, categoryColors }) => {
-    const hours = Array.from({length: 18}, (_, i) => i + 6); const dateStr = getLocalDateString(currentDate);
+    // 6 AM to 12 AM (Midnight, represented as 0 in next iteration or 24, here we use 0 to align with logic)
+    // Range: 6, 7, ..., 23, 0. Total 19 slots.
+    const hours = [...Array.from({length: 18}, (_, i) => i + 6), 0]; 
+    const dateStr = getLocalDateString(currentDate);
     const isToday = dateStr === getLocalDateString(new Date());
+    
     return (
       <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 bg-white/50 rounded-3xl border border-slate-100 shadow-sm">
         <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white rounded-t-3xl sticky top-0 z-10">
@@ -919,17 +923,49 @@ const KanbanView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTa
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
           <div className="space-y-2"> 
             {hours.map((hour) => {
-              const ampm = hour >= 12 ? 'pm' : 'am'; const hour12 = hour > 12 ? hour - 12 : hour;
-              const displayHour = `${hour12}:00 ${ampm.toUpperCase()}`; const timeLabel = `${hour.toString().padStart(2, '0')}:00`;
-              const hourTasks = tasks.filter(t => t.date === dateStr && t.time && parseInt(t.time.split(':')[0]) === hour);
+              const ampm = hour >= 12 ? 'pm' : 'am';
+              // Handle 12 PM and 12 AM display logic
+              let displayHour;
+              if (hour === 0) displayHour = "12:00 AM";
+              else if (hour === 12) displayHour = "12:00 PM";
+              else if (hour > 12) displayHour = `${hour - 12}:00 PM`;
+              else displayHour = `${hour}:00 AM`;
+
+              const timeLabel = `${hour.toString().padStart(2, '0')}:00`;
+              
+              const hourTasks = tasks.filter(t => {
+                  if (t.date !== dateStr) return false;
+                  if (!t.time) return false;
+                  const h = parseInt(t.time.split(':')[0]);
+                  return h === hour;
+              });
+
               const isCurrentHour = isToday && hour === new Date().getHours();
-              return (<div key={hour} className={`flex items-start gap-4 p-4 rounded-2xl transition-all border ${isCurrentHour ? 'bg-violet-50/40 border-violet-100 ring-1 ring-violet-100' : 'bg-white border-slate-100 hover:border-slate-200'}`}>
-                   <div className="w-20 flex-shrink-0 pt-2 border-r border-slate-100 mr-2"><span className={`text-sm font-black ${isCurrentHour ? 'text-violet-600' : 'text-slate-400'}`}>{displayHour}</span></div>
-                   <div className="flex-1 min-h-[60px] flex flex-col justify-center">
-                      {hourTasks.length > 0 ? (<div className="space-y-2 w-full">{hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} showWarning={hourTasks.length > 1} />))}</div>) : 
-                      (<button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-sm font-medium hover:text-violet-500 flex items-center gap-2 py-2 w-full h-full"><Plus size={16} className="opacity-50"/> 添加焦点</button>)}
-                   </div>
-                </div>);
+              
+              return (
+                <div key={hour} className={`flex items-start gap-4 p-4 rounded-2xl transition-all border ${isCurrentHour ? 'bg-violet-50/40 border-violet-100 ring-1 ring-violet-100' : 'bg-white border-slate-100 hover:border-slate-200'}`}>
+                    <div className="w-20 flex-shrink-0 pt-2 border-r border-slate-100 mr-2">
+                        <span className={`text-sm font-black ${isCurrentHour ? 'text-violet-600' : 'text-slate-400'}`}>{displayHour}</span>
+                    </div>
+                    <div className="flex-1 min-h-[60px] flex flex-col justify-center">
+                      <div className="w-full space-y-2">
+                          {hourTasks.map(task => (
+                              <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} showWarning={false} />
+                          ))}
+                          
+                          {/* Allow adding if tasks < 5 */}
+                          {hourTasks.length < 5 && (
+                              <button 
+                                onClick={() => openAddModal(dateStr, timeLabel)} 
+                                className={`text-left text-slate-300 text-sm font-medium hover:text-violet-500 flex items-center gap-2 w-full transition-all ${hourTasks.length > 0 ? 'py-1 mt-2 text-xs border-t border-dashed border-slate-100' : 'py-2 h-full'}`}
+                              >
+                                <Plus size={16} className="opacity-50"/> {hourTasks.length === 0 ? "添加焦点" : "添加更多..."}
+                              </button>
+                          )}
+                      </div>
+                    </div>
+                </div>
+              );
             })}
           </div>
         </div>
@@ -1031,7 +1067,7 @@ export default function App() {
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 md:translate-x-0 md:static flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8">
           <div className="flex items-center gap-3 text-slate-900 font-black text-2xl mb-10 tracking-tight"><div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200"><Layout size={20} /></div>Planner<span className="text-violet-600">.AI</span></div>
-          <nav className="space-y-1.5">{[{ id: 'focus', label: '仪表盘', icon: Home }, { id: 'wealth', label: '存钱罐', icon: Database }, { id: 'calendar', label: '日历', icon: CalIcon }, { id: 'kanban', label: '焦点轴', icon: Trello }, { id: 'cycle', label: '36x10 周期追踪', icon: Activity }].map(item => (
+          <nav className="space-y-1.5">{[{ id: 'focus', label: '仪表盘', icon: Home }, { id: 'wealth', label: '存钱罐', icon: Database }, { id: 'calendar', label: '日历', icon: CalIcon }, { id: 'kanban', label: '每日焦点', icon: Trello }, { id: 'cycle', label: '36x10 周期追踪', icon: Activity }].map(item => (
               <button key={item.id} onClick={() => { setView(item.id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm tracking-wide ${view === item.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon size={18} className={view === item.id ? "text-violet-300" : ""}/>{item.label}</button>
             ))}</nav>
         </div>
