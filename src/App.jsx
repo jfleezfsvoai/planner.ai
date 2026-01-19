@@ -6,7 +6,7 @@ import {
   Menu, Home, Database, Zap, Download, Activity, 
   Layers, Shield, BookOpen, DollarSign, PieChart, 
   Square, LogIn, LogOut, User, AlertTriangle, Briefcase, Heart, Coffee, Book,
-  Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2
+  Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, Save, GripVertical
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -103,11 +103,77 @@ const HorizontalBarChart = ({ data }) => {
   );
 };
 
-const TaskCard = ({ task, onToggle, onDelete, categoryColors, showWarning }) => {
+const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors, showWarning, categories }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editCategory, setEditCategory] = useState(task.category);
   const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-600 border-slate-200';
+
+  const handleSave = () => {
+    if (editTitle.trim()) {
+        onUpdate(task.id, { title: editTitle, category: editCategory });
+    }
+    setIsEditing(false);
+  };
+
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('text/plain', task.id);
+    e.dataTransfer.effectAllowed = 'move';
+    // Add a slight transparency to the drag image ghost if needed
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault(); // Necessary to allow dropping
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData('text/plain');
+    if (dragId && dragId !== task.id && moveTask) {
+        moveTask(dragId, task.id);
+    }
+  };
+
+  if (isEditing) {
+      return (
+        <div className="bg-white p-3 rounded-2xl border border-violet-200 shadow-md mb-2 animate-in fade-in zoom-in-95 duration-200">
+            <input 
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full text-xs font-bold text-slate-700 mb-2 border-b border-slate-100 pb-1 outline-none focus:border-violet-300"
+                placeholder="任务名称"
+                autoFocus
+            />
+            <div className="flex gap-2 mb-3">
+                <select 
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="flex-1 text-[10px] bg-slate-50 border border-slate-200 rounded p-1 outline-none"
+                >
+                    {(categories || ['工作', '生活', '健康', '学习']).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+            <div className="flex justify-end gap-2">
+                <button onClick={() => setIsEditing(false)} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg"><X size={14}/></button>
+                <button onClick={handleSave} className="p-1.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600"><Save size={14}/></button>
+            </div>
+        </div>
+      );
+  }
+
   return (
-    <div className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}`}>
+    <div 
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 cursor-grab active:cursor-grabbing ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}`}
+    >
       <div className="flex items-start gap-3">
+        <div className="mt-1 text-slate-300 hover:text-slate-400 cursor-grab active:cursor-grabbing">
+            <GripVertical size={12} />
+        </div>
         <button 
           onClick={() => onToggle(task.id)}
           className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
@@ -118,7 +184,7 @@ const TaskCard = ({ task, onToggle, onDelete, categoryColors, showWarning }) => 
         >
           <CheckSquare size={10} fill={task.completed ? "currentColor" : "none"} />
         </button>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" onDoubleClick={() => setIsEditing(true)}>
           <div className="flex justify-between items-start">
              <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                 {task.title}
@@ -136,12 +202,22 @@ const TaskCard = ({ task, onToggle, onDelete, categoryColors, showWarning }) => 
             )}
           </div>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-          className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all absolute top-2 right-2"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all bg-white/80 rounded-lg backdrop-blur-sm">
+            <button 
+                onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+                className="text-slate-400 hover:text-violet-500 p-1"
+                title="编辑"
+            >
+                <Edit3 size={12} />
+            </button>
+            <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+                className="text-slate-400 hover:text-red-500 p-1"
+                title="删除"
+            >
+                <Trash2 size={12} />
+            </button>
+        </div>
       </div>
     </div>
   );
@@ -304,7 +380,7 @@ const AuthModal = ({ isOpen, onClose }) => {
 
 // --- Views ---
 
-const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, categoryColors }) => {
+const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories }) => {
     const todayStr = getLocalDateString(new Date());
     const todaysTasks = tasks.filter(t => t.date === todayStr);
     const [aiInput, setAiInput] = useState('');
@@ -409,7 +485,16 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
                 </div>
                 <div className="space-y-2">
                     {todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10">今日暂无任务。</div> : todaysTasks.map(task => (
-                        <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} />
+                        <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            onToggle={toggleTask} 
+                            onDelete={deleteTask} 
+                            onUpdate={onUpdate}
+                            moveTask={moveTask}
+                            categoryColors={categoryColors} 
+                            categories={categories}
+                        />
                     ))}
                 </div>
             </div>
@@ -907,7 +992,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
     );
 };
 
-const KanbanView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, categoryColors }) => {
+const KanbanView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories }) => {
     // 6 AM to 12 AM (Midnight, represented as 0 in next iteration or 24, here we use 0 to align with logic)
     // Range: 6, 7, ..., 23, 0. Total 19 slots.
     const hours = [...Array.from({length: 18}, (_, i) => i + 6), 0]; 
@@ -950,7 +1035,17 @@ const KanbanView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTa
                     <div className="flex-1 min-h-[60px] flex flex-col justify-center">
                       <div className="w-full space-y-2">
                           {hourTasks.map(task => (
-                              <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} categoryColors={categoryColors} showWarning={false} />
+                              <TaskCard 
+                                key={task.id} 
+                                task={task} 
+                                onToggle={toggleTask} 
+                                onDelete={deleteTask}
+                                onUpdate={onUpdate}
+                                moveTask={moveTask}
+                                categoryColors={categoryColors} 
+                                categories={categories}
+                                showWarning={false} 
+                              />
                           ))}
                           
                           {/* Allow adding if tasks < 5 */}
@@ -1058,6 +1153,23 @@ export default function App() {
   const addTask = (newTask) => setTasks([...tasks, { id: Date.now(), completed: false, ...newTask }]);
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
+  
+  // New: Update Task Logic for editing
+  const updateTask = (id, updates) => setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
+
+  // New: Move Task Logic for Drag and Drop
+  const moveTask = (dragId, hoverId) => {
+      const dragIndex = tasks.findIndex(t => t.id === dragId || t.id === parseInt(dragId));
+      const hoverIndex = tasks.findIndex(t => t.id === hoverId || t.id === parseInt(hoverId));
+      
+      if (dragIndex >= 0 && hoverIndex >= 0 && dragIndex !== hoverIndex) {
+          const newTasks = [...tasks];
+          const [draggedItem] = newTasks.splice(dragIndex, 1);
+          newTasks.splice(hoverIndex, 0, draggedItem);
+          setTasks(newTasks);
+      }
+  };
+
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
 
   const catColors = {'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'};
@@ -1077,10 +1189,10 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
-          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
+          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
           {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
-          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} categoryColors={catColors} />}
+          {view === 'kanban' && <KanbanView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} />}
           {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
         </div>
       </main>
