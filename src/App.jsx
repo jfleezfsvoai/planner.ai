@@ -111,7 +111,9 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editCategory, setEditCategory] = useState(task.category);
-  const [isDragging, setIsDragging] = useState(false); // Visual feedback
+  const [dropPosition, setDropPosition] = useState(null); // 'top' or 'bottom' or null
+  const cardRef = useRef(null);
+  
   const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-600 border-slate-200';
 
   const handleSave = () => {
@@ -122,24 +124,40 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
   const handleDragStart = (e) => { 
       e.dataTransfer.setData('text/plain', task.id); 
       e.dataTransfer.effectAllowed = 'move'; 
-      // Set a slight delay to allow the ghost image to be captured before hiding the element (optional)
-      setTimeout(() => setIsDragging(true), 0);
+      // Subtle ghost effect handled by browser, but we can style the original if needed
+      e.target.style.opacity = '0.4';
   };
   
-  const handleDragEnd = () => {
-      setIsDragging(false);
+  const handleDragEnd = (e) => {
+      e.target.style.opacity = '1';
+      setDropPosition(null);
   };
 
   const handleDragOver = (e) => { 
       e.preventDefault(); 
       e.dataTransfer.dropEffect = 'move'; 
+      
+      if (cardRef.current) {
+          const rect = cardRef.current.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (e.clientY < midY) {
+              setDropPosition('top');
+          } else {
+              setDropPosition('bottom');
+          }
+      }
+  };
+
+  const handleDragLeave = () => {
+      setDropPosition(null);
   };
   
   const handleDrop = (e) => { 
       e.preventDefault(); 
+      setDropPosition(null);
       const dragId = e.dataTransfer.getData('text/plain'); 
-      if (dragId && dragId !== task.id && moveTask) { 
-          moveTask(dragId, task.id); 
+      if (dragId && dragId !== task.id.toString() && moveTask) { 
+          moveTask(dragId, task.id, dropPosition); 
       } 
   };
 
@@ -162,16 +180,22 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
 
   return (
     <div 
+        ref={cardRef}
         draggable 
         onDragStart={handleDragStart} 
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver} 
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop} 
         className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 cursor-grab active:cursor-grabbing 
         ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}
-        ${isDragging ? 'opacity-40' : 'opacity-100'}
         `}
     >
+        {/* Visual Drop Line Indicator */}
+        {dropPosition === 'top' && (
+            <div className="absolute -top-1 left-0 right-0 h-1 bg-violet-500 rounded-full z-10 pointer-events-none animate-in fade-in duration-150"></div>
+        )}
+        
       <div className="flex items-start gap-3">
         <div className="mt-1 text-slate-300 hover:text-slate-400 cursor-grab active:cursor-grabbing"><GripVertical size={12} /></div>
         <button onClick={() => onToggle(task.id)} className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition-all ${task.completed ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 border-transparent text-white' : 'border-slate-300 hover:border-violet-500 text-transparent'}`}>
@@ -192,6 +216,11 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
             <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-slate-400 hover:text-red-500 p-1" title="删除"><Trash2 size={12} /></button>
         </div>
       </div>
+
+      {/* Visual Drop Line Indicator Bottom */}
+      {dropPosition === 'bottom' && (
+            <div className="absolute -bottom-1 left-0 right-0 h-1 bg-violet-500 rounded-full z-10 pointer-events-none animate-in fade-in duration-150"></div>
+      )}
     </div>
   );
 };
@@ -514,16 +543,39 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     );
 };
 
-// --- FIXED: Review Components extracted to top level ---
-const ReviewInput = ({ value, onChange, placeholder, color }) => (
-    <input value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-${color}-500 focus:bg-white transition-all text-sm font-medium mb-2`}/>
-);
+// --- FIXED: Review Components extracted to top level & Updated with Textarea and Checkbox ---
+const ReviewInput = ({ value, onChange, placeholder, color, showCheckbox }) => {
+    // Handle backward compatibility where value might be just a string
+    const text = typeof value === 'object' ? value.text : value;
+    const checked = typeof value === 'object' ? value.checked : false;
 
-const ReviewSection = ({ title, icon, color, data, field, onChange, count = 3 }) => (
+    return (
+        <div className="flex items-start gap-3 mb-2 group">
+           {showCheckbox && (
+               <button
+                 onClick={() => onChange({ text: text || '', checked: !checked })}
+                 className={`mt-3 w-5 h-5 rounded border flex items-center justify-center transition-all flex-shrink-0 ${checked ? `bg-${color}-500 border-${color}-500 text-white` : 'bg-white border-slate-300'}`}
+               >
+                 <CheckSquare size={12} fill={checked ? "currentColor" : "none"}/>
+               </button>
+           )}
+           <textarea
+             value={text || ''}
+             onChange={(e) => onChange({ text: e.target.value, checked })}
+             placeholder={placeholder}
+             rows={1}
+             onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+             className={`flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-${color}-500 focus:bg-white transition-all text-sm font-medium resize-none overflow-hidden min-h-[46px]`}
+           />
+        </div>
+    );
+};
+
+const ReviewSection = ({ title, icon, color, data, field, onChange, count = 3, showCheckbox = false }) => (
     <div className={`p-5 rounded-3xl border bg-white border-slate-100 shadow-sm`}>
         <h4 className={`font-black text-${color}-500 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs`}>{icon} {title}</h4>
         {Array.from({ length: count }).map((_, i) => (
-            <ReviewInput key={i} value={data[i]} onChange={(val) => onChange(field, i, val)} placeholder={`Item ${i+1}`} color={color}/>
+            <ReviewInput key={i} value={data[i]} onChange={(val) => onChange(field, i, val)} placeholder={`Item ${i+1}`} color={color} showCheckbox={showCheckbox} />
         ))}
     </div>
 );
@@ -636,7 +688,7 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <ReviewSection title="Plan (计划)" icon={<Target size={14}/>} color="blue" data={cycleData.plan || []} field="plan" onChange={handleCycleChange} count={5}/>
+                            <ReviewSection title="Plan (计划)" icon={<Target size={14}/>} color="blue" data={cycleData.plan || []} field="plan" onChange={handleCycleChange} count={5} showCheckbox={true}/>
                             <ReviewSection title="Do (执行)" icon={<Zap size={14}/>} color="violet" data={cycleData.do || []} field="do" onChange={handleCycleChange} count={5}/>
                             <ReviewSection title="Adjust (调整)" icon={<RefreshCw size={14}/>} color="amber" data={cycleData.adjust || []} field="adjust" onChange={handleCycleChange} count={5}/>
                             <ReviewSection title="Check (检查)" icon={<ClipboardList size={14}/>} color="emerald" data={cycleData.check || []} field="check" onChange={handleCycleChange} count={5}/>
@@ -871,37 +923,36 @@ export default function App() {
   const addTask = (newTask) => setTasks([...tasks, { id: Date.now(), completed: false, ...newTask }]);
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
+  
+  // New: Update Task Logic for editing
   const updateTask = (id, updates) => setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
-  const moveTask = (dragId, hoverId) => {
+
+  // New: Move Task Logic for Drag and Drop
+  const moveTask = (dragId, targetId, position) => {
       const dragIndex = tasks.findIndex(t => t.id === dragId || t.id === parseInt(dragId));
-      const hoverIndex = tasks.findIndex(t => t.id === hoverId || t.id === parseInt(hoverId));
-      if (dragIndex >= 0 && hoverIndex >= 0 && dragIndex !== hoverIndex) {
+      const targetIndex = tasks.findIndex(t => t.id === targetId || t.id === parseInt(targetId));
+      
+      if (dragIndex >= 0 && targetIndex >= 0 && dragIndex !== targetIndex) {
           const newTasks = [...tasks];
           const [draggedItem] = newTasks.splice(dragIndex, 1);
-          newTasks.splice(hoverIndex, 0, draggedItem);
+          
+          let insertIndex = targetIndex;
+          // If inserting 'below' the target, we need to adjust the index.
+          // Note: if dragIndex < targetIndex, removing the item shifts the target index down by 1,
+          // so we might need logic adjustment. But 'splice' modifies array in place.
+          
+          // Re-find target index after splice as it might have shifted
+          const newTargetIndex = newTasks.findIndex(t => t.id === targetId || t.id === parseInt(targetId));
+          
+          if (position === 'bottom') {
+              insertIndex = newTargetIndex + 1;
+          } else {
+              insertIndex = newTargetIndex;
+          }
+          
+          newTasks.splice(insertIndex, 0, draggedItem);
           setTasks(newTasks);
       }
-  };
-  
-  // Clone Function
-  const cloneYesterdayTasks = (targetDateStr) => {
-      const targetDate = new Date(targetDateStr);
-      const yesterday = new Date(targetDate);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = getLocalDateString(yesterday);
-      
-      const tasksToClone = tasks.filter(t => t.date === yesterdayStr);
-      if (tasksToClone.length === 0) { alert("Yesterday had no tasks to clone!"); return; }
-      
-      const clonedTasks = tasksToClone.map(t => ({
-          ...t,
-          id: generateId(), // New ID
-          date: targetDateStr, // New Date
-          completed: false // Reset completion
-      }));
-      
-      setTasks(prev => [...prev, ...clonedTasks]);
-      alert(`Cloned ${clonedTasks.length} tasks from ${yesterdayStr} to ${targetDateStr}`);
   };
 
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
