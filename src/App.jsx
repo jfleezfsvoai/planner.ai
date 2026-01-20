@@ -7,7 +7,8 @@ import {
   Layers, Shield, BookOpen, DollarSign, PieChart, 
   Square, LogIn, LogOut, User, AlertTriangle, Briefcase, Heart, Coffee, Book,
   Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
-  Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle
+  Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
+  CalendarDays, ChevronDown
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -58,6 +59,15 @@ const getTomorrowDateString = () => {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+// Sort helper
+const sortTasksByTime = (tasks) => {
+    return [...tasks].sort((a, b) => {
+        if (!a.time) return 1; // Put tasks without time at the end
+        if (!b.time) return -1;
+        return a.time.localeCompare(b.time);
+    });
+};
+
 // --- Sub-Components ---
 
 const getIconForLabel = (label) => {
@@ -101,6 +111,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editCategory, setEditCategory] = useState(task.category);
+  const [isDragging, setIsDragging] = useState(false); // Visual feedback
   const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-600 border-slate-200';
 
   const handleSave = () => {
@@ -108,9 +119,29 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
     setIsEditing(false);
   };
 
-  const handleDragStart = (e) => { e.dataTransfer.setData('text/plain', task.id); e.dataTransfer.effectAllowed = 'move'; };
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-  const handleDrop = (e) => { e.preventDefault(); const dragId = e.dataTransfer.getData('text/plain'); if (dragId && dragId !== task.id && moveTask) { moveTask(dragId, task.id); } };
+  const handleDragStart = (e) => { 
+      e.dataTransfer.setData('text/plain', task.id); 
+      e.dataTransfer.effectAllowed = 'move'; 
+      // Set a slight delay to allow the ghost image to be captured before hiding the element (optional)
+      setTimeout(() => setIsDragging(true), 0);
+  };
+  
+  const handleDragEnd = () => {
+      setIsDragging(false);
+  };
+
+  const handleDragOver = (e) => { 
+      e.preventDefault(); 
+      e.dataTransfer.dropEffect = 'move'; 
+  };
+  
+  const handleDrop = (e) => { 
+      e.preventDefault(); 
+      const dragId = e.dataTransfer.getData('text/plain'); 
+      if (dragId && dragId !== task.id && moveTask) { 
+          moveTask(dragId, task.id); 
+      } 
+  };
 
   if (isEditing) {
       return (
@@ -130,7 +161,17 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
   }
 
   return (
-    <div draggable onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 cursor-grab active:cursor-grabbing ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}`}>
+    <div 
+        draggable 
+        onDragStart={handleDragStart} 
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver} 
+        onDrop={handleDrop} 
+        className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 cursor-grab active:cursor-grabbing 
+        ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}
+        ${isDragging ? 'opacity-40' : 'opacity-100'}
+        `}
+    >
       <div className="flex items-start gap-3">
         <div className="mt-1 text-slate-300 hover:text-slate-400 cursor-grab active:cursor-grabbing"><GripVertical size={12} /></div>
         <button onClick={() => onToggle(task.id)} className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition-all ${task.completed ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 border-transparent text-white' : 'border-slate-300 hover:border-violet-500 text-transparent'}`}>
@@ -237,7 +278,6 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
   );
 };
 
-// --- RESTORED: AuthModal ---
 const AuthModal = ({ isOpen, onClose }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
@@ -328,7 +368,8 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle }) => {
 
 const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories }) => {
     const todayStr = getLocalDateString(new Date());
-    const todaysTasks = tasks.filter(t => t.date === todayStr);
+    // Sort tasks by time
+    const todaysTasks = sortTasksByTime(tasks.filter(t => t.date === todayStr));
     const catStats = {};
     todaysTasks.forEach(t => { if(!catStats[t.category]) catStats[t.category] = { total: 0, completed: 0 }; catStats[t.category].total++; if(t.completed) catStats[t.category].completed++; });
 
@@ -408,7 +449,9 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
             {totalSlots.map((day, i) => {
               if (!day) return <div key={i} className="bg-white"></div>;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const dayTasks = tasks.filter(t => t.date === dateStr);
+              
+              // Sort tasks for calendar view
+              const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
               const isToday = dateStr === getLocalDateString(new Date());
               return (
                 <div key={i} className="bg-white p-2 hover:bg-violet-50/30 transition-colors group flex flex-col min-h-[100px] border-b border-r border-slate-50 relative">
@@ -471,48 +514,73 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     );
 };
 
-const ReviewView = ({ reviews, onUpdateReview }) => {
+// --- FIXED: Review Components extracted to top level ---
+const ReviewInput = ({ value, onChange, placeholder, color }) => (
+    <input value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-${color}-500 focus:bg-white transition-all text-sm font-medium mb-2`}/>
+);
+
+const ReviewSection = ({ title, icon, color, data, field, onChange, count = 3 }) => (
+    <div className={`p-5 rounded-3xl border bg-white border-slate-100 shadow-sm`}>
+        <h4 className={`font-black text-${color}-500 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs`}>{icon} {title}</h4>
+        {Array.from({ length: count }).map((_, i) => (
+            <ReviewInput key={i} value={data[i]} onChange={(val) => onChange(field, i, val)} placeholder={`Item ${i+1}`} color={color}/>
+        ))}
+    </div>
+);
+
+const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
     const [activeTab, setActiveTab] = useState('daily');
-    const [activeWeek, setActiveWeek] = useState('week1');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0 - 11
+    const [subCycle, setSubCycle] = useState(0); // 0, 1, 2
     const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
 
     const dailyData = reviews?.daily?.[selectedDate] || { keep: [], improve: [], start: [], stop: [] };
-    const weeklyData = reviews?.weekly?.[activeWeek] || { plan: [], do: [], adjust: [], check: [], aar: [] };
+    
+    // Calculate global cycle ID: Month * 3 + subCycle + 1 (simplified mapping for UI)
+    const activeGlobalCycleId = (selectedMonth * 3) + subCycle + 1;
+    const cycleData = reviews?.cycle?.[activeGlobalCycleId] || { plan: [], do: [], adjust: [], check: [], aar: [] };
+
+    // Date navigation helpers
+    const changeDate = (days) => {
+        const d = new Date(selectedDate);
+        d.setDate(d.getDate() + days);
+        setSelectedDate(getLocalDateString(d));
+    };
+
+    // Cycle date calculation
+    const getCycleInfo = (globalId) => {
+        const start = new Date(startYearDate);
+        start.setDate(start.getDate() + (globalId - 1) * 10);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 9);
+        return `${start.getMonth() + 1}/${start.getDate()} - ${end.getMonth() + 1}/${end.getDate()}`;
+    };
+
+    const months = [
+        "January", "February", "March", "April", "May", "June", 
+        "July", "August", "September", "October", "November", "December"
+    ];
 
     const handleDailyChange = (field, idx, val) => {
-        const list = [...(dailyData[field] || ['', '', ''])];
+        const list = [...(dailyData[field] || ['', '', '', ''])];
         list[idx] = val;
-        // Clean empty strings if needed, but for controlled inputs keeping index is easier
         const newData = { ...reviews, daily: { ...(reviews.daily || {}), [selectedDate]: { ...dailyData, [field]: list } } };
         onUpdateReview(newData);
     };
 
-    const handleWeeklyChange = (field, idx, val) => {
-        const list = [...(weeklyData[field] || ['', '', ''])];
+    const handleCycleChange = (field, idx, val) => {
+        const list = [...(cycleData[field] || Array(5).fill(''))];
         list[idx] = val;
-        const newData = { ...reviews, weekly: { ...(reviews.weekly || {}), [activeWeek]: { ...weeklyData, [field]: list } } };
+        const newData = { ...reviews, cycle: { ...(reviews.cycle || {}), [activeGlobalCycleId]: { ...cycleData, [field]: list } } };
         onUpdateReview(newData);
     };
-
-    const ReviewInput = ({ value, onChange, placeholder, color }) => (
-        <input value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-${color}-500 focus:bg-white transition-all text-sm font-medium mb-2`}/>
-    );
-
-    const Section = ({ title, icon, color, data, field, isDaily }) => (
-        <div className={`p-5 rounded-3xl border bg-white border-slate-100 shadow-sm`}>
-            <h4 className={`font-black text-${color}-500 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs`}>{icon} {title}</h4>
-            {[0, 1, 2].map(i => (
-                <ReviewInput key={i} value={data[i]} onChange={(val) => isDaily ? handleDailyChange(field, i, val) : handleWeeklyChange(field, i, val)} placeholder={`Item ${i+1}`} color={color}/>
-            ))}
-        </div>
-    );
 
     return (
         <div className="max-w-6xl mx-auto pb-24 space-y-8 animate-fade-in">
             <header className="flex justify-between items-end">
                 <div><h2 className="text-3xl font-black text-slate-800">Review</h2><p className="text-slate-500 font-medium">Reflect and Evolve</p></div>
                 <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
-                    {['daily', 'weekly'].map(t => (
+                    {['daily', 'cycle'].map(t => (
                         <button key={t} onClick={() => setActiveTab(t)} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all capitalize ${activeTab === t ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>{t} Review</button>
                     ))}
                 </div>
@@ -520,34 +588,68 @@ const ReviewView = ({ reviews, onUpdateReview }) => {
 
             {activeTab === 'daily' ? (
                 <div className="space-y-6">
-                    <div className="flex justify-end"><input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-white border border-slate-200 px-4 py-2 rounded-xl font-bold text-slate-700 outline-none"/></div>
+                    <div className="flex justify-end items-center gap-3">
+                        <button onClick={() => changeDate(-1)} className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50"><ChevronLeft size={16}/></button>
+                        <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-white border border-slate-200 px-4 py-2 rounded-xl font-bold text-slate-700 outline-none"/>
+                        <button onClick={() => changeDate(1)} className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50"><ChevronRight size={16}/></button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Section title="Keep (保持)" icon={<CheckSquare size={16}/>} color="emerald" data={dailyData.keep || []} field="keep" isDaily/>
-                        <Section title="Improve (改进)" icon={<TrendingUp size={16}/>} color="amber" data={dailyData.improve || []} field="improve" isDaily/>
-                        <Section title="Start (开始)" icon={<PlayCircle size={16}/>} color="blue" data={dailyData.start || []} field="start" isDaily/>
-                        <Section title="Stop (停止)" icon={<StopCircle size={16}/>} color="rose" data={dailyData.stop || []} field="stop" isDaily/>
+                        <ReviewSection title="Keep (保持)" icon={<CheckSquare size={16}/>} color="emerald" data={dailyData.keep || []} field="keep" onChange={handleDailyChange} count={3}/>
+                        <ReviewSection title="Improve (改进)" icon={<TrendingUp size={16}/>} color="amber" data={dailyData.improve || []} field="improve" onChange={handleDailyChange} count={3}/>
+                        <ReviewSection title="Start (开始)" icon={<PlayCircle size={16}/>} color="blue" data={dailyData.start || []} field="start" onChange={handleDailyChange} count={3}/>
+                        <ReviewSection title="Stop (停止)" icon={<StopCircle size={16}/>} color="rose" data={dailyData.stop || []} field="stop" onChange={handleDailyChange} count={3}/>
                     </div>
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className="flex gap-2 overflow-x-auto pb-2">
-                        {['week1', 'week2', 'week3', 'week4'].map((w, i) => (
-                            <button key={w} onClick={() => setActiveWeek(w)} className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeWeek === w ? 'bg-violet-600 text-white shadow-lg shadow-violet-200' : 'bg-white text-slate-400 border border-slate-100 hover:border-violet-200'}`}>Week {i+1}</button>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Section title="Plan (计划)" icon={<Target size={14}/>} color="blue" data={weeklyData.plan || []} field="plan"/>
-                        <Section title="Do (执行)" icon={<Zap size={14}/>} color="violet" data={weeklyData.do || []} field="do"/>
-                        <Section title="Adjust (调整)" icon={<RefreshCw size={14}/>} color="amber" data={weeklyData.adjust || []} field="adjust"/>
-                        <Section title="Check (检查)" icon={<ClipboardList size={14}/>} color="emerald" data={weeklyData.check || []} field="check"/>
-                    </div>
-                    <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl">
-                         <h4 className="font-bold text-slate-200 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs"><Flag size={14} className="text-rose-400"/> AAR (After Action Review)</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {[0, 1, 2].map(i => (
-                                <input key={i} value={(weeklyData.aar || [])[i] || ''} onChange={(e) => handleWeeklyChange('aar', i, e.target.value)} placeholder={`Key Insight ${i+1}...`} className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 outline-none focus:bg-white/20 transition-all text-sm text-white placeholder-slate-500"/>
-                            ))}
-                         </div>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-start bg-white p-4 rounded-3xl border border-slate-100">
+                            {/* Left: Cycle Tabs */}
+                            <div className="flex gap-2">
+                                {[0, 1, 2].map((idx) => {
+                                    const cId = (selectedMonth * 3) + idx + 1;
+                                    const range = getCycleInfo(cId);
+                                    return (
+                                        <button 
+                                            key={idx} 
+                                            onClick={() => setSubCycle(idx)} 
+                                            className={`flex flex-col items-start px-5 py-3 rounded-2xl transition-all border ${subCycle === idx ? 'bg-violet-50 border-violet-200 shadow-sm' : 'bg-white border-transparent hover:bg-slate-50'}`}
+                                        >
+                                            <span className={`text-xs font-black uppercase tracking-widest ${subCycle === idx ? 'text-violet-600' : 'text-slate-400'}`}>Cycle {idx + 1}</span>
+                                            <span className={`text-[10px] font-bold ${subCycle === idx ? 'text-violet-400' : 'text-slate-300'}`}>{range}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Right: Month Selector */}
+                            <div className="relative">
+                                <select 
+                                    value={selectedMonth} 
+                                    onChange={(e) => { setSelectedMonth(parseInt(e.target.value)); setSubCycle(0); }} 
+                                    className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 font-bold text-sm px-6 py-3 pr-10 rounded-xl outline-none focus:border-violet-300 cursor-pointer"
+                                >
+                                    {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ChevronDown size={16}/></div>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <ReviewSection title="Plan (计划)" icon={<Target size={14}/>} color="blue" data={cycleData.plan || []} field="plan" onChange={handleCycleChange} count={5}/>
+                            <ReviewSection title="Do (执行)" icon={<Zap size={14}/>} color="violet" data={cycleData.do || []} field="do" onChange={handleCycleChange} count={5}/>
+                            <ReviewSection title="Adjust (调整)" icon={<RefreshCw size={14}/>} color="amber" data={cycleData.adjust || []} field="adjust" onChange={handleCycleChange} count={5}/>
+                            <ReviewSection title="Check (检查)" icon={<ClipboardList size={14}/>} color="emerald" data={cycleData.check || []} field="check" onChange={handleCycleChange} count={5}/>
+                        </div>
+                        
+                        <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl">
+                             <h4 className="font-bold text-slate-200 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs"><Flag size={14} className="text-rose-400"/> AAR (After Action Review)</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {[0, 1, 2].map(i => (
+                                    <input key={i} value={(cycleData.aar || [])[i] || ''} onChange={(e) => handleCycleChange('aar', i, e.target.value)} placeholder={`Key Insight ${i+1}...`} className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 outline-none focus:bg-white/20 transition-all text-sm text-white placeholder-slate-500"/>
+                                ))}
+                             </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -710,7 +812,7 @@ export default function App() {
   const [wealthBalances, setWealthBalances] = useState({ commitment: 0 });
   const [wealthTransactions, setWealthTransactions] = useState([]);
   const [wealthConfig, setWealthConfig] = useState({ yearlyTarget: 100000, commitment: 2000, showCommitment: true, jars: [] });
-  const [reviews, setReviews] = useState({ daily: {}, weekly: {} }); // New State
+  const [reviews, setReviews] = useState({ daily: {}, cycle: {} }); // Renamed 'weekly' to 'cycle' in state
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => { 
@@ -732,7 +834,7 @@ export default function App() {
               if(d.exists()) { const data = d.data(); setWealthBalances(data.balances || {}); setWealthTransactions(data.transactions || []); if(data.config) setWealthConfig(data.config); }
           }, () => {}));
           // New Review Listener
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'reviews'), d => d.exists() && setReviews(d.data() || { daily: {}, weekly: {} }), () => {}));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'reviews'), d => d.exists() && setReviews(d.data() || { daily: {}, cycle: {} }), () => {}));
           
           setIsLoaded(true);
           return () => unsubs.forEach(u => u());
@@ -753,7 +855,7 @@ export default function App() {
           const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
           const cy = localStorage.getItem('planner_cycles'); if(cy) { const d = JSON.parse(cy); setCyclesData(d.list || []); setStartYearDate(d.startDate); } else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
           const w = localStorage.getItem('planner_wealth_v2'); if(w) { const d = JSON.parse(w); setWealthBalances(d.balances || {}); setWealthTransactions(d.transactions || []); if(d.config) setWealthConfig(d.config); }
-          const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || { daily: {}, weekly: {} });
+          const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || { daily: {}, cycle: {} });
           setIsLoaded(true);
       } catch(e) { console.error(e); }
   }
@@ -826,7 +928,7 @@ export default function App() {
           {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask}/>}
           {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} onCloneYesterday={cloneYesterdayTasks} />}
           {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
-          {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={setReviews}/>}
+          {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={setReviews} startYearDate={startYearDate}/>}
         </div>
       </main>
       <AddTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAdd={addTask} defaultDate={selectedDateForAdd} defaultTime={selectedTimeForAdd} categories={categories} setCategories={setCategories}/>
