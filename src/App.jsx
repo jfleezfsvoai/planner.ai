@@ -546,8 +546,8 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
 // --- FIXED: Review Components extracted to top level & Updated with Textarea and Checkbox ---
 const ReviewInput = ({ value, onChange, placeholder, color, showCheckbox }) => {
     // Handle backward compatibility where value might be just a string
-    const text = typeof value === 'object' ? value.text : value;
-    const checked = typeof value === 'object' ? value.checked : false;
+    const text = (value && typeof value === 'object') ? value.text : value;
+    const checked = (value && typeof value === 'object') ? value.checked : false;
 
     return (
         <div className="flex items-start gap-3 mb-2 group">
@@ -953,6 +953,27 @@ export default function App() {
           newTasks.splice(insertIndex, 0, draggedItem);
           setTasks(newTasks);
       }
+  };
+  
+  // Clone Function
+  const cloneYesterdayTasks = (targetDateStr) => {
+      const targetDate = new Date(targetDateStr);
+      const yesterday = new Date(targetDate);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = getLocalDateString(yesterday);
+      
+      const tasksToClone = tasks.filter(t => t.date === yesterdayStr);
+      if (tasksToClone.length === 0) { alert("Yesterday had no tasks to clone!"); return; }
+      
+      const clonedTasks = tasksToClone.map(t => ({
+          ...t,
+          id: generateId(), // New ID
+          date: targetDateStr, // New Date
+          completed: false // Reset completion
+      }));
+      
+      setTasks(prev => [...prev, ...clonedTasks]);
+      alert(`Cloned ${clonedTasks.length} tasks from ${yesterdayStr} to ${targetDateStr}`);
   };
 
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
