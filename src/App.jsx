@@ -124,7 +124,6 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
   const handleDragStart = (e) => { 
       e.dataTransfer.setData('text/plain', task.id); 
       e.dataTransfer.effectAllowed = 'move'; 
-      // Subtle ghost effect handled by browser, but we can style the original if needed
       e.target.style.opacity = '0.4';
   };
   
@@ -191,7 +190,6 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
         ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}
         `}
     >
-        {/* Visual Drop Line Indicator */}
         {dropPosition === 'top' && (
             <div className="absolute -top-1 left-0 right-0 h-1 bg-violet-500 rounded-full z-10 pointer-events-none animate-in fade-in duration-150"></div>
         )}
@@ -217,7 +215,6 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
         </div>
       </div>
 
-      {/* Visual Drop Line Indicator Bottom */}
       {dropPosition === 'bottom' && (
             <div className="absolute -bottom-1 left-0 right-0 h-1 bg-violet-500 rounded-full z-10 pointer-events-none animate-in fade-in duration-150"></div>
       )}
@@ -361,7 +358,6 @@ const AuthModal = ({ isOpen, onClose }) => {
 
 const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle }) => {
     if (!isOpen) return null;
-    // Fix: Sort tasks by time for the preview modal
     const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
     
     return (
@@ -398,7 +394,6 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle }) => {
 
 const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories }) => {
     const todayStr = getLocalDateString(new Date());
-    // Sort tasks by time
     const todaysTasks = sortTasksByTime(tasks.filter(t => t.date === todayStr));
     const catStats = {};
     todaysTasks.forEach(t => { if(!catStats[t.category]) catStats[t.category] = { total: 0, completed: 0 }; catStats[t.category].total++; if(t.completed) catStats[t.category].completed++; });
@@ -739,7 +734,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               if (!day) return <div key={i} className="bg-white"></div>;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               
-              // Sort tasks for calendar view (Fix 2)
+              // Sort tasks for calendar view
               const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
               const isToday = dateStr === getLocalDateString(new Date());
               return (
@@ -1163,7 +1158,12 @@ export default function App() {
               } else {
                 // Fallback to v1 data if v2 doesn't exist
                 getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth')).then(v1 => {
-                    if(v1.exists()) setWealthBalances(v1.data().balances || {});
+                    if(v1.exists()) {
+                        const oldData = v1.data();
+                        setWealthBalances(oldData.balances || {});
+                        setWealthTransactions(oldData.transactions || []);
+                        if(oldData.config) setWealthConfig(oldData.config);
+                    }
                 });
               }
           }, () => {}));
