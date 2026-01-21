@@ -553,7 +553,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
                         <div className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">年度储蓄目标 (储蓄+投资)</div>
                         <div className="text-4xl font-black">RM {savingsPlusInvestment.toLocaleString()} <span className="text-slate-500 text-2xl font-bold"> / {wealthConfig.yearlyTarget.toLocaleString()}</span></div>
                     </div>
-                    <button onClick={() => { const n = prompt("新目标:", wealthConfig.yearlyTarget); if(n) setWealthConfig({...wealthConfig, yearlyTarget: parseFloat(n)}); }} className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold transition-all">编辑</button>
+                    <button onClick={() => { const n = prompt("New Target:", wealthConfig.yearlyTarget); if(n) setWealthConfig({...wealthConfig, yearlyTarget: parseFloat(n)}); }} className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold transition-all">Edit</button>
                 </div>
                 <div className="mt-6 w-full bg-white/10 rounded-full h-2"><div className="bg-emerald-400 h-2 rounded-full transition-all duration-700" style={{ width: `${Math.min(100, (savingsPlusInvestment / wealthConfig.yearlyTarget) * 100)}%` }}></div></div>
             </div>
@@ -728,13 +728,13 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     const [previewDate, setPreviewDate] = useState(null);
 
     return (
-      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0">
+      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 min-h-full">
         <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-black text-slate-800 tracking-tight">Calendar</h2>
           <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm"><button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-slate-800"><ChevronLeft size={20}/></button><span className="px-4 py-2 font-bold text-slate-700 text-sm flex items-center">{new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-slate-800"><ChevronRight size={20}/></button></div>
         </div>
-        <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 flex flex-col overflow-hidden">
           <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">{['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (<div key={d} className="py-4 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">{d}</div>))}</div>
-          <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-50 gap-[1px]">
+          <div className="grid grid-cols-7 auto-rows-auto bg-slate-50 gap-[1px]">
             {totalSlots.map((day, i) => {
               if (!day) return <div key={i} className="bg-white"></div>;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -874,16 +874,28 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
     ];
 
     const handleDailyChange = (field, idx, val) => {
-        const list = [...(dailyData[field] || ['', '', '', ''])];
+        const list = [...(dailyData[field] || [])];
+        // Ensure list is long enough to avoid holes
+        while (list.length <= idx) {
+            list.push({ text: '', checked: false });
+        }
         list[idx] = val;
-        const newData = { ...reviews, daily: { ...(reviews.daily || {}), [selectedDate]: { ...dailyData, [field]: list } } };
+        // Sanitize list to remove any accidental undefineds
+        const sanitizedList = list.map(item => item === undefined ? { text: '', checked: false } : item);
+        
+        const newData = { ...reviews, daily: { ...(reviews.daily || {}), [selectedDate]: { ...dailyData, [field]: sanitizedList } } };
         onUpdateReview(newData);
     };
 
     const handleCycleChange = (field, idx, val) => {
-        const list = [...(cycleData[field] || Array(5).fill(''))];
+        const list = [...(cycleData[field] || [])];
+        while (list.length <= idx) {
+            list.push({ text: '', checked: false });
+        }
         list[idx] = val;
-        const newData = { ...reviews, cycle: { ...(reviews.cycle || {}), [activeGlobalCycleId]: { ...cycleData, [field]: list } } };
+        const sanitizedList = list.map(item => item === undefined ? { text: '', checked: false } : item);
+
+        const newData = { ...reviews, cycle: { ...(reviews.cycle || {}), [activeGlobalCycleId]: { ...cycleData, [field]: sanitizedList } } };
         onUpdateReview(newData);
     };
 
@@ -958,7 +970,7 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
                              <h4 className="font-bold text-slate-200 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs"><Flag size={14} className="text-rose-400"/> AAR (After Action Review)</h4>
                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {[0, 1, 2].map(i => (
-                                    <input key={i} value={(cycleData.aar || [])[i] || ''} onChange={(e) => handleCycleChange('aar', i, e.target.value)} placeholder={`Key Insight ${i+1}...`} className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 outline-none focus:bg-white/20 transition-all text-sm text-white placeholder-slate-500"/>
+                                    <input key={i} value={(cycleData.aar || [])[i]?.text || (cycleData.aar || [])[i] || ''} onChange={(e) => handleCycleChange('aar', i, { text: e.target.value, checked: false })} placeholder={`Key Insight ${i+1}...`} className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 outline-none focus:bg-white/20 transition-all text-sm text-white placeholder-slate-500"/>
                                 ))}
                              </div>
                         </div>
