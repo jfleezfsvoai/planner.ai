@@ -728,7 +728,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     const [previewDate, setPreviewDate] = useState(null);
 
     return (
-      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 min-h-full">
+      <div className="flex flex-col animate-fade-in pb-20 md:pb-0">
         <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-black text-slate-800 tracking-tight">Calendar</h2>
           <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm"><button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-slate-800"><ChevronLeft size={20}/></button><span className="px-4 py-2 font-bold text-slate-700 text-sm flex items-center">{new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-slate-800"><ChevronRight size={20}/></button></div>
         </div>
