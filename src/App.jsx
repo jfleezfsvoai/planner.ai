@@ -69,6 +69,21 @@ const sortTasksByTime = (tasks) => {
     });
 };
 
+const getWeekDays = (baseDate) => {
+    const d = new Date(baseDate);
+    const day = d.getDay();
+    const diff = d.getDate() - day; // Adjust when day is sunday
+    const sunday = new Date(d.setDate(diff));
+    
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+        const next = new Date(sunday);
+        next.setDate(sunday.getDate() + i);
+        days.push(next);
+    }
+    return days;
+};
+
 // --- Sub-Components ---
 
 const getIconForLabel = (label) => {
@@ -203,9 +218,14 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
         <div className="flex-1 min-w-0" onDoubleClick={() => setIsEditing(true)}>
           <div className="flex justify-between items-start">
              {format === 'timeline' ? (
-                 <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                    {task.title} <span className="text-slate-400 font-normal"> - {task.category}</span>
-                 </p>
+                 <div className="flex flex-wrap items-center gap-2">
+                    <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                        {task.title}
+                    </p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${getCategoryStyle(task.category)}`}>
+                        {task.category}
+                    </span>
+                 </div>
              ) : (
                  <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                     {task.title}
@@ -1021,32 +1041,49 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
 
             <div className="flex items-center gap-2">
                 <div className="relative">
-                   <button onClick={() => setClonePickerOpen(!clonePickerOpen)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs mr-2">
-                       <Copy size={14}/> Clone From...
+                   {/* Clone Yesterday Button */}
+                   <button 
+                       onClick={() => onCloneYesterday(dateStr)} 
+                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap mr-2"
+                       title="Copy tasks from yesterday"
+                   >
+                       <Copy size={14}/> Yesterday
+                   </button>
+                   
+                   {/* Clone From Button */}
+                   <button 
+                        onClick={() => setClonePickerOpen(!clonePickerOpen)} 
+                        className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap mr-2"
+                        title="Copy tasks from a specific date"
+                   >
+                       <CalendarDays size={14}/> From...
                    </button>
                    {clonePickerOpen && (
                        <input 
                          type="date" 
-                         className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50"
+                         className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50"
                          onChange={(e) => { 
                              if(e.target.value) {
                                  onCloneYesterday(dateStr, e.target.value); 
                                  setClonePickerOpen(false);
                              }
                          }}
+                         autoFocus
+                         onBlur={() => setTimeout(() => setClonePickerOpen(false), 200)}
                        />
                    )}
                 </div>
                 
-                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
-                    <button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()-1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronLeft size={18}/></button>
+                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl">
+                    <button onClick={() => setCurrentDate(new Date(new Date(currentDate).setDate(currentDate.getDate()-1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronLeft size={16}/></button>
+                    {/* Fixed width to min-w to avoid cutting off */}
                     <input 
                         type="date" 
                         value={dateStr}
                         onChange={(e) => setCurrentDate(new Date(e.target.value))}
-                        className="bg-transparent font-bold text-xs px-2 outline-none text-slate-600 w-24 text-center cursor-pointer"
+                        className="bg-transparent font-bold text-xs px-1 outline-none text-slate-600 min-w-[100px] text-center cursor-pointer"
                     />
-                    <button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()+1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronRight size={18}/></button>
+                    <button onClick={() => setCurrentDate(new Date(new Date(currentDate).setDate(currentDate.getDate()+1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronRight size={16}/></button>
                 </div>
             </div>
         </div>
