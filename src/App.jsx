@@ -43,7 +43,25 @@ const db = getFirestore(app);
 // CRITICAL: Fixed App ID for data persistence
 const appId = 'default-planner-app';
 
-// --- Utilities ---
+// --- Constants & Utilities ---
+const CATEGORY_COLORS = [
+    { id: 'blue', value: 'bg-blue-100 text-blue-600 border-blue-200', label: 'Blue' },
+    { id: 'emerald', value: 'bg-emerald-100 text-emerald-600 border-emerald-200', label: 'Green' },
+    { id: 'orange', value: 'bg-orange-100 text-orange-600 border-orange-200', label: 'Orange' },
+    { id: 'violet', value: 'bg-violet-100 text-violet-600 border-violet-200', label: 'Purple' },
+    { id: 'rose', value: 'bg-rose-100 text-rose-600 border-rose-200', label: 'Red' },
+    { id: 'amber', value: 'bg-amber-100 text-amber-600 border-amber-200', label: 'Yellow' },
+    { id: 'cyan', value: 'bg-cyan-100 text-cyan-600 border-cyan-200', label: 'Cyan' },
+    { id: 'slate', value: 'bg-slate-100 text-slate-600 border-slate-200', label: 'Gray' },
+];
+
+const PRIORITIES = {
+    'urgent_important': { label: '紧急重要', color: 'text-red-600 bg-red-50 border-red-200', highlight: 'border-l-4 border-l-red-500 ring-1 ring-red-100' },
+    'important_not_urgent': { label: '重要不紧急', color: 'text-amber-600 bg-amber-50 border-amber-200', highlight: '' },
+    'urgent_not_important': { label: '不重要紧急', color: 'text-blue-600 bg-blue-50 border-blue-200', highlight: '' },
+    'not_urgent_not_important': { label: '不重要不紧急', color: 'text-slate-500 bg-slate-50 border-slate-200', highlight: '' },
+};
+
 const getLocalDateString = (date) => {
   if (!date) return '';
   const year = date.getFullYear();
@@ -123,14 +141,20 @@ const HorizontalBarChart = ({ data }) => {
   );
 };
 
-const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors, showWarning, categories, showTime = true, format = 'standard' }) => {
+const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, categories, showTime = true, format = 'standard' }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editCategory, setEditCategory] = useState(task.category);
   const [dropPosition, setDropPosition] = useState(null); 
   const cardRef = useRef(null);
   
-  const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-600 border-slate-200';
+  // Find category color
+  const catObj = categories.find(c => c.name === task.category);
+  const categoryStyle = catObj ? catObj.color : 'bg-slate-100 text-slate-600 border-slate-200';
+  
+  // Priority Style
+  const priorityConfig = PRIORITIES[task.priority] || {};
+  const highlightStyle = priorityConfig.highlight || '';
 
   const handleSave = () => {
     if (editTitle.trim()) { onUpdate(task.id, { title: editTitle, category: editCategory }); }
@@ -182,7 +206,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full text-xs font-bold text-slate-700 mb-2 border-b border-slate-100 pb-1 outline-none focus:border-violet-300" placeholder="任务名称" autoFocus />
             <div className="flex gap-2 mb-3">
                 <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="flex-1 text-[10px] bg-slate-50 border border-slate-200 rounded p-1 outline-none">
-                    {(categories || ['工作', '生活', '健康', '学习']).map(c => <option key={c} value={c}>{c}</option>)}
+                    {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                 </select>
             </div>
             <div className="flex justify-end gap-2">
@@ -204,6 +228,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
         onDrop={handleDrop} 
         className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 cursor-grab active:cursor-grabbing 
         ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'}
+        ${highlightStyle}
         `}
     >
         {dropPosition === 'top' && (
@@ -222,7 +247,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
                     <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                         {task.title}
                     </p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${getCategoryStyle(task.category)}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${categoryStyle}`}>
                         {task.category}
                     </span>
                  </div>
@@ -233,12 +258,18 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
              )}
              {showWarning && <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 animate-pulse" title="时间冲突" />}
           </div>
-          {format !== 'timeline' && (
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${getCategoryStyle(task.category)}`}>{task.category}</span>
-                {showTime && task.time && <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono bg-slate-50 px-1 rounded"><Clock size={8} /> {task.time}</span>}
-              </div>
-          )}
+          
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {format !== 'timeline' && (
+               <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${categoryStyle}`}>{task.category}</span>
+            )}
+            {task.priority && priorityConfig.label && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold border ${priorityConfig.color}`}>
+                    {priorityConfig.label}
+                </span>
+            )}
+            {format !== 'timeline' && showTime && task.time && <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono bg-slate-50 px-1 rounded"><Clock size={8} /> {task.time}</span>}
+          </div>
         </div>
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all bg-white/80 rounded-lg backdrop-blur-sm">
             <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className="text-slate-400 hover:text-violet-500 p-1" title="编辑"><Edit3 size={12} /></button>
@@ -428,11 +459,12 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
     );
 };
 
-// ... (AddTaskModal, AuthModal, DayPreviewModal logic remains mostly same, DayPreviewModal enhanced for editing)
 const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, categories, setCategories }) => {
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('工作');
+  const [category, setCategory] = useState(categories[0]?.name || '工作');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryColor, setCustomCategoryColor] = useState(CATEGORY_COLORS[0].value);
+  const [priority, setPriority] = useState('not_urgent_not_important');
   const [time, setTime] = useState('');
   const inputRef = useRef(null);
 
@@ -440,8 +472,10 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
     if (isOpen) {
       setTitle('');
       setTime(defaultTime || '');
-      setCategory(categories[0] || '工作');
+      setCategory(categories[0]?.name || '工作');
+      setPriority('not_urgent_not_important');
       setIsCustomCategory(false);
+      setCustomCategoryColor(CATEGORY_COLORS[0].value);
       if(inputRef.current) setTimeout(() => inputRef.current.focus(), 50);
     }
   }, [isOpen, defaultTime, categories]);
@@ -451,19 +485,26 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
+    
     let finalCategory = category;
+    
     if (isCustomCategory && category.trim()) {
         finalCategory = category.trim();
-        if (!categories.includes(finalCategory)) { setCategories([...categories, finalCategory]); }
-    } else if (isCustomCategory && !category.trim()) { finalCategory = 'Uncategorized'; }
-    onAdd({ title, category: finalCategory, time, date: defaultDate });
+        // Check if category exists
+        const exists = categories.find(c => c.name === finalCategory);
+        if (!exists) {
+            setCategories([...categories, { name: finalCategory, color: customCategoryColor }]);
+        }
+    }
+
+    onAdd({ title, category: finalCategory, time, date: defaultDate, priority });
     onClose();
   };
 
   const deleteCategory = () => {
       if (confirm(`确定要删除类别 "${category}" 吗?`)) {
-          setCategories(categories.filter(c => c !== category));
-          setCategory(categories[0] || '');
+          setCategories(categories.filter(c => c.name !== category));
+          setCategory(categories[0]?.name || '');
       }
   };
 
@@ -479,31 +520,65 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
             <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">内容</label>
             <input ref={inputRef} type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:border-violet-500 outline-none" placeholder="需要做什么？"/>
           </div>
+          
           <div className="grid grid-cols-2 gap-4">
+             {/* Category Section */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">类别</label>
               <div className="flex gap-2">
                   {isCustomCategory ? (
-                    <div className="flex-1 relative">
-                      <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="新类别" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500" autoFocus/>
-                      <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><X size={14}/></button>
+                    <div className="flex-1 flex flex-col gap-2">
+                      <div className="relative">
+                          <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="新类别" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pr-8 text-sm outline-none focus:border-violet-500" autoFocus/>
+                          <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><X size={14}/></button>
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                          {CATEGORY_COLORS.map((col) => (
+                              <button 
+                                key={col.id} 
+                                type="button" 
+                                onClick={() => setCustomCategoryColor(col.value)}
+                                className={`w-4 h-4 rounded-full border ${col.value.split(' ')[0]} ${customCategoryColor === col.value ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`}
+                              />
+                          ))}
+                      </div>
                     </div>
                   ) : (
-                     <div className="flex gap-2 w-full items-center">
+                     <div className="flex gap-2 w-full items-start">
                         <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500 appearance-none">
-                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                         </select>
-                        <button type="button" onClick={deleteCategory} className="p-3 text-slate-400 hover:text-red-500" title="删除当前类别"><Trash2 size={16}/></button>
+                        {/* <button type="button" onClick={deleteCategory} className="p-3 text-slate-400 hover:text-red-500" title="删除当前类别"><Trash2 size={16}/></button> */}
                         <button type="button" onClick={() => { setIsCustomCategory(true); setCategory(''); }} className="p-3 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded-xl"><Plus size={18}/></button>
                      </div>
                   )}
               </div>
             </div>
+
+            {/* Time Section */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">时间</label>
               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500"/>
             </div>
           </div>
+
+          {/* Priority Section */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">优先级 (四象限)</label>
+            <div className="grid grid-cols-2 gap-2">
+                {Object.entries(PRIORITIES).map(([key, config]) => (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => setPriority(key)}
+                        className={`text-xs p-2 rounded-lg border transition-all text-center ${priority === key ? config.color + ' ring-2 ring-offset-1 ring-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        {config.label}
+                    </button>
+                ))}
+            </div>
+          </div>
+
           <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg">添加任务</button>
         </form>
       </div>
@@ -620,7 +695,7 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, 
                                                 onChange={e => setEditCategory(e.target.value)}
                                                 className="flex-1 text-xs bg-white border border-slate-200 rounded p-1 outline-none"
                                             >
-                                                 {(categories || ['工作', '生活', '健康', '学习']).map(c => <option key={c} value={c}>{c}</option>)}
+                                                 {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                             </select>
                                             <button onClick={saveEdit} className="p-1.5 bg-violet-500 text-white rounded hover:bg-violet-600"><Save size={12}/></button>
                                         </div>
@@ -1039,12 +1114,12 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                <p className="text-slate-500 font-bold text-lg">{currentDate.toLocaleDateString('default', {day: 'numeric', month: 'long'})}</p>
             </div>
 
-            <div className="flex items-center gap-2">
-                <div className="relative">
+            <div className="flex items-center gap-4">
+                <div className="flex gap-2 relative">
                    {/* Clone Yesterday Button */}
                    <button 
                        onClick={() => onCloneYesterday(dateStr)} 
-                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap mr-2"
+                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap"
                        title="Copy tasks from yesterday"
                    >
                        <Copy size={14}/> Yesterday
@@ -1053,7 +1128,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                    {/* Clone From Button */}
                    <button 
                         onClick={() => setClonePickerOpen(!clonePickerOpen)} 
-                        className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap mr-2"
+                        className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap"
                         title="Copy tasks from a specific date"
                    >
                        <CalendarDays size={14}/> From...
@@ -1348,7 +1423,13 @@ export default function App() {
   const [selectedTimeForAdd, setSelectedTimeForAdd] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
-  const [categories, setCategories] = useState(['工作', '生活', '健康', '学习']);
+  // Updated: categories now store objects {name, color}
+  const [categories, setCategories] = useState([
+      { name: '工作', color: 'bg-blue-100 text-blue-600 border-blue-200' },
+      { name: '生活', color: 'bg-emerald-100 text-emerald-600 border-emerald-200' },
+      { name: '健康', color: 'bg-orange-100 text-orange-600 border-orange-200' },
+      { name: '学习', color: 'bg-violet-100 text-violet-600 border-violet-200' }
+  ]);
   const [tasks, setTasks] = useState([]);
   const [startYearDate, setStartYearDate] = useState(new Date().getFullYear() + '-01-01');
   const [wealthBalances, setWealthBalances] = useState({ commitment: 0 });
@@ -1371,7 +1452,15 @@ export default function App() {
       if (user) {
           const unsubs = [];
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), d => d.exists() && setTasks(d.data().list || []), () => {}));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => d.exists() && setCategories(d.data().list || ['工作', '生活', '健康', '学习']), () => {}));
+          // Ensure categories are loaded and formatted correctly
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => {
+              if (d.exists()) {
+                  const list = d.data().list || [];
+                  // Migration check: if strings, convert to objects
+                  const formatted = list.map(c => typeof c === 'string' ? { name: c, color: 'bg-slate-100 text-slate-600 border-slate-200' } : c);
+                  setCategories(formatted);
+              }
+          }, () => {}));
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'habits'), d => d.exists() && setHabits(d.data().list || []), () => {}));
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth_v2'), d => {
               if(d.exists()) { 
@@ -1408,7 +1497,14 @@ export default function App() {
   const loadLocalStorage = () => {
       try {
           const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
-          const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
+          
+          const c = localStorage.getItem('planner_categories'); 
+          if(c) {
+              const list = JSON.parse(c).list || [];
+              const formatted = list.map(item => typeof item === 'string' ? { name: item, color: 'bg-slate-100 text-slate-600 border-slate-200' } : item);
+              setCategories(formatted);
+          }
+          
           const h = localStorage.getItem('planner_habits'); if(h) setHabits(JSON.parse(h).list || []);
           const w = localStorage.getItem('planner_wealth_v2'); if(w) { const d = JSON.parse(w); setWealthBalances(d.balances || {}); setWealthTransactions(d.transactions || []); if(d.config) setWealthConfig(d.config); }
           const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || { daily: {}, cycle: {}, yearly: {} });
@@ -1477,6 +1573,7 @@ export default function App() {
 
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
 
+  // categoryColors is kept for backward compatibility if needed, but primary source is now categories state
   const catColors = {'工作': 'bg-blue-100 text-blue-600', '生活': 'bg-emerald-100 text-emerald-600', '健康': 'bg-orange-100 text-orange-600', '学习': 'bg-violet-100 text-violet-600', 'default': 'bg-slate-100 text-slate-600'};
 
   return (
