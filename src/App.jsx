@@ -8,7 +8,8 @@ import {
   Square, LogIn, LogOut, User, AlertTriangle, Briefcase, Heart, Coffee, Book,
   Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
   Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
-  CalendarDays, ChevronDown
+  CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
+  CheckCircle2, Circle, Gift
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -107,11 +108,11 @@ const HorizontalBarChart = ({ data }) => {
   );
 };
 
-const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors, showWarning, categories }) => {
+const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors, showWarning, categories, showTime = true, format = 'standard' }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editCategory, setEditCategory] = useState(task.category);
-  const [dropPosition, setDropPosition] = useState(null); // 'top' or 'bottom' or null
+  const [dropPosition, setDropPosition] = useState(null); 
   const cardRef = useRef(null);
   
   const getCategoryStyle = (cat) => categoryColors[cat] || 'bg-slate-100 text-slate-600 border-slate-200';
@@ -201,13 +202,23 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
         </button>
         <div className="flex-1 min-w-0" onDoubleClick={() => setIsEditing(true)}>
           <div className="flex justify-between items-start">
-             <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{task.title}</p>
+             {format === 'timeline' ? (
+                 <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    {task.title} <span className="text-slate-400 font-normal"> - {task.category}</span>
+                 </p>
+             ) : (
+                 <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    {task.title}
+                 </p>
+             )}
              {showWarning && <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 animate-pulse" title="时间冲突" />}
           </div>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${getCategoryStyle(task.category)}`}>{task.category}</span>
-            {task.time && <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono bg-slate-50 px-1 rounded"><Clock size={8} /> {task.time}</span>}
-          </div>
+          {format !== 'timeline' && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${getCategoryStyle(task.category)}`}>{task.category}</span>
+                {showTime && task.time && <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono bg-slate-50 px-1 rounded"><Clock size={8} /> {task.time}</span>}
+              </div>
+          )}
         </div>
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all bg-white/80 rounded-lg backdrop-blur-sm">
             <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className="text-slate-400 hover:text-violet-500 p-1" title="编辑"><Edit3 size={12} /></button>
@@ -222,6 +233,182 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, categoryColors
   );
 };
 
+const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    
+    // Generate all days in the current month
+    const daysInMonth = [];
+    const date = new Date(year, month, 1);
+    while (date.getMonth() === month) {
+        daysInMonth.push(new Date(date));
+        date.setDate(date.getDate() + 1);
+    }
+    
+    const [newHabit, setNewHabit] = useState('');
+    const [newHabitTarget, setNewHabitTarget] = useState(daysInMonth.length);
+
+    const toggleHabit = (habitId, dateStr) => {
+        const habit = habits.find(h => h.id === habitId);
+        if (!habit) return;
+        const isCompleted = habit.completed?.includes(dateStr);
+        let newCompleted = [...(habit.completed || [])];
+        
+        if (isCompleted) {
+            newCompleted = newCompleted.filter(d => d !== dateStr);
+        } else {
+            newCompleted.push(dateStr);
+        }
+        onUpdate(habitId, { completed: newCompleted });
+    };
+
+    const handleUpdateField = (id, field, value) => {
+        onUpdate(id, { [field]: value });
+    };
+
+    const handleAdd = (e) => {
+        e.preventDefault();
+        if(!newHabit.trim()) return;
+        onAdd({ 
+            name: newHabit.trim(), 
+            target: newHabitTarget || daysInMonth.length,
+            reward: ''
+        });
+        setNewHabit('');
+    };
+
+    // Filter completions for current month to calculate progress correctly
+    const getCurrentMonthCompletedCount = (completedDates) => {
+        const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+        return (completedDates || []).filter(d => d.startsWith(prefix)).length;
+    };
+
+    return (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 overflow-hidden">
+            <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-bold text-slate-800 flex items-center gap-2"><CheckCircle2 className="text-emerald-500"/> Habit Tracker ({today.toLocaleString('default', { month: 'long' })})</h3>
+            </div>
+            
+            <div className="overflow-x-auto custom-scrollbar pb-4">
+                <table className="w-full min-w-[800px] border-collapse">
+                    <thead>
+                        <tr className="border-b border-slate-100">
+                            <th className="text-left text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[150px] sticky left-0 bg-white z-20">习惯养成</th>
+                            <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[80px]">目标</th>
+                            <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[60px]">完成</th>
+                            <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[100px]">进度</th>
+                            {daysInMonth.map((d, i) => (
+                                <th key={i} className="text-center pb-4 px-1 min-w-[40px]">
+                                    <div className={`flex flex-col items-center ${getLocalDateString(d) === getLocalDateString(today) ? 'text-violet-600 bg-violet-50 rounded-lg p-1' : 'text-slate-400'}`}>
+                                        <span className="text-[9px] font-bold uppercase">{d.toLocaleDateString('default', {weekday: 'narrow'})}</span>
+                                        <span className="text-xs font-bold">{d.getDate()}</span>
+                                    </div>
+                                </th>
+                            ))}
+                            <th className="text-left text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-4 min-w-[150px]">完成奖励</th>
+                            <th className="w-10 pb-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                        {habits.map(habit => {
+                            const completedCount = getCurrentMonthCompletedCount(habit.completed);
+                            const target = habit.target || daysInMonth.length;
+                            const progress = Math.min(100, Math.round((completedCount / target) * 100));
+
+                            return (
+                                <tr key={habit.id} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+                                    <td className="py-3 px-2 font-bold text-slate-700 sticky left-0 bg-white group-hover:bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{habit.name}</td>
+                                    
+                                    {/* Target Input */}
+                                    <td className="py-3 px-2 text-center">
+                                        <input 
+                                            type="number" 
+                                            value={habit.target || daysInMonth.length} 
+                                            onChange={(e) => handleUpdateField(habit.id, 'target', parseInt(e.target.value))}
+                                            className="w-12 text-center bg-transparent border-b border-dashed border-slate-300 focus:border-violet-500 outline-none text-slate-600 font-medium"
+                                        />
+                                    </td>
+
+                                    {/* Completed Count */}
+                                    <td className="py-3 px-2 text-center font-bold text-emerald-600">{completedCount}</td>
+
+                                    {/* Progress Bar */}
+                                    <td className="py-3 px-2 text-center">
+                                        <div className="flex items-center gap-2 justify-center">
+                                            <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{width: `${progress}%`}}></div>
+                                            </div>
+                                            <span className="text-[10px] text-slate-400 font-bold">{progress}%</span>
+                                        </div>
+                                    </td>
+
+                                    {/* Date Checkboxes */}
+                                    {daysInMonth.map((d, i) => {
+                                        const dateStr = getLocalDateString(d);
+                                        const isDone = habit.completed?.includes(dateStr);
+                                        return (
+                                            <td key={i} className="text-center py-3 px-1">
+                                                <button 
+                                                    onClick={() => toggleHabit(habit.id, dateStr)}
+                                                    className={`w-5 h-5 rounded flex items-center justify-center transition-all mx-auto ${isDone ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white border border-slate-200 text-transparent hover:border-emerald-300'}`}
+                                                >
+                                                    <CheckSquare size={12} fill={isDone ? "currentColor" : "none"}/>
+                                                </button>
+                                            </td>
+                                        );
+                                    })}
+
+                                    {/* Reward Input */}
+                                    <td className="py-3 px-4">
+                                        <div className="flex items-center gap-2">
+                                            <Gift size={14} className={habit.reward ? "text-rose-400" : "text-slate-300"}/>
+                                            <input 
+                                                type="text" 
+                                                value={habit.reward || ''} 
+                                                onChange={(e) => handleUpdateField(habit.id, 'reward', e.target.value)}
+                                                placeholder="Set reward..."
+                                                className="w-full bg-transparent border-b border-transparent focus:border-slate-300 outline-none text-xs text-slate-600 placeholder-slate-300"
+                                            />
+                                        </div>
+                                    </td>
+
+                                    <td className="text-right py-3 px-2">
+                                        <button onClick={() => onDelete(habit.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {habits.length === 0 && (
+                            <tr><td colSpan={daysInMonth.length + 6} className="text-center text-slate-400 py-8 italic text-xs">Start building good habits today! Add one below.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <form onSubmit={handleAdd} className="mt-6 flex gap-3 border-t border-slate-50 pt-4">
+                <input 
+                    type="text" 
+                    value={newHabit} 
+                    onChange={e => setNewHabit(e.target.value)} 
+                    placeholder="New habit name..." 
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none text-sm focus:border-emerald-500 transition-all"
+                />
+                <input 
+                    type="number" 
+                    value={newHabitTarget}
+                    onChange={e => setNewHabitTarget(parseInt(e.target.value))}
+                    placeholder="Target days"
+                    className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none text-sm focus:border-emerald-500 transition-all text-center"
+                    title="Target Days"
+                />
+                <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg flex items-center gap-2"><Plus size={16}/> Add Habit</button>
+            </form>
+        </div>
+    );
+};
+
+// ... (AddTaskModal, AuthModal, DayPreviewModal logic remains mostly same, DayPreviewModal enhanced for editing)
 const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, categories, setCategories }) => {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('工作');
@@ -261,7 +448,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-white/50">
         <div className="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
           <h3 className="font-bold text-slate-800 flex items-center gap-2"><Zap size={16} className="text-violet-500" fill="currentColor"/> 新任务</h3>
@@ -356,10 +543,29 @@ const AuthModal = ({ isOpen, onClose }) => {
     );
 };
 
-const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle }) => {
+const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, onDelete, categories }) => {
     if (!isOpen) return null;
+    // Fix: Sort tasks by time for the preview modal
     const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
     
+    // Inline edit states
+    const [editingId, setEditingId] = useState(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editCategory, setEditCategory] = useState('');
+
+    const startEdit = (task) => {
+        setEditingId(task.id);
+        setEditTitle(task.title);
+        setEditCategory(task.category);
+    };
+
+    const saveEdit = () => {
+        if (editTitle.trim()) {
+            onUpdate(editingId, { title: editTitle, category: editCategory });
+        }
+        setEditingId(null);
+    };
+
     return (
         <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
@@ -375,12 +581,48 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle }) => {
                         <div className="text-center py-12 text-slate-400 italic">本日暂无安排</div>
                     ) : (
                         dayTasks.map(task => (
-                            <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <button onClick={() => onToggle(task.id)} className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${task.completed ? 'bg-violet-500 border-violet-500 text-white' : 'bg-white border-slate-300'}`}>
+                            <div key={task.id} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 group">
+                                <button onClick={() => onToggle(task.id)} className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-all flex-shrink-0 ${task.completed ? 'bg-violet-500 border-violet-500 text-white' : 'bg-white border-slate-300'}`}>
                                     <CheckSquare size={12} fill={task.completed ? "currentColor" : "none"}/>
                                 </button>
-                                <span className={`flex-1 text-sm font-medium ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{task.title}</span>
-                                {task.time && <span className="text-xs text-slate-400 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100">{task.time}</span>}
+                                
+                                {editingId === task.id ? (
+                                    <div className="flex-1 space-y-2">
+                                        <input 
+                                            value={editTitle}
+                                            onChange={e => setEditTitle(e.target.value)}
+                                            className="w-full bg-white border border-slate-200 rounded p-1.5 text-sm outline-none focus:border-violet-500"
+                                            autoFocus
+                                        />
+                                        <div className="flex gap-2">
+                                            <select 
+                                                value={editCategory}
+                                                onChange={e => setEditCategory(e.target.value)}
+                                                className="flex-1 text-xs bg-white border border-slate-200 rounded p-1 outline-none"
+                                            >
+                                                 {(categories || ['工作', '生活', '健康', '学习']).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                            <button onClick={saveEdit} className="p-1.5 bg-violet-500 text-white rounded hover:bg-violet-600"><Save size={12}/></button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between">
+                                            <span className={`text-sm font-medium break-words ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{task.title}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-slate-100 text-slate-500">{task.category}</span>
+                                            {task.time && <span className="text-xs text-slate-400 font-mono">{task.time}</span>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {editingId !== task.id && (
+                                    <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => startEdit(task)} className="p-1 text-slate-400 hover:text-violet-500"><Edit3 size={14}/></button>
+                                        <button onClick={() => onDelete(task.id)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
+                                    </div>
+                                )}
                             </div>
                         ))
                     )}
@@ -392,11 +634,14 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle }) => {
 
 // --- Views ---
 
-const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories }) => {
+const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit }) => {
     const todayStr = getLocalDateString(new Date());
     const todaysTasks = sortTasksByTime(tasks.filter(t => t.date === todayStr));
     const catStats = {};
     todaysTasks.forEach(t => { if(!catStats[t.category]) catStats[t.category] = { total: 0, completed: 0 }; catStats[t.category].total++; if(t.completed) catStats[t.category].completed++; });
+
+    // Fixed height layout for Focus and Analysis alignment
+    const containerHeight = "h-[28rem]";
 
     return (
       <div className="max-w-5xl mx-auto space-y-6 animate-fade-in pb-24">
@@ -405,18 +650,21 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
             <p className="text-slate-500 font-medium">Welcome back, <span className="text-violet-600">{user?.email?.split('@')[0] || 'Commander'}</span></p>
         </header>
          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 min-h-[400px]">
-                <div className="flex justify-between items-center mb-6">
+            {/* Today's Focus - Scrollable, Fixed Height */}
+            <div className={`md:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col overflow-hidden ${containerHeight}`}>
+                <div className="flex justify-between items-center p-6 pb-2 shrink-0">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><Target className="text-rose-500"/> Today's Focus</h3>
                     <button onClick={() => openAddModal(todayStr)} className="bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-700"><Plus size={16}/></button>
                 </div>
-                <div className="space-y-2">
+                <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar space-y-2">
                     {todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10">No tasks for today.</div> : todaysTasks.map(task => (
                         <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories}/>
                     ))}
                 </div>
             </div>
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+            
+            {/* Analysis - Fixed Height to match Focus */}
+            <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-6 overflow-y-auto custom-scrollbar ${containerHeight}`}>
                 <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><PieChart className="text-blue-500"/> Analysis</h3>
                 <div className="space-y-4">
                     {Object.entries(catStats).map(([cat, stat]) => (
@@ -425,11 +673,15 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
                 </div>
             </div>
         </div>
+
+        {/* Habit Tracker Section */}
+        <HabitTracker habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} />
       </div>
     );
 };
 
 const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, transactions = [], setTransactions }) => {
+    // ... (Keep existing WealthJarView logic)
     const [income, setIncome] = useState('');
     const [expenseForm, setExpenseForm] = useState({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
     const [isCustomCat, setIsCustomCat] = useState(false);
@@ -539,15 +791,12 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     }).filter(d => d.value !== 0);
 
     const savingsPlusInvestment = getSavingsTotal();
-
+    
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-24">
-            <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
+             <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
                 <div className="relative z-10 flex justify-between items-end">
-                    <div>
-                        <div className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">年度储蓄目标 (储蓄+投资)</div>
-                        <div className="text-4xl font-black">RM {savingsPlusInvestment.toLocaleString()} <span className="text-slate-500 text-2xl font-bold"> / {wealthConfig.yearlyTarget.toLocaleString()}</span></div>
-                    </div>
+                    <div><div className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Yearly Target</div><div className="text-4xl font-black">RM {savingsPlusInvestment.toLocaleString()} <span className="text-slate-500 text-2xl font-bold"> / {wealthConfig.yearlyTarget.toLocaleString()}</span></div></div>
                     <button onClick={() => { const n = prompt("New Target:", wealthConfig.yearlyTarget); if(n) setWealthConfig({...wealthConfig, yearlyTarget: parseFloat(n)}); }} className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold transition-all">Edit</button>
                 </div>
                 <div className="mt-6 w-full bg-white/10 rounded-full h-2"><div className="bg-emerald-400 h-2 rounded-full transition-all duration-700" style={{ width: `${Math.min(100, (savingsPlusInvestment / wealthConfig.yearlyTarget) * 100)}%` }}></div></div>
@@ -714,7 +963,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     );
 };
 
-const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask }) => {
+const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, onUpdate, onDelete, categories }) => {
     const year = currentDate.getFullYear(); const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
@@ -734,7 +983,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               if (!day) return <div key={i} className="bg-white"></div>;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               
-              // Sort tasks for calendar view
+              // Sort tasks for calendar view (Fix 2)
               const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
               const isToday = dateStr === getLocalDateString(new Date());
               return (
@@ -751,7 +1000,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
             })}
           </div>
         </div>
-        <DayPreviewModal isOpen={!!previewDate} onClose={() => setPreviewDate(null)} dateStr={previewDate} tasks={tasks} onToggle={toggleTask} />
+        <DayPreviewModal isOpen={!!previewDate} onClose={() => setPreviewDate(null)} dateStr={previewDate} tasks={tasks} onToggle={toggleTask} onUpdate={onUpdate} onDelete={onDelete} categories={categories} />
       </div>
     );
 };
@@ -759,16 +1008,46 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
 const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories, onCloneYesterday }) => {
     const hours = [...Array.from({length: 18}, (_, i) => i + 6), 0]; 
     const dateStr = getLocalDateString(currentDate);
+    const [clonePickerOpen, setClonePickerOpen] = useState(false);
     
     return (
       <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 bg-white/50 rounded-3xl border border-slate-100 shadow-sm">
         <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white rounded-t-3xl sticky top-0 z-10">
-            <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Timeline</h2><p className="text-slate-500 text-sm font-bold">{currentDate.toLocaleDateString('default', {weekday: 'long', month: 'long', day: 'numeric'})}</p></div>
+            {/* Removed "Timeline" Title */}
+            <div>
+               <h2 className="text-4xl font-black text-slate-800 tracking-tighter">{currentDate.toLocaleDateString('default', {weekday: 'long'})}</h2>
+               <p className="text-slate-500 font-bold text-lg">{currentDate.toLocaleDateString('default', {day: 'numeric', month: 'long'})}</p>
+            </div>
+
             <div className="flex items-center gap-2">
-                <button onClick={() => onCloneYesterday(dateStr)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs mr-2">
-                    <Copy size={14}/> Clone Yesterday
-                </button>
-                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl"><button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()-1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronLeft size={18}/></button><button onClick={() => setCurrentDate(new Date())} className="text-xs font-bold px-3 py-1.5 bg-white text-violet-600 rounded-lg shadow-sm">Today</button><button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()+1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronRight size={18}/></button></div>
+                <div className="relative">
+                   <button onClick={() => setClonePickerOpen(!clonePickerOpen)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs mr-2">
+                       <Copy size={14}/> Clone From...
+                   </button>
+                   {clonePickerOpen && (
+                       <input 
+                         type="date" 
+                         className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50"
+                         onChange={(e) => { 
+                             if(e.target.value) {
+                                 onCloneYesterday(dateStr, e.target.value); 
+                                 setClonePickerOpen(false);
+                             }
+                         }}
+                       />
+                   )}
+                </div>
+                
+                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
+                    <button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()-1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronLeft size={18}/></button>
+                    <input 
+                        type="date" 
+                        value={dateStr}
+                        onChange={(e) => setCurrentDate(new Date(e.target.value))}
+                        className="bg-transparent font-bold text-xs px-2 outline-none text-slate-600 w-24 text-center cursor-pointer"
+                    />
+                    <button onClick={() => setCurrentDate(new Date(new Date().setDate(currentDate.getDate()+1)))} className="p-2 hover:bg-white rounded-lg transition text-slate-400 shadow-sm"><ChevronRight size={18}/></button>
+                </div>
             </div>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
@@ -783,9 +1062,9 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                     <div className="w-20 flex-shrink-0 pt-2 border-r border-slate-100 mr-2"><span className="text-sm font-black text-slate-400">{displayHour}</span></div>
                     <div className="flex-1 min-h-[60px] flex flex-col justify-center">
                       <div className="w-full space-y-2">
-                          {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} showWarning={false} />))}
+                          {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} showWarning={false} showTime={false} format="timeline" />))}
                           {hourTasks.length < 5 && (
-                              <button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-sm font-medium hover:text-violet-500 flex items-center gap-2 w-full transition-all py-2 h-full"><Plus size={16} className="opacity-50"/> {hourTasks.length === 0 ? "Add focus" : "Add more..."}</button>
+                              <button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-base font-medium hover:text-violet-500 flex items-center gap-2 w-full transition-all py-2 h-full"><Plus size={16} className="opacity-50"/> {hourTasks.length === 0 ? "Add focus" : "Add more..."}</button>
                           )}
                       </div>
                     </div>
@@ -799,13 +1078,15 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
 };
 
 // --- FIXED: Review Components extracted to top level & Updated with Textarea and Checkbox ---
-const ReviewInput = ({ value, onChange, placeholder, color, showCheckbox }) => {
+const ReviewInput = ({ value, onChange, placeholder, color, showCheckbox, disabled }) => {
     // Handle backward compatibility where value might be just a string
     const text = (value && typeof value === 'object') ? value.text : value;
     const checked = (value && typeof value === 'object') ? value.checked : false;
 
+    if (disabled) return null;
+
     return (
-        <div className="flex items-start gap-3 mb-2 group">
+        <div className="flex items-start gap-3 mb-2 group animate-in fade-in slide-in-from-top-2 duration-300">
            {showCheckbox && (
                <button
                  onClick={() => onChange({ text: text || '', checked: !checked })}
@@ -826,14 +1107,42 @@ const ReviewInput = ({ value, onChange, placeholder, color, showCheckbox }) => {
     );
 };
 
-const ReviewSection = ({ title, icon, color, data, field, onChange, count = 3, showCheckbox = false }) => (
-    <div className={`p-5 rounded-3xl border bg-white border-slate-100 shadow-sm`}>
-        <h4 className={`font-black text-${color}-500 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs`}>{icon} {title}</h4>
-        {Array.from({ length: count }).map((_, i) => (
-            <ReviewInput key={i} value={data[i]} onChange={(val) => onChange(field, i, val)} placeholder={`Item ${i+1}`} color={color} showCheckbox={showCheckbox} />
-        ))}
-    </div>
-);
+const ReviewSection = ({ title, icon, color, data, field, onChange, count = 3, showCheckbox = false, sequentialUnlock = false }) => {
+    return (
+        <div className={`p-5 rounded-3xl border bg-white border-slate-100 shadow-sm`}>
+            <h4 className={`font-black text-${color}-500 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs`}>{icon} {title}</h4>
+            {Array.from({ length: count }).map((_, i) => {
+                // Sequential unlock logic:
+                // Item 0, 1, 2 (first 3) always shown
+                // Item 3 (4th) shown if items 0, 1, 2 are all checked
+                // Item 4 (5th) shown if item 3 is checked
+                let isVisible = true;
+                if (sequentialUnlock && i >= 3) {
+                    if (i === 3) {
+                        // Show 4th if first 3 are checked
+                        const firstThreeChecked = data[0]?.checked && data[1]?.checked && data[2]?.checked;
+                        if (!firstThreeChecked) isVisible = false;
+                    } else if (i > 3) {
+                        // Show subsequent items if previous one is checked
+                        if (!data[i-1]?.checked) isVisible = false;
+                    }
+                }
+
+                return (
+                    <ReviewInput 
+                        key={i} 
+                        value={data[i]} 
+                        onChange={(val) => onChange(field, i, val)} 
+                        placeholder={`Item ${i+1}`} 
+                        color={color} 
+                        showCheckbox={showCheckbox}
+                        disabled={!isVisible} 
+                    />
+                );
+            })}
+        </div>
+    );
+};
 
 const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
     const [activeTab, setActiveTab] = useState('daily');
@@ -846,6 +1155,7 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
     // Calculate global cycle ID: Month * 3 + subCycle + 1 (simplified mapping for UI)
     const activeGlobalCycleId = (selectedMonth * 3) + subCycle + 1;
     const cycleData = reviews?.cycle?.[activeGlobalCycleId] || { plan: [], do: [], adjust: [], check: [], aar: [] };
+    const yearlyGoals = reviews?.yearly || { education: [], family: [], financial: [], business: [], health: [], breakthrough: [], experience: [] };
 
     // Date navigation helpers
     const changeDate = (days) => {
@@ -870,27 +1180,29 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
 
     const handleDailyChange = (field, idx, val) => {
         const list = [...(dailyData[field] || [])];
-        // Ensure list is long enough to avoid holes
-        while (list.length <= idx) {
-            list.push({ text: '', checked: false });
-        }
+        while (list.length <= idx) { list.push({ text: '', checked: false }); }
         list[idx] = val;
-        // Sanitize list to remove any accidental undefineds
         const sanitizedList = list.map(item => item === undefined ? { text: '', checked: false } : item);
-        
         const newData = { ...reviews, daily: { ...(reviews.daily || {}), [selectedDate]: { ...dailyData, [field]: sanitizedList } } };
         onUpdateReview(newData);
     };
 
     const handleCycleChange = (field, idx, val) => {
         const list = [...(cycleData[field] || [])];
-        while (list.length <= idx) {
-            list.push({ text: '', checked: false });
-        }
+        while (list.length <= idx) { list.push({ text: '', checked: false }); }
         list[idx] = val;
         const sanitizedList = list.map(item => item === undefined ? { text: '', checked: false } : item);
-
         const newData = { ...reviews, cycle: { ...(reviews.cycle || {}), [activeGlobalCycleId]: { ...cycleData, [field]: sanitizedList } } };
+        onUpdateReview(newData);
+    };
+
+    const handleYearlyChange = (field, idx, val) => {
+        const list = [...(yearlyGoals[field] || [])];
+        // Allow up to 10 items to support potential expansion, logic handles visibility
+        while (list.length <= idx) { list.push({ text: '', checked: false }); }
+        list[idx] = val;
+        const sanitizedList = list.map(item => item === undefined ? { text: '', checked: false } : item);
+        const newData = { ...reviews, yearly: { ...yearlyGoals, [field]: sanitizedList } };
         onUpdateReview(newData);
     };
 
@@ -899,7 +1211,7 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
             <header className="flex justify-between items-end">
                 <div><h2 className="text-3xl font-black text-slate-800">Review</h2><p className="text-slate-500 font-medium">Reflect and Evolve</p></div>
                 <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
-                    {['daily', 'cycle'].map(t => (
+                    {['daily', 'cycle', 'yearly'].map(t => (
                         <button key={t} onClick={() => setActiveTab(t)} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all capitalize ${activeTab === t ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>{t} Review</button>
                     ))}
                 </div>
@@ -919,7 +1231,7 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
                         <ReviewSection title="Stop (停止)" icon={<StopCircle size={16}/>} color="rose" data={dailyData.stop || []} field="stop" onChange={handleDailyChange} count={3}/>
                     </div>
                 </div>
-            ) : (
+            ) : activeTab === 'cycle' ? (
                 <div className="space-y-6">
                     <div className="flex flex-col gap-4">
                         <div className="flex justify-between items-start bg-white p-4 rounded-3xl border border-slate-100">
@@ -971,144 +1283,19 @@ const ReviewView = ({ reviews, onUpdateReview, startYearDate }) => {
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
-    );
-};
-
-// --- RESTORED: CycleTaskRow & CycleTrackerView ---
-const CycleTaskRow = memo(({ task, cycleId, onUpdate, onDelete }) => {
-    const [localText, setLocalText] = useState(task.text);
-    const [localPlan, setLocalPlan] = useState(task.plan);
-    const [localFeedback, setLocalFeedback] = useState(task.feedback);
-
-    useEffect(() => {
-        setLocalText(task.text);
-        setLocalPlan(task.plan);
-        setLocalFeedback(task.feedback);
-    }, [task.id, task.text, task.plan, task.feedback]);
-
-    const handleBlur = (field, val) => {
-        if (task[field] !== val) {
-            onUpdate(cycleId, task.id, field, val);
-        }
-    };
-
-    return (
-        <div className="grid grid-cols-10 gap-4 items-center group bg-slate-50/50 p-2 rounded-2xl border border-transparent hover:border-violet-100 transition-all">
-            <div className="col-span-4 flex items-center gap-2">
-                <button onClick={() => onUpdate(cycleId, task.id, 'done', !task.done)} className={`w-5 h-5 rounded-lg border flex-shrink-0 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
-                    <CheckSquare size={12} fill={task.done ? "currentColor" : "none"}/>
-                </button>
-                <input 
-                    type="text" 
-                    value={localText} 
-                    onChange={e => setLocalText(e.target.value)}
-                    onBlur={e => handleBlur('text', e.target.value)}
-                    placeholder="Task..."
-                    className={`flex-1 bg-transparent outline-none text-sm transition-all ${task.done ? 'text-slate-400 line-through' : 'text-slate-700 font-bold'}`} 
-                />
-                <button onClick={() => onDelete(cycleId, task.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
-                    <Trash2 size={14}/>
-                </button>
-            </div>
-            <div className="col-span-3">
-                <input 
-                    type="text" 
-                    placeholder="Strategy..." 
-                    value={localPlan || ''} 
-                    onChange={e => setLocalPlan(e.target.value)}
-                    onBlur={e => handleBlur('plan', e.target.value)}
-                    className="w-full bg-white/50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-200 focus:bg-white transition-all" 
-                />
-            </div>
-            <div className="col-span-3">
-                <input 
-                    type="text" 
-                    placeholder="Feedback..." 
-                    value={localFeedback || ''} 
-                    onChange={e => setLocalFeedback(e.target.value)}
-                    onBlur={e => handleBlur('feedback', e.target.value)}
-                    className="w-full bg-white/50 border border-slate-100 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-violet-200 focus:bg-white transition-all" 
-                />
-            </div>
-        </div>
-    );
-});
-
-const CycleTrackerView = ({ data, setData, startYearDate, setStartYearDate }) => {
-    const totalTasks = data.reduce((acc, c) => acc + (c.tasks?.length || 0), 0);
-    const completedTasks = data.reduce((acc, c) => acc + (c.tasks?.filter(t => t.done).length || 0), 0);
-    const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-    
-    const addTask = (cycleId) => {
-        setData(prev => prev.map(cycle => {
-            if (cycle.id !== cycleId) return cycle;
-            if ((cycle.tasks || []).length >= 5) { alert("Max 5 tasks per cycle!"); return cycle; }
-            return { ...cycle, tasks: [...(cycle.tasks || []), { id: generateId(), text: '', done: false, plan: '', feedback: '' }] };
-        }));
-    };
-
-    const updateTask = (cycleId, taskId, field, val) => {
-        setData(prev => prev.map(c => c.id === cycleId ? { ...c, tasks: (c.tasks || []).map(t => t.id === taskId ? { ...t, [field]: val } : t) } : c));
-    };
-
-    const deleteTask = (cycleId, taskId) => {
-        setData(prev => prev.map(c => c.id === cycleId ? { ...c, tasks: (c.tasks || []).filter(t => t.id !== taskId) } : c));
-    };
-
-    return (
-        <div className="h-full flex flex-col animate-fade-in pb-20">
-            <div className="flex justify-between items-end mb-6 sticky top-0 bg-slate-50/90 backdrop-blur-md z-20 py-2 border-b border-slate-200">
-                <div>
-                    <h2 className="text-3xl font-black text-slate-800 flex items-center gap-3"><Activity className="text-violet-600" /> 36 x 10 Cycle Tracker</h2>
-                    <div className="flex items-center gap-4 mt-2">
-                        <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</span>
-                            <input type="date" value={startYearDate} onChange={e => setStartYearDate(e.target.value)} className="bg-transparent font-bold outline-none text-xs text-slate-700"/>
-                        </div>
-                    </div>
-                </div>
-                <div className="w-1/3">
-                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><span>Progress</span><span className="text-violet-600">{progress}%</span></div>
-                    <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                        <div className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600 transition-all duration-1000" style={{width: `${progress}%`}}></div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                <div className="grid grid-cols-12 gap-4 px-6 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <div className="col-span-2 text-center">Cycle / Date</div>
-                    <div className="col-span-4">Task</div>
-                    <div className="col-span-3">Strategy</div>
-                    <div className="col-span-3">Feedback</div>
-                </div>
-
+            ) : (
                 <div className="space-y-6">
-                    {data.map(cycle => (
-                        <div key={cycle.id} className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all">
-                            <div className="grid grid-cols-12 gap-6">
-                                <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-50 py-2">
-                                    <div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center font-black text-xl mb-1 shadow-inner">{cycle.id}</div>
-                                    <div className="text-center text-[10px] font-bold text-slate-400">{cycle.dateRange}</div>
-                                    <button onClick={() => addTask(cycle.id)} className="mt-4 p-2 bg-slate-50 text-violet-600 rounded-xl hover:bg-violet-600 hover:text-white transition-all shadow-sm"><Plus size={16}/></button>
-                                </div>
-
-                                <div className="col-span-10 space-y-3">
-                                    {cycle.tasks && cycle.tasks.length > 0 ? (
-                                        cycle.tasks.map(task => (
-                                            <CycleTaskRow key={task.id} task={task} cycleId={cycle.id} onUpdate={updateTask} onDelete={deleteTask} />
-                                        ))
-                                    ) : (
-                                        <div className="h-full flex items-center justify-center text-slate-300 text-xs italic font-medium py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">No tasks this cycle. Start your 10-day challenge!</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                         <ReviewSection title="Education (学习)" icon={<GraduationCap size={16}/>} color="blue" data={yearlyGoals.education || []} field="education" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                         <ReviewSection title="Family (家庭)" icon={<Users size={16}/>} color="rose" data={yearlyGoals.family || []} field="family" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                         <ReviewSection title="Financial (财务)" icon={<DollarSign size={16}/>} color="emerald" data={yearlyGoals.financial || []} field="financial" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                         <ReviewSection title="Business (事业)" icon={<Briefcase size={16}/>} color="violet" data={yearlyGoals.business || []} field="business" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                         <ReviewSection title="Health (健康)" icon={<Heart size={16}/>} color="red" data={yearlyGoals.health || []} field="health" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                         <ReviewSection title="BreakThrough (突破)" icon={<TrendingUp size={16}/>} color="amber" data={yearlyGoals.breakthrough || []} field="breakthrough" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                         <ReviewSection title="Experience (体验)" icon={<Globe size={16}/>} color="cyan" data={yearlyGoals.experience || []} field="experience" onChange={handleYearlyChange} count={5} showCheckbox={true} sequentialUnlock={true}/>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
@@ -1126,13 +1313,15 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [categories, setCategories] = useState(['工作', '生活', '健康', '学习']);
   const [tasks, setTasks] = useState([]);
-  const [cyclesData, setCyclesData] = useState([]);
   const [startYearDate, setStartYearDate] = useState(new Date().getFullYear() + '-01-01');
   const [wealthBalances, setWealthBalances] = useState({ commitment: 0 });
   const [wealthTransactions, setWealthTransactions] = useState([]);
   const [wealthConfig, setWealthConfig] = useState({ yearlyTarget: 100000, commitment: 2000, showCommitment: true, jars: [] });
-  const [reviews, setReviews] = useState({ daily: {}, cycle: {} }); // Renamed 'weekly' to 'cycle' in state
+  const [reviews, setReviews] = useState({ daily: {}, cycle: {}, yearly: {} });
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // New: Habit Tracker State
+  const [habits, setHabits] = useState([]);
 
   useEffect(() => { 
     const initAuth = async () => { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); } };
@@ -1146,9 +1335,7 @@ export default function App() {
           const unsubs = [];
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), d => d.exists() && setTasks(d.data().list || []), () => {}));
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => d.exists() && setCategories(d.data().list || ['工作', '生活', '健康', '学习']), () => {}));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'cycles'), d => {
-              if(d.exists()) { setCyclesData(d.data().list || []); setStartYearDate(d.data().startDate || new Date().getFullYear() + '-01-01'); } else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
-          }, () => {}));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'habits'), d => d.exists() && setHabits(d.data().list || []), () => {}));
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth_v2'), d => {
               if(d.exists()) { 
                 const data = d.data(); 
@@ -1156,7 +1343,6 @@ export default function App() {
                 setWealthTransactions(data.transactions || []); 
                 if(data.config) setWealthConfig(data.config); 
               } else {
-                // Fallback to v1 data if v2 doesn't exist
                 getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'wealth')).then(v1 => {
                     if(v1.exists()) {
                         const oldData = v1.data();
@@ -1167,8 +1353,7 @@ export default function App() {
                 });
               }
           }, () => {}));
-          // New Review Listener
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'reviews'), d => d.exists() && setReviews(d.data() || { daily: {}, cycle: {} }), () => {}));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'reviews'), d => d.exists() && setReviews(d.data() || { daily: {}, cycle: {}, yearly: {} }), () => {}));
           
           setIsLoaded(true);
           return () => unsubs.forEach(u => u());
@@ -1179,7 +1364,7 @@ export default function App() {
   
   useEffect(() => { if(isLoaded) saveData('tasks', { list: tasks }); }, [tasks, isLoaded]);
   useEffect(() => { if(isLoaded) saveData('categories', { list: categories }); }, [categories, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('cycles', { list: cyclesData, startDate: startYearDate }); }, [cyclesData, startYearDate, isLoaded]);
+  useEffect(() => { if(isLoaded) saveData('habits', { list: habits }); }, [habits, isLoaded]);
   useEffect(() => { if(isLoaded) saveData('wealth_v2', { balances: wealthBalances, transactions: wealthTransactions, config: wealthConfig }); }, [wealthBalances, wealthTransactions, wealthConfig, isLoaded]);
   useEffect(() => { if(isLoaded) saveData('reviews', reviews); }, [reviews, isLoaded]);
 
@@ -1187,20 +1372,12 @@ export default function App() {
       try {
           const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
           const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
-          const cy = localStorage.getItem('planner_cycles'); if(cy) { const d = JSON.parse(cy); setCyclesData(d.list || []); setStartYearDate(d.startDate); } else { setCyclesData(generateInitialCycles(new Date().getFullYear() + '-01-01')); }
+          const h = localStorage.getItem('planner_habits'); if(h) setHabits(JSON.parse(h).list || []);
           const w = localStorage.getItem('planner_wealth_v2'); if(w) { const d = JSON.parse(w); setWealthBalances(d.balances || {}); setWealthTransactions(d.transactions || []); if(d.config) setWealthConfig(d.config); }
-          const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || { daily: {}, cycle: {} });
+          const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || { daily: {}, cycle: {}, yearly: {} });
           setIsLoaded(true);
       } catch(e) { console.error(e); }
   }
-  const generateInitialCycles = (startStr) => {
-      const cycles = []; const startDate = new Date(startStr);
-      for (let i = 0; i < 36; i++) {
-        const cs = new Date(startDate); cs.setDate(startDate.getDate() + (i * 10)); const ce = new Date(cs); ce.setDate(cs.getDate() + 9);
-        cycles.push({ id: i + 1, dateRange: `${cs.getMonth()+1}/${cs.getDate()} - ${ce.getMonth()+1}/${ce.getDate()}`, tasks: [] });
-      }
-      return cycles;
-  };
   
   const addTask = (newTask) => setTasks([...tasks, { id: Date.now(), completed: false, ...newTask }]);
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
@@ -1237,15 +1414,13 @@ export default function App() {
       }
   };
   
-  // Clone Function
-  const cloneYesterdayTasks = (targetDateStr) => {
-      const targetDate = new Date(targetDateStr);
-      const yesterday = new Date(targetDate);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = getLocalDateString(yesterday);
+  // Clone Function with Source Date
+  const cloneYesterdayTasks = (targetDateStr, sourceDateStr) => {
+      const sourceDate = sourceDateStr ? new Date(sourceDateStr) : new Date(new Date(targetDateStr).setDate(new Date(targetDateStr).getDate() - 1));
+      const realSourceStr = sourceDateStr || getLocalDateString(sourceDate);
       
-      const tasksToClone = tasks.filter(t => t.date === yesterdayStr);
-      if (tasksToClone.length === 0) { alert("Yesterday had no tasks to clone!"); return; }
+      const tasksToClone = tasks.filter(t => t.date === realSourceStr);
+      if (tasksToClone.length === 0) { alert(`No tasks found on ${realSourceStr} to clone!`); return; }
       
       const clonedTasks = tasksToClone.map(t => ({
           ...t,
@@ -1255,8 +1430,13 @@ export default function App() {
       }));
       
       setTasks(prev => [...prev, ...clonedTasks]);
-      alert(`Cloned ${clonedTasks.length} tasks from ${yesterdayStr} to ${targetDateStr}`);
+      // alert(`Cloned ${clonedTasks.length} tasks from ${realSourceStr}`);
   };
+  
+  // Habit functions
+  const updateHabit = (id, updates) => setHabits(habits.map(h => h.id === id ? { ...h, ...updates } : h));
+  const addHabit = (habit) => setHabits([...habits, { id: generateId(), completed: [], ...habit }]);
+  const deleteHabit = (id) => setHabits(habits.filter(h => h.id !== id));
 
   const openAddModal = (dateStr, timeStr) => { setSelectedDateForAdd(dateStr || getLocalDateString(new Date())); setSelectedTimeForAdd(timeStr || ''); setIsModalOpen(true); };
 
@@ -1267,7 +1447,7 @@ export default function App() {
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 shadow-2xl md:shadow-none transform transition-transform duration-300 md:translate-x-0 md:static flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8">
           <div className="flex items-center gap-3 text-slate-900 font-black text-2xl mb-10 tracking-tight"><div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200"><Layout size={20} /></div>Planner<span className="text-violet-600">.AI</span></div>
-          <nav className="space-y-1.5">{[{ id: 'focus', label: 'Dashboard', icon: Home }, { id: 'wealth', label: 'Wealth Jar', icon: Database }, { id: 'calendar', label: 'Calendar', icon: CalIcon }, { id: 'kanban', label: 'Timeline', icon: Trello }, { id: 'cycle', label: '36 x 10 Cycle', icon: Activity }, { id: 'review', label: 'Review', icon: ClipboardList }].map(item => (
+          <nav className="space-y-1.5">{[{ id: 'focus', label: 'Dashboard', icon: Home }, { id: 'wealth', label: 'Wealth Jar', icon: Database }, { id: 'calendar', label: 'Calendar', icon: CalIcon }, { id: 'kanban', label: 'Timeline', icon: Trello }, { id: 'review', label: 'Review', icon: ClipboardList }].map(item => (
               <button key={item.id} onClick={() => { setView(item.id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm tracking-wide ${view === item.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon size={18} className={view === item.id ? "text-violet-300" : ""}/>{item.label}</button>
             ))}</nav>
         </div>
@@ -1277,11 +1457,10 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
-          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} />}
+          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} habits={habits} onUpdateHabit={updateHabit} onAddHabit={addHabit} onDeleteHabit={deleteHabit} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
-          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask}/>}
+          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} onUpdate={updateTask} onDelete={deleteTask} categories={categories} />}
           {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} onCloneYesterday={cloneYesterdayTasks} />}
-          {view === 'cycle' && <CycleTrackerView data={cyclesData} setData={setCyclesData} startYearDate={startYearDate} setStartYearDate={setStartYearDate}/>}
           {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={setReviews} startYearDate={startYearDate}/>}
         </div>
       </main>
