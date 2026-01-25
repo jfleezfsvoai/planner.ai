@@ -9,7 +9,7 @@ import {
   Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
   Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
   CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
-  CheckCircle2, Circle, Gift, Palette
+  CheckCircle2, Circle, Gift
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -41,7 +41,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // CRITICAL: Fixed App ID for data persistence
-// Reverted to fixed ID to ensure access to previously saved data
 const appId = 'default-planner-app';
 
 // --- Constants & Utilities ---
@@ -142,16 +141,10 @@ const HorizontalBarChart = ({ data }) => {
   );
 };
 
-const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, categories, setCategories, showTime = true, format = 'standard' }) => {
+const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, categories, showTime = true, format = 'standard' }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editCategory, setEditCategory] = useState(task.category);
-  const [editPriority, setEditPriority] = useState(task.priority || '');
-  
-  // Advanced Category Editing
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
-  const [customCategoryColor, setCustomCategoryColor] = useState(CATEGORY_COLORS[0].value);
-  
   const [dropPosition, setDropPosition] = useState(null); 
   const cardRef = useRef(null);
   
@@ -164,33 +157,8 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
   const highlightStyle = priorityConfig.highlight || '';
 
   const handleSave = () => {
-    if (editTitle.trim()) {
-        let finalCategory = editCategory;
-        // Update category list if new
-        if (isCustomCategory) {
-             const exists = categories.find(c => c.name === editCategory);
-             if (!exists && editCategory.trim()) {
-                 // Creating a new category via Edit
-                 // In a real app we might propagate this up, but for now we rely on the parent or next sync
-                 // Since setCategories is available:
-                 if (setCategories) {
-                     setCategories(prev => [...prev, { name: editCategory, color: customCategoryColor }]);
-                 }
-             }
-        }
-        
-        onUpdate(task.id, { title: editTitle, category: editCategory, priority: editPriority }); 
-    }
+    if (editTitle.trim()) { onUpdate(task.id, { title: editTitle, category: editCategory }); }
     setIsEditing(false);
-    setIsCustomCategory(false);
-  };
-
-  const togglePriority = (key) => {
-      if (editPriority === key) {
-          setEditPriority(''); // Cancel selection
-      } else {
-          setEditPriority(key);
-      }
   };
 
   const handleDragStart = (e) => { 
@@ -207,6 +175,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
   const handleDragOver = (e) => { 
       e.preventDefault(); 
       e.dataTransfer.dropEffect = 'move'; 
+      
       if (cardRef.current) {
           const rect = cardRef.current.getBoundingClientRect();
           const midY = rect.top + rect.height / 2;
@@ -235,55 +204,11 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
       return (
         <div className="bg-white p-3 rounded-2xl border border-violet-200 shadow-md mb-2 animate-in fade-in zoom-in-95 duration-200">
             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full text-xs font-bold text-slate-700 mb-2 border-b border-slate-100 pb-1 outline-none focus:border-violet-300" placeholder="任务名称" autoFocus />
-            
-            {/* Category Edit */}
-            <div className="mb-3">
-                 <div className="flex gap-2 items-center mb-2">
-                     {isCustomCategory ? (
-                        <div className="flex-1 flex flex-col gap-2">
-                            <div className="relative">
-                                <input type="text" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="新类别名称" className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 pr-6 text-xs outline-none focus:border-violet-500" />
-                                <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400"><X size={12}/></button>
-                            </div>
-                            <div className="flex gap-1 flex-wrap">
-                                {CATEGORY_COLORS.map((col) => (
-                                    <button 
-                                        key={col.id} 
-                                        type="button" 
-                                        onClick={() => setCustomCategoryColor(col.value)}
-                                        className={`w-3 h-3 rounded-full border ${col.value.split(' ')[0]} ${customCategoryColor === col.value ? 'ring-1 ring-offset-1 ring-slate-400' : ''}`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                     ) : (
-                         <>
-                            <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded p-1.5 outline-none">
-                                {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                            </select>
-                            <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(''); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded"><Plus size={12}/></button>
-                         </>
-                     )}
-                 </div>
+            <div className="flex gap-2 mb-3">
+                <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="flex-1 text-[10px] bg-slate-50 border border-slate-200 rounded p-1 outline-none">
+                    {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
             </div>
-
-            {/* Priority Edit */}
-            <div className="mb-3">
-                 <label className="block text-[10px] font-bold text-slate-400 mb-1">Priority</label>
-                 <div className="grid grid-cols-2 gap-1">
-                    {Object.entries(PRIORITIES).map(([key, config]) => (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => togglePriority(key)}
-                            className={`text-[9px] px-1 py-1 rounded border transition-all truncate ${editPriority === key ? config.color + ' ring-1 ring-slate-200' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
-                        >
-                            {config.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             <div className="flex justify-end gap-2">
                 <button onClick={() => setIsEditing(false)} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg"><X size={14}/></button>
                 <button onClick={handleSave} className="p-1.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600"><Save size={14}/></button>
@@ -539,7 +464,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
   const [category, setCategory] = useState(categories[0]?.name || '工作');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategoryColor, setCustomCategoryColor] = useState(CATEGORY_COLORS[0].value);
-  const [priority, setPriority] = useState(''); // Optional, default empty
+  const [priority, setPriority] = useState('not_urgent_not_important');
   const [time, setTime] = useState('');
   const inputRef = useRef(null);
 
@@ -548,7 +473,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
       setTitle('');
       setTime(defaultTime || '');
       setCategory(categories[0]?.name || '工作');
-      setPriority('');
+      setPriority('not_urgent_not_important');
       setIsCustomCategory(false);
       setCustomCategoryColor(CATEGORY_COLORS[0].value);
       if(inputRef.current) setTimeout(() => inputRef.current.focus(), 50);
@@ -565,6 +490,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
     
     if (isCustomCategory && category.trim()) {
         finalCategory = category.trim();
+        // Check if category exists
         const exists = categories.find(c => c.name === finalCategory);
         if (!exists) {
             setCategories([...categories, { name: finalCategory, color: customCategoryColor }]);
@@ -575,11 +501,10 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
     onClose();
   };
 
-  const togglePriority = (key) => {
-      if (priority === key) {
-          setPriority('');
-      } else {
-          setPriority(key);
+  const deleteCategory = () => {
+      if (confirm(`确定要删除类别 "${category}" 吗?`)) {
+          setCategories(categories.filter(c => c.name !== category));
+          setCategory(categories[0]?.name || '');
       }
   };
 
@@ -597,6 +522,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
           </div>
           
           <div className="grid grid-cols-2 gap-4">
+             {/* Category Section */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">类别</label>
               <div className="flex gap-2">
@@ -622,26 +548,29 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, defaultTime, catego
                         <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500 appearance-none">
                             {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                         </select>
+                        {/* <button type="button" onClick={deleteCategory} className="p-3 text-slate-400 hover:text-red-500" title="删除当前类别"><Trash2 size={16}/></button> */}
                         <button type="button" onClick={() => { setIsCustomCategory(true); setCategory(''); }} className="p-3 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded-xl"><Plus size={18}/></button>
                      </div>
                   )}
               </div>
             </div>
 
+            {/* Time Section */}
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">时间</label>
               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-violet-500"/>
             </div>
           </div>
 
+          {/* Priority Section */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">优先级 (可选)</label>
+            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">优先级 (四象限)</label>
             <div className="grid grid-cols-2 gap-2">
                 {Object.entries(PRIORITIES).map(([key, config]) => (
                     <button
                         key={key}
                         type="button"
-                        onClick={() => togglePriority(key)}
+                        onClick={() => setPriority(key)}
                         className={`text-xs p-2 rounded-lg border transition-all text-center ${priority === key ? config.color + ' ring-2 ring-offset-1 ring-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                     >
                         {config.label}
@@ -711,6 +640,7 @@ const AuthModal = ({ isOpen, onClose }) => {
 
 const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, onDelete, categories }) => {
     if (!isOpen) return null;
+    // Fix: Sort tasks by time for the preview modal
     const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
     
     // Inline edit states
@@ -765,7 +695,7 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, 
                                                 onChange={e => setEditCategory(e.target.value)}
                                                 className="flex-1 text-xs bg-white border border-slate-200 rounded p-1 outline-none"
                                             >
-                                                 {(categories || ['工作', '生活', '健康', '学习']).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                                 {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                             </select>
                                             <button onClick={saveEdit} className="p-1.5 bg-violet-500 text-white rounded hover:bg-violet-600"><Save size={12}/></button>
                                         </div>
@@ -805,6 +735,7 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
     const catStats = {};
     todaysTasks.forEach(t => { if(!catStats[t.category]) catStats[t.category] = { total: 0, completed: 0 }; catStats[t.category].total++; if(t.completed) catStats[t.category].completed++; });
 
+    // Fixed height layout for Focus and Analysis alignment
     const containerHeight = "h-[28rem]";
 
     return (
@@ -814,6 +745,7 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
             <p className="text-slate-500 font-medium">Welcome back, <span className="text-violet-600">{user?.email?.split('@')[0] || 'Commander'}</span></p>
         </header>
          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Today's Focus - Scrollable, Fixed Height */}
             <div className={`md:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col overflow-hidden ${containerHeight}`}>
                 <div className="flex justify-between items-center p-6 pb-2 shrink-0">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><Target className="text-rose-500"/> Today's Focus</h3>
@@ -821,11 +753,12 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar space-y-2">
                     {todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10">No tasks for today.</div> : todaysTasks.map(task => (
-                        <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} setCategories={null}/>
+                        <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories}/>
                     ))}
                 </div>
             </div>
             
+            {/* Analysis - Fixed Height to match Focus */}
             <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-6 overflow-y-auto custom-scrollbar ${containerHeight}`}>
                 <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><PieChart className="text-blue-500"/> Analysis</h3>
                 <div className="space-y-4">
@@ -836,13 +769,14 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
             </div>
         </div>
 
+        {/* Habit Tracker Section */}
         <HabitTracker habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} />
       </div>
     );
 };
 
 const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, transactions = [], setTransactions }) => {
-    // ... (Existing WealthJarView logic retained for brevity as it was perfect)
+    // ... (Keep existing WealthJarView logic)
     const [income, setIncome] = useState('');
     const [expenseForm, setExpenseForm] = useState({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
     const [isCustomCat, setIsCustomCat] = useState(false);
@@ -850,19 +784,107 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     const [isAddJarOpen, setIsAddJarOpen] = useState(false);
     const [newJarForm, setNewJarForm] = useState({ label: '', percent: '' });
     const [editingTxId, setEditingTxId] = useState(null);
+
     const defaultTxCats = ['饮食', '交通', '购物', '订阅', '医疗', '其他'];
     const usedTxCats = Array.from(new Set([...defaultTxCats, ...transactions.map(t => t.category)]));
-    const handleAddJar = (e) => { e.preventDefault(); const { label, percent } = newJarForm; if (!label || !percent) return; const newJar = { id: generateId(), label, percent: parseFloat(percent), color: 'bg-slate-100 text-slate-600' }; setWealthConfig({ ...wealthConfig, jars: [...wealthConfig.jars, newJar] }); setNewJarForm({ label: '', percent: '' }); setIsAddJarOpen(false); };
-    const handleDistribute = (e) => { e.preventDefault(); const amt = parseFloat(income); if (isNaN(amt) || amt <= 0) return; const commit = wealthConfig.showCommitment ? (wealthConfig.commitment || 0) : 0; const netIncome = Math.max(0, amt - commit); const newBalances = { ...balances }; const newTransactions = [...transactions]; newTransactions.unshift({ id: Date.now(), amount: amt, category: '收入', remark: '手动录入', date: getLocalDateString(new Date()), type: 'income' }); if (wealthConfig.showCommitment && commit > 0) { newBalances.commitment = (newBalances.commitment || 0) + commit; newTransactions.unshift({ id: Date.now() + 1, amount: -commit, category: '固定开销', remark: '自动扣除', date: getLocalDateString(new Date()), type: 'expense' }); } wealthConfig.jars.forEach(jar => { const share = netIncome * (jar.percent / 100); newBalances[jar.id] = (newBalances[jar.id] || 0) + share; }); setBalances(newBalances); setTransactions(newTransactions); setIncome(''); };
-    const submitTransaction = (e) => { e.preventDefault(); if(!expenseForm.amount || !expenseForm.category) return; let finalAmount = parseFloat(expenseForm.amount); if (expenseForm.category !== '收入') { finalAmount = -Math.abs(finalAmount); } else { finalAmount = Math.abs(finalAmount); } if (editingTxId) { const updated = transactions.map(t => t.id === editingTxId ? { ...t, ...expenseForm, amount: finalAmount } : t); setTransactions(updated); setEditingTxId(null); } else { const newTx = { id: Date.now(), ...expenseForm, amount: finalAmount }; setTransactions([newTx, ...transactions]); } setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) }); setIsCustomCat(false); };
-    const deleteJar = (id) => { const newBalances = { ...balances }; delete newBalances[id]; setBalances(newBalances); setWealthConfig({ ...wealthConfig, jars: wealthConfig.jars.filter(j => j.id !== id) }); };
-    const restoreCommitment = () => { const val = prompt("输入固定开销金额 (RM):", "2000"); if (val !== null) { setWealthConfig({ ...wealthConfig, showCommitment: true, commitment: parseFloat(val) || 0 }); } };
-    const startEditTx = (tx) => { setEditingTxId(tx.id); setExpenseForm({ amount: Math.abs(tx.amount).toString(), category: tx.category, remark: tx.remark || '', date: tx.date }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-    const deleteTx = (id) => { setTransactions(transactions.filter(t => t.id !== id)); if (editingTxId === id) { setEditingTxId(null); setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) }); } };
-    const getSavingsTotal = () => { let total = 0; wealthConfig.jars.forEach(jar => { const label = jar.label.toLowerCase(); if (label.includes('savings') || label.includes('invest') || label.includes('储蓄') || label.includes('投资')) { total += (balances[jar.id] || 0); } }); return total; };
+
+    const handleAddJar = (e) => {
+        e.preventDefault();
+        const { label, percent } = newJarForm;
+        if (!label || !percent) return;
+        const newJar = { id: generateId(), label, percent: parseFloat(percent), color: 'bg-slate-100 text-slate-600' };
+        setWealthConfig({ ...wealthConfig, jars: [...wealthConfig.jars, newJar] });
+        setNewJarForm({ label: '', percent: '' });
+        setIsAddJarOpen(false);
+    };
+
+    const handleDistribute = (e) => {
+        e.preventDefault();
+        const amt = parseFloat(income);
+        if (isNaN(amt) || amt <= 0) return;
+        const commit = wealthConfig.showCommitment ? (wealthConfig.commitment || 0) : 0;
+        const netIncome = Math.max(0, amt - commit);
+        const newBalances = { ...balances };
+        const newTransactions = [...transactions]; 
+
+        newTransactions.unshift({ id: Date.now(), amount: amt, category: '收入', remark: '手动录入', date: getLocalDateString(new Date()), type: 'income' });
+        if (wealthConfig.showCommitment && commit > 0) {
+            newBalances.commitment = (newBalances.commitment || 0) + commit;
+            newTransactions.unshift({ id: Date.now() + 1, amount: -commit, category: '固定开销', remark: '自动扣除', date: getLocalDateString(new Date()), type: 'expense' });
+        }
+        wealthConfig.jars.forEach(jar => {
+            const share = netIncome * (jar.percent / 100);
+            newBalances[jar.id] = (newBalances[jar.id] || 0) + share;
+        });
+        setBalances(newBalances);
+        setTransactions(newTransactions);
+        setIncome('');
+    };
+
+    const submitTransaction = (e) => {
+        e.preventDefault();
+        if(!expenseForm.amount || !expenseForm.category) return;
+        let finalAmount = parseFloat(expenseForm.amount);
+        if (expenseForm.category !== '收入') { finalAmount = -Math.abs(finalAmount); } else { finalAmount = Math.abs(finalAmount); }
+
+        if (editingTxId) {
+            const updated = transactions.map(t => t.id === editingTxId ? { ...t, ...expenseForm, amount: finalAmount } : t);
+            setTransactions(updated);
+            setEditingTxId(null);
+        } else {
+            const newTx = { id: Date.now(), ...expenseForm, amount: finalAmount };
+            setTransactions([newTx, ...transactions]);
+        }
+        setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) });
+        setIsCustomCat(false);
+    };
+
+    const deleteJar = (id) => {
+        const newBalances = { ...balances };
+        delete newBalances[id];
+        setBalances(newBalances);
+        setWealthConfig({ ...wealthConfig, jars: wealthConfig.jars.filter(j => j.id !== id) });
+    };
+
+    const restoreCommitment = () => {
+        const val = prompt("输入固定开销金额 (RM):", "2000");
+        if (val !== null) { setWealthConfig({ ...wealthConfig, showCommitment: true, commitment: parseFloat(val) || 0 }); }
+    };
+
+    const startEditTx = (tx) => {
+        setEditingTxId(tx.id);
+        setExpenseForm({ amount: Math.abs(tx.amount).toString(), category: tx.category, remark: tx.remark || '', date: tx.date });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const deleteTx = (id) => {
+        setTransactions(transactions.filter(t => t.id !== id));
+        if (editingTxId === id) { setEditingTxId(null); setExpenseForm({ amount: '', category: '', remark: '', date: getLocalDateString(new Date()) }); }
+    };
+
+    const getSavingsTotal = () => {
+        let total = 0;
+        wealthConfig.jars.forEach(jar => {
+            const label = jar.label.toLowerCase();
+            if (label.includes('savings') || label.includes('invest') || label.includes('储蓄') || label.includes('投资')) { total += (balances[jar.id] || 0); }
+        });
+        return total;
+    };
+
     const netTransactionTotal = transactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
-    const groupedTransactions = transactions.sort((a, b) => new Date(b.date) - new Date(a.date)).reduce((groups, tx) => { const date = tx.date; if (!groups[date]) groups[date] = []; groups[date].push(tx); return groups; }, {});
-    const barData = usedTxCats.map(cat => { const catTxs = transactions.filter(t => t.category === cat); const total = catTxs.reduce((acc, t) => acc + t.amount, 0); return { name: cat, value: total }; }).filter(d => d.value !== 0);
+    const groupedTransactions = transactions.sort((a, b) => new Date(b.date) - new Date(a.date)).reduce((groups, tx) => {
+        const date = tx.date;
+        if (!groups[date]) groups[date] = [];
+        groups[date].push(tx);
+        return groups;
+    }, {});
+
+    const barData = usedTxCats.map(cat => {
+        const catTxs = transactions.filter(t => t.category === cat);
+        const total = catTxs.reduce((acc, t) => acc + t.amount, 0);
+        return { name: cat, value: total };
+    }).filter(d => d.value !== 0);
+
     const savingsPlusInvestment = getSavingsTotal();
     
     return (
@@ -1152,7 +1174,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                     <div className="w-20 flex-shrink-0 pt-2 border-r border-slate-100 mr-2"><span className="text-sm font-black text-slate-400">{displayHour}</span></div>
                     <div className="flex-1 min-h-[60px] flex flex-col justify-center">
                       <div className="w-full space-y-2">
-                          {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} setCategories={categories.setCategories} showWarning={false} showTime={false} format="timeline" />))}
+                          {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} showWarning={false} showTime={false} format="timeline" />))}
                           {hourTasks.length < 5 && (
                               <button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-base font-medium hover:text-violet-500 flex items-center gap-2 w-full transition-all py-2 h-full"><Plus size={16} className="opacity-50"/> {hourTasks.length === 0 ? "Add focus" : "Add more..."}</button>
                           )}
