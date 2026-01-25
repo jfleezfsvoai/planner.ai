@@ -41,8 +41,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // CRITICAL: Fixed App ID for data persistence
-// Use system provided ID if available to ensure data consistency
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-planner-app';
+// Reverted to fixed ID to ensure access to previously saved data
+const appId = 'default-planner-app';
 
 // --- Constants & Utilities ---
 const CATEGORY_COLORS = [
