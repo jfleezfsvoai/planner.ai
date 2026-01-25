@@ -41,7 +41,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // CRITICAL: Fixed App ID for data persistence
-const appId = 'default-planner-app';
+// Use system provided ID if available to ensure data consistency
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-planner-app';
 
 // --- Constants & Utilities ---
 const CATEGORY_COLORS = [
@@ -363,6 +364,7 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
     const year = today.getFullYear();
     const month = today.getMonth();
     
+    // Generate all days in the current month
     const daysInMonth = [];
     const date = new Date(year, month, 1);
     while (date.getMonth() === month) {
@@ -402,6 +404,7 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
         setNewHabit('');
     };
 
+    // Filter completions for current month to calculate progress correctly
     const getCurrentMonthCompletedCount = (completedDates) => {
         const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
         return (completedDates || []).filter(d => d.startsWith(prefix)).length;
@@ -442,6 +445,8 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
                             return (
                                 <tr key={habit.id} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
                                     <td className="py-3 px-2 font-bold text-slate-700 sticky left-0 bg-white group-hover:bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{habit.name}</td>
+                                    
+                                    {/* Target Input */}
                                     <td className="py-3 px-2 text-center">
                                         <input 
                                             type="number" 
@@ -450,7 +455,11 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
                                             className="w-12 text-center bg-transparent border-b border-dashed border-slate-300 focus:border-violet-500 outline-none text-slate-600 font-medium"
                                         />
                                     </td>
+
+                                    {/* Completed Count */}
                                     <td className="py-3 px-2 text-center font-bold text-emerald-600">{completedCount}</td>
+
+                                    {/* Progress Bar */}
                                     <td className="py-3 px-2 text-center">
                                         <div className="flex items-center gap-2 justify-center">
                                             <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -459,6 +468,8 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
                                             <span className="text-[10px] text-slate-400 font-bold">{progress}%</span>
                                         </div>
                                     </td>
+
+                                    {/* Date Checkboxes */}
                                     {daysInMonth.map((d, i) => {
                                         const dateStr = getLocalDateString(d);
                                         const isDone = habit.completed?.includes(dateStr);
@@ -473,6 +484,8 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
                                             </td>
                                         );
                                     })}
+
+                                    {/* Reward Input */}
                                     <td className="py-3 px-4">
                                         <div className="flex items-center gap-2">
                                             <Gift size={14} className={habit.reward ? "text-rose-400" : "text-slate-300"}/>
@@ -485,6 +498,7 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
                                             />
                                         </div>
                                     </td>
+
                                     <td className="text-right py-3 px-2">
                                         <button onClick={() => onDelete(habit.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
                                     </td>
