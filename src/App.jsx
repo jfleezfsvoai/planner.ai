@@ -95,9 +95,9 @@ const getWeekDays = (baseDate) => {
     const sunday = new Date(d.setDate(diff));
     
     const days = [];
-    for (let i = 7; i < 14; i++) { // Next week logic fix if needed, but current usage is correct
+    for (let i = 0; i < 7; i++) {
         const next = new Date(sunday);
-        next.setDate(sunday.getDate() + (i - 7));
+        next.setDate(sunday.getDate() + i);
         days.push(next);
     }
     return days;
@@ -155,8 +155,11 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
   const [dropPosition, setDropPosition] = useState(null); 
   const cardRef = useRef(null);
   
+  // Safe Category Logic (Crash Guard)
+  const safeCategory = typeof task.category === 'string' ? task.category : 'Uncategorized';
+  
   // Find category color
-  const catObj = categories.find(c => c.name === task.category);
+  const catObj = categories.find(c => c.name === safeCategory);
   const categoryStyle = catObj ? catObj.color : 'bg-slate-100 text-slate-600 border-slate-200';
   
   // Priority Style
@@ -171,8 +174,6 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
             if (isCustomCategory) {
                  const existsIndex = categories.findIndex(c => c.name === editCategory);
                  if (existsIndex > -1) {
-                     // Update existing category color if user explicitly chose to edit it like this
-                     // For simplicity, we just overwrite if name matches
                      const newCats = [...categories];
                      newCats[existsIndex] = { name: editCategory, color: customCategoryColor };
                      setCategories(newCats);
@@ -264,7 +265,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
                             <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded p-1.5 outline-none">
                                 {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                             </select>
-                            <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(editCategory); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded" title="Edit/New"><Edit3 size={12}/></button>
+                            <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(safeCategory); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded" title="Edit/New"><Edit3 size={12}/></button>
                          </>
                      )}
                  </div>
@@ -325,8 +326,9 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
                     <p className={`text-xs font-bold truncate transition-colors ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                         {task.title}
                     </p>
+                    {/* Crash Guard: Ensure category is a string */}
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${categoryStyle}`}>
-                        {task.category}
+                        {safeCategory}
                     </span>
                  </div>
              ) : (
@@ -339,7 +341,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
           
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {format !== 'timeline' && (
-               <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${categoryStyle}`}>{task.category}</span>
+               <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${categoryStyle}`}>{safeCategory}</span>
             )}
             {task.priority && priorityConfig.label && (
                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold border ${priorityConfig.color}`}>
@@ -1101,7 +1103,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                    {/* Clone Yesterday Button */}
                    <button 
                        onClick={() => onCloneYesterday(dateStr)} 
-                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs"
+                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap"
                        title="Copy tasks from yesterday"
                    >
                        <Copy size={14}/> Yesterday
@@ -1111,7 +1113,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                        {/* Clone From Button */}
                        <button 
                             onClick={() => setClonePickerOpen(!clonePickerOpen)} 
-                            className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs"
+                            className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap"
                             title="Copy tasks from a specific date"
                        >
                            <CalendarDays size={14}/> From...
