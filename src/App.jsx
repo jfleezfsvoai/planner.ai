@@ -797,7 +797,7 @@ const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, 
 
 // --- Views ---
 
-const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit }) => {
+const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, setCategories }) => {
     const todayStr = getLocalDateString(new Date());
     const todaysTasks = sortTasksByTime(tasks.filter(t => t.date === todayStr));
     const catStats = {};
@@ -819,7 +819,7 @@ const DashboardView = ({ tasks, onAddTask, user, openAddModal, toggleTask, delet
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar space-y-2">
                     {todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10">No tasks for today.</div> : todaysTasks.map(task => (
-                        <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} setCategories={null}/>
+                        <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} setCategories={setCategories}/>
                     ))}
                 </div>
             </div>
@@ -1076,7 +1076,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     );
 };
 
-const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories, onCloneYesterday }) => {
+const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categoryColors, categories, setCategories, onCloneYesterday }) => {
     const hours = [...Array.from({length: 18}, (_, i) => i + 6), 0]; 
     const dateStr = getLocalDateString(currentDate);
     const [clonePickerOpen, setClonePickerOpen] = useState(false);
@@ -1150,7 +1150,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                     <div className="w-20 flex-shrink-0 pt-2 border-r border-slate-100 mr-2"><span className="text-sm font-black text-slate-400">{displayHour}</span></div>
                     <div className="flex-1 min-h-[60px] flex flex-col justify-center">
                       <div className="w-full space-y-2">
-                          {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} setCategories={categories.setCategories} showWarning={false} showTime={false} format="timeline" />))}
+                          {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categoryColors={categoryColors} categories={categories} setCategories={setCategories} showWarning={false} showTime={false} format="timeline" />))}
                           {hourTasks.length < 5 && (
                               <button onClick={() => openAddModal(dateStr, timeLabel)} className="text-left text-slate-300 text-base font-medium hover:text-violet-500 flex items-center gap-2 w-full transition-all py-2 h-full"><Plus size={16} className="opacity-50"/> {hourTasks.length === 0 ? "Add focus" : "Add more..."}</button>
                           )}
@@ -1567,10 +1567,10 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
-          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} habits={habits} onUpdateHabit={updateHabit} onAddHabit={addHabit} onDeleteHabit={deleteHabit} />}
+          {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} habits={habits} onUpdateHabit={updateHabit} onAddHabit={addHabit} onDeleteHabit={deleteHabit} setCategories={setCategories} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
           {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} onUpdate={updateTask} onDelete={deleteTask} categories={categories} />}
-          {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} onCloneYesterday={cloneYesterdayTasks} />}
+          {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} setCategories={setCategories} onCloneYesterday={cloneYesterdayTasks} />}
           {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={setReviews} startYearDate={startYearDate}/>}
         </div>
       </main>
