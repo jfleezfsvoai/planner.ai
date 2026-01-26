@@ -57,7 +57,7 @@ const CATEGORY_COLORS = [
 ];
 
 const PRIORITIES = {
-    'urgent_important': { label: '紧急重要', color: 'text-red-600 bg-red-50 border-red-200', highlight: 'border-l-4 border-l-red-500 ring-1 ring-red-100' },
+    'urgent_important': { label: '紧急重要', color: 'text-red-700 bg-red-100 border-red-300', highlight: 'border-2 border-red-500 bg-red-50/80 shadow-[0_0_10px_rgba(239,68,68,0.2)]' },
     'important_not_urgent': { label: '重要不紧急', color: 'text-amber-600 bg-amber-50 border-amber-200', highlight: '' },
     'urgent_not_important': { label: '不重要紧急', color: 'text-blue-600 bg-blue-50 border-blue-200', highlight: '' },
     'not_urgent_not_important': { label: '不重要不紧急', color: 'text-slate-500 bg-slate-50 border-slate-200', highlight: '' },
@@ -95,9 +95,9 @@ const getWeekDays = (baseDate) => {
     const sunday = new Date(d.setDate(diff));
     
     const days = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 7; i < 14; i++) { // Next week logic fix if needed, but current usage is correct
         const next = new Date(sunday);
-        next.setDate(sunday.getDate() + i);
+        next.setDate(sunday.getDate() + (i - 7));
         days.push(next);
     }
     return days;
@@ -165,15 +165,21 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
 
   const handleSave = () => {
     if (editTitle.trim()) {
-        let finalCategory = editCategory;
-        // Update category list if new
-        if (isCustomCategory) {
-             const exists = categories.find(c => c.name === editCategory);
-             if (!exists && editCategory.trim()) {
-                 if (setCategories) {
-                     setCategories(prev => [...prev, { name: editCategory, color: customCategoryColor }]);
+        // Handle Category Update
+        if (setCategories) {
+            // Check if we are creating a new one or updating existing color logic
+            if (isCustomCategory) {
+                 const existsIndex = categories.findIndex(c => c.name === editCategory);
+                 if (existsIndex > -1) {
+                     // Update existing category color if user explicitly chose to edit it like this
+                     // For simplicity, we just overwrite if name matches
+                     const newCats = [...categories];
+                     newCats[existsIndex] = { name: editCategory, color: customCategoryColor };
+                     setCategories(newCats);
+                 } else {
+                     setCategories([...categories, { name: editCategory, color: customCategoryColor }]);
                  }
-             }
+            }
         }
         
         onUpdate(task.id, { title: editTitle, category: editCategory, priority: editPriority }); 
@@ -239,7 +245,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
                      {isCustomCategory ? (
                         <div className="flex-1 flex flex-col gap-2">
                             <div className="relative">
-                                <input type="text" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="新类别名称" className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 pr-6 text-xs outline-none focus:border-violet-500" />
+                                <input type="text" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="类别名称" className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 pr-6 text-xs outline-none focus:border-violet-500" />
                                 <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400"><X size={12}/></button>
                             </div>
                             <div className="flex gap-1 flex-wrap">
@@ -258,7 +264,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
                             <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded p-1.5 outline-none">
                                 {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                             </select>
-                            <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(''); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded"><Plus size={12}/></button>
+                            <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(editCategory); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded" title="Edit/New"><Edit3 size={12}/></button>
                          </>
                      )}
                  </div>
@@ -266,7 +272,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
 
             {/* Priority Edit */}
             <div className="mb-3">
-                 <label className="block text-[10px] font-bold text-slate-400 mb-1">Priority</label>
+                 <label className="block text-[10px] font-bold text-slate-400 mb-1">优先级</label>
                  <div className="grid grid-cols-2 gap-1">
                     {Object.entries(PRIORITIES).map(([key, config]) => (
                         <button
@@ -707,7 +713,7 @@ const AuthModal = ({ isOpen, onClose }) => {
     );
 };
 
-const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, onDelete, categories }) => {
+const DayPreviewModal = ({ isOpen, onClose, dateStr, tasks, onToggle, onUpdate, onDelete, categories, setCategories }) => {
     if (!isOpen) return null;
     const dayTasks = sortTasksByTime(tasks.filter(t => t.date === dateStr));
     
@@ -1034,7 +1040,7 @@ const WealthJarView = ({ balances, setBalances, wealthConfig, setWealthConfig, t
     );
 };
 
-const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, onUpdate, onDelete, categories }) => {
+const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, onUpdate, onDelete, categories, setCategories }) => {
     const year = currentDate.getFullYear(); const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
@@ -1071,7 +1077,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
             })}
           </div>
         </div>
-        <DayPreviewModal isOpen={!!previewDate} onClose={() => setPreviewDate(null)} dateStr={previewDate} tasks={tasks} onToggle={toggleTask} onUpdate={onUpdate} onDelete={onDelete} categories={categories} />
+        <DayPreviewModal isOpen={!!previewDate} onClose={() => setPreviewDate(null)} dateStr={previewDate} tasks={tasks} onToggle={toggleTask} onUpdate={onUpdate} onDelete={onDelete} categories={categories} setCategories={setCategories} />
       </div>
     );
 };
@@ -1091,38 +1097,40 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
             </div>
 
             <div className="flex items-center gap-4">
-                <div className="flex gap-2 relative">
+                <div className="flex flex-row gap-4 items-center whitespace-nowrap">
                    {/* Clone Yesterday Button */}
                    <button 
                        onClick={() => onCloneYesterday(dateStr)} 
-                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap"
+                       className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs"
                        title="Copy tasks from yesterday"
                    >
                        <Copy size={14}/> Yesterday
                    </button>
                    
-                   {/* Clone From Button */}
-                   <button 
-                        onClick={() => setClonePickerOpen(!clonePickerOpen)} 
-                        className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs whitespace-nowrap"
-                        title="Copy tasks from a specific date"
-                   >
-                       <CalendarDays size={14}/> From...
-                   </button>
-                   {clonePickerOpen && (
-                       <input 
-                         type="date" 
-                         className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50"
-                         onChange={(e) => { 
-                             if(e.target.value) {
-                                 onCloneYesterday(dateStr, e.target.value); 
-                                 setClonePickerOpen(false);
-                             }
-                         }}
-                         autoFocus
-                         onBlur={() => setTimeout(() => setClonePickerOpen(false), 200)}
-                       />
-                   )}
+                   <div className="relative">
+                       {/* Clone From Button */}
+                       <button 
+                            onClick={() => setClonePickerOpen(!clonePickerOpen)} 
+                            className="flex items-center gap-1 px-3 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-violet-100 hover:text-violet-600 transition-all text-xs"
+                            title="Copy tasks from a specific date"
+                       >
+                           <CalendarDays size={14}/> From...
+                       </button>
+                       {clonePickerOpen && (
+                           <input 
+                             type="date" 
+                             className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50"
+                             onChange={(e) => { 
+                                 if(e.target.value) {
+                                     onCloneYesterday(dateStr, e.target.value); 
+                                     setClonePickerOpen(false);
+                                 }
+                             }}
+                             autoFocus
+                             onBlur={() => setTimeout(() => setClonePickerOpen(false), 200)}
+                           />
+                       )}
+                   </div>
                 </div>
                 
                 <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl">
@@ -1569,7 +1577,7 @@ export default function App() {
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar md:pb-10 relative">
           {view === 'focus' && <DashboardView tasks={tasks} onAddTask={addTask} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} habits={habits} onUpdateHabit={updateHabit} onAddHabit={addHabit} onDeleteHabit={deleteHabit} setCategories={setCategories} />}
           {view === 'wealth' && <WealthJarView balances={wealthBalances} setBalances={setWealthBalances} wealthConfig={wealthConfig} setWealthConfig={setWealthConfig} transactions={wealthTransactions} setTransactions={setWealthTransactions}/>}
-          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} onUpdate={updateTask} onDelete={deleteTask} categories={categories} />}
+          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} onUpdate={updateTask} onDelete={deleteTask} categories={categories} setCategories={setCategories} />}
           {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categoryColors={catColors} categories={categories} setCategories={setCategories} onCloneYesterday={cloneYesterdayTasks} />}
           {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={setReviews} startYearDate={startYearDate}/>}
         </div>
