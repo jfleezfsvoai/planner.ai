@@ -16,7 +16,7 @@ import {
 // --- Firebase Imports ---
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query } from "firebase/firestore";
 
 // --- Global Error Handler ---
 if (typeof window !== 'undefined') {
@@ -115,6 +115,8 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
     setIsEditing(false); setIsCustomCategory(false);
   };
 
+  const togglePriority = (key) => setEditPriority(editPriority === key ? '' : key);
+
   const handleDragStart = (e) => { e.dataTransfer.setData('text/plain', task.id); e.dataTransfer.effectAllowed = 'move'; e.target.style.opacity = '0.4'; };
   const handleDragEnd = (e) => { e.target.style.opacity = '1'; setDropPosition(null); };
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (cardRef.current) { const rect = cardRef.current.getBoundingClientRect(); const midY = rect.top + rect.height / 2; setDropPosition(e.clientY < midY ? 'top' : 'bottom'); } };
@@ -139,6 +141,14 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
                         </select>
                     )}
                     <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(safeCategory); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded"><Edit3 size={12}/></button>
+                </div>
+            </div>
+            <div className="mb-3">
+                <label className="block text-[10px] font-bold text-slate-400 mb-1">优先级</label>
+                <div className="grid grid-cols-2 gap-1">
+                    {Object.entries(PRIORITIES).map(([key, config]) => (
+                        <button key={key} type="button" onClick={() => togglePriority(key)} className={`text-[9px] px-1 py-1 rounded border transition-all truncate ${editPriority === key ? config.color + ' ring-1 ring-slate-200' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>{config.label}</button>
+                    ))}
                 </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -340,7 +350,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               return (
                 <div key={i} className="bg-white p-2 hover:bg-violet-50/30 transition-colors group flex flex-col min-h-[100px] border-b border-r border-slate-50 relative">
                   <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-violet-600 text-white' : 'text-slate-700'}`}>{day}</div>
-                  <div className="space-y-1 mt-1 overflow-hidden">{dayTasks.slice(0, 3).map(t => (<div key={t.id} className="text-[10px] px-1 py-0.5 rounded bg-slate-50 border border-slate-100 truncate">{t.title}</div>))}</div>
+                  <div className="space-y-1 mt-1 overflow-hidden">{dayTasks.slice(0, 3).map(t => (<div key={t.id} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 truncate">{t.title}</div>))}</div>
                   <button onClick={() => openAddModal(dateStr)} className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 bg-violet-600 text-white p-1 rounded-full"><Plus size={14}/></button>
                 </div>
               );
@@ -549,44 +559,55 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [reviews, setReviews] = useState({ daily: {}, cycle: {}, yearly: {} });
   const [habits, setHabits] = useState([]);
-  const [isLoaded, setIsLoaded] = useState(false);
   
+  // CRITICAL: Prevent data overwriting during initial connection
+  const [isInitialSyncDone, setIsInitialSyncDone] = useState(false);
+
   useEffect(() => { 
     const initAuth = async () => { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); } };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); if(!u) loadLocalStorage(); }); 
+    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); }); 
     return () => unsubscribe(); 
   }, []);
 
   useEffect(() => {
       if (user) {
           const unsubs = [];
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), d => d.exists() && setTasks(d.data().list || []), () => {}));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => d.exists() && setCategories(d.data().list || []), () => {}));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'habits'), d => d.exists() && setHabits(d.data().list || []), () => {}));
-          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'reviews'), d => d.exists() && setReviews(d.data() || { daily: {}, cycle: {}, yearly: {} }), () => {}));
-          setIsLoaded(true);
+          
+          // Helper to manage sync completion
+          let syncCounter = 0;
+          const checkSync = () => { syncCounter++; if(syncCounter >= 4) setIsInitialSyncDone(true); };
+
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'tasks'), d => { if(d.exists()) setTasks(d.data().list || []); checkSync(); }, () => checkSync()));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'categories'), d => { if(d.exists()) setCategories(d.data().list || []); checkSync(); }, () => checkSync()));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'habits'), d => { if(d.exists()) setHabits(d.data().list || []); checkSync(); }, () => checkSync()));
+          unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'reviews'), d => { if(d.exists()) setReviews(d.data() || { daily: {}, cycle: {}, yearly: {} }); checkSync(); }, () => checkSync()));
+
           return () => unsubs.forEach(u => u());
+      } else {
+          // Local storage fallback for guests
+          try {
+            const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
+            const h = localStorage.getItem('planner_habits'); if(h) setHabits(JSON.parse(h).list || []);
+            const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || {});
+            const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
+            setIsInitialSyncDone(true);
+          } catch(e) { console.error(e); setIsInitialSyncDone(true); }
       }
   }, [user]);
 
-  const saveData = (type, data) => { if(user) { setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', type), data); } else { localStorage.setItem(`planner_${type}`, JSON.stringify(data)); } };
+  const saveData = (type, data) => { 
+      if(!isInitialSyncDone) return; // Prevent overwriting cloud with local empty state
+      if(user) { setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', type), data); } 
+      else { localStorage.setItem(`planner_${type}`, JSON.stringify(data)); } 
+  };
   
-  useEffect(() => { if(isLoaded) saveData('tasks', { list: tasks }); }, [tasks, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('categories', { list: categories }); }, [categories, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('habits', { list: habits }); }, [habits, isLoaded]);
-  useEffect(() => { if(isLoaded) saveData('reviews', reviews); }, [reviews, isLoaded]);
+  useEffect(() => { saveData('tasks', { list: tasks }); }, [tasks]);
+  useEffect(() => { saveData('categories', { list: categories }); }, [categories]);
+  useEffect(() => { saveData('habits', { list: habits }); }, [habits]);
+  useEffect(() => { saveData('reviews', reviews); }, [reviews]);
 
-  const loadLocalStorage = () => {
-      try {
-          const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
-          const h = localStorage.getItem('planner_habits'); if(h) setHabits(JSON.parse(h).list || []);
-          const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || {});
-          setIsLoaded(true);
-      } catch(e) { console.error(e); }
-  }
-  
-  const addTask = (newTask) => setTasks([...tasks, { id: generateId(), completed: false, ...newTask }]);
+  const addTask = (newTask) => setTasks([...tasks, { id: Date.now(), completed: false, ...newTask }]);
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
   const updateTask = (id, updates) => setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
@@ -632,8 +653,23 @@ export default function App() {
               <button key={item.id} onClick={() => { setView(item.id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm tracking-wide ${view === item.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon size={18} className={view === item.id ? "text-violet-300" : ""}/>{item.label}</button>
             ))}</nav>
         </div>
-        <div className="mt-auto p-8">{user ? (<div className="flex items-center gap-3 overflow-hidden"><div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center font-bold text-xs">{user.email ? user.email[0].toUpperCase() : 'U'}</div><div className="flex-1 min-w-0"><div className="text-xs font-bold text-slate-900 truncate">{user.email ? user.email.split('@')[0] : 'Commander'}</div><button onClick={() => signOut(auth)} className="text-[10px] text-red-500 hover:underline">Log Out</button></div></div>) : 
-            (<button onClick={() => setIsAuthModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-slate-800"><LogIn size={14} /> Login</button>)}</div>
+        <div className="mt-auto p-8">
+            {!isInitialSyncDone ? (
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 italic">
+                    <RefreshCw size={12} className="animate-spin" /> Syncing...
+                </div>
+            ) : user ? (
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center font-bold text-xs uppercase">{user.email ? user.email[0] : 'U'}</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-slate-900 truncate">{user.email ? user.email.split('@')[0] : 'Member'}</div>
+                        <button onClick={() => signOut(auth)} className="text-[10px] text-red-500 hover:underline">Log Out</button>
+                    </div>
+                </div>
+            ) : (
+                <button onClick={() => setIsAuthModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-slate-800"><LogIn size={14} /> Login</button>
+            )}
+        </div>
       </aside>
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
