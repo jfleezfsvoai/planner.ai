@@ -41,7 +41,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// CRITICAL: Fixed App ID for data persistence
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-planner-app';
 
 // --- Constants & Utilities ---
@@ -89,14 +88,12 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
   const [editPriority, setEditPriority] = useState(task.priority || '');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategoryColor, setCustomCategoryColor] = useState(CATEGORY_COLORS[0].value);
-  const [dropPosition, setDropPosition] = useState(null); 
   const cardRef = useRef(null);
   
   const safeCategory = typeof task.category === 'string' ? task.category : 'Uncategorized';
   const catObj = (categories || []).find(c => (typeof c === 'object' ? c.name : c) === safeCategory);
   const categoryStyle = (catObj && typeof catObj === 'object') ? catObj.color : 'bg-slate-100 text-slate-600 border-slate-200';
   const priorityConfig = PRIORITIES[task.priority] || {};
-  const highlightStyle = priorityConfig.highlight || '';
 
   const handleSave = () => {
     if (editTitle.trim()) {
@@ -117,11 +114,6 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
 
   const togglePriority = (key) => setEditPriority(editPriority === key ? '' : key);
 
-  const handleDragStart = (e) => { e.dataTransfer.setData('text/plain', task.id); e.dataTransfer.effectAllowed = 'move'; e.target.style.opacity = '0.4'; };
-  const handleDragEnd = (e) => { e.target.style.opacity = '1'; setDropPosition(null); };
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (cardRef.current) { const rect = cardRef.current.getBoundingClientRect(); const midY = rect.top + rect.height / 2; setDropPosition(e.clientY < midY ? 'top' : 'bottom'); } };
-  const handleDrop = (e) => { e.preventDefault(); setDropPosition(null); const dragId = e.dataTransfer.getData('text/plain'); if (dragId && dragId !== task.id.toString() && moveTask) { moveTask(dragId, task.id, dropPosition); } };
-
   if (isEditing) {
       return (
         <div className="bg-white p-3 rounded-2xl border border-violet-200 shadow-md mb-2 animate-in fade-in zoom-in-95 duration-200">
@@ -130,17 +122,14 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
                 <div className="flex gap-2 items-center mb-2">
                     {isCustomCategory ? (
                         <div className="flex-1 flex flex-col gap-2">
-                            <div className="relative">
-                                <input type="text" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="类别名称" className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 pr-6 text-xs outline-none focus:border-violet-500" />
-                                <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400"><X size={12}/></button>
-                            </div>
+                            <input type="text" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="类别名称" className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-xs outline-none" />
                         </div>
                     ) : (
                         <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded p-1.5 outline-none">
                             {(categories || []).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                         </select>
                     )}
-                    <button type="button" onClick={() => { setIsCustomCategory(true); setEditCategory(safeCategory); }} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded"><Edit3 size={12}/></button>
+                    <button type="button" onClick={() => setIsCustomCategory(!isCustomCategory)} className="p-1.5 bg-slate-100 hover:bg-violet-100 text-violet-600 rounded"><Edit3 size={12}/></button>
                 </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -152,7 +141,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdate, moveTask, showWarning, c
   }
 
   return (
-    <div ref={cardRef} draggable onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDrop={handleDrop} className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 cursor-grab active:cursor-grabbing ${showWarning ? 'border-amber-300 shadow-amber-100' : 'border-slate-100 shadow-sm hover:border-violet-200'} ${highlightStyle}`}>
+    <div ref={cardRef} className={`bg-white/80 backdrop-blur-sm p-3 rounded-2xl border transition-all group relative mb-2 ${priorityConfig.highlight || 'border-slate-100 shadow-sm hover:border-violet-200'}`}>
       <div className="flex items-start gap-3">
         <div className="mt-1 text-slate-300 group-hover:text-slate-400"><GripVertical size={12} /></div>
         <button onClick={() => onToggle(task.id)} className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition-all ${task.completed ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 border-transparent text-white' : 'border-slate-300 hover:border-violet-500 text-transparent'}`}><CheckSquare size={10} fill={task.completed ? "currentColor" : "none"} /></button>
@@ -182,10 +171,9 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
     const today = new Date(); const year = today.getFullYear(); const month = today.getMonth();
     const daysInMonth = []; const date = new Date(year, month, 1);
     while (date.getMonth() === month) { daysInMonth.push(new Date(date)); date.setDate(date.getDate() + 1); }
-    const [newHabit, setNewHabit] = useState(''); const [newHabitTarget, setNewHabitTarget] = useState(daysInMonth.length);
+    const [newHabit, setNewHabit] = useState('');
     const toggleHabit = (habitId, dateStr) => { const habit = habits.find(h => h.id === habitId); if (!habit) return; const isCompleted = habit.completed?.includes(dateStr); let newCompleted = [...(habit.completed || [])]; if (isCompleted) { newCompleted = newCompleted.filter(d => d !== dateStr); } else { newCompleted.push(dateStr); } onUpdate(habitId, { completed: newCompleted }); };
-    const handleUpdateField = (id, field, value) => onUpdate(id, { [field]: value });
-    const handleAdd = (e) => { e.preventDefault(); if(!newHabit.trim()) return; onAdd({ name: newHabit.trim(), target: newHabitTarget || daysInMonth.length, reward: '' }); setNewHabit(''); };
+    const handleAdd = (e) => { e.preventDefault(); if(!newHabit.trim()) return; onAdd({ name: newHabit.trim(), target: daysInMonth.length, reward: '' }); setNewHabit(''); };
     const getCurrentMonthCompletedCount = (completedDates) => { const prefix = `${year}-${String(month + 1).padStart(2, '0')}`; return (completedDates || []).filter(d => d.startsWith(prefix)).length; };
     return (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 overflow-hidden">
@@ -195,8 +183,8 @@ const HabitTracker = ({ habits, onUpdate, onAdd, onDelete }) => {
                 <thead>
                   <tr className="border-b border-slate-100">
                     <th className="text-left text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[150px] sticky left-0 bg-white z-20">习惯养成</th>
-                    <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[80px]">目标</th>
-                    <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2 min-w-[60px]">完成</th>
+                    <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2">目标</th>
+                    <th className="text-center text-xs font-black text-slate-400 uppercase tracking-wider pb-4 px-2">完成</th>
                     {daysInMonth.map((d, i) => (<th key={i} className="text-center pb-4 px-1 min-w-[40px]"><span className="text-[9px] font-bold text-slate-400">{d.getDate()}</span></th>))}
                     <th className="w-10 pb-4"></th>
                   </tr>
@@ -289,7 +277,7 @@ const AuthModal = ({ isOpen, onClose }) => {
     );
 };
 
-const DashboardView = ({ tasks, user, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, setCategories }) => {
+const DashboardView = ({ tasks, user, openAddModal, toggleTask, deleteTask, onUpdate, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, setCategories }) => {
     const todayStr = getLocalDateString(new Date());
     const todaysTasks = sortTasksByTime(tasks.filter(t => t.date === todayStr));
     const completedTasks = todaysTasks.filter(t => t.completed).length;
@@ -302,7 +290,7 @@ const DashboardView = ({ tasks, user, openAddModal, toggleTask, deleteTask, onUp
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className={`md:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[28rem] overflow-hidden`}>
                 <div className="flex justify-between items-center p-6 pb-2 shrink-0"><h3 className="font-bold text-slate-800 flex items-center gap-2 tracking-tighter uppercase"><Target className="text-rose-500"/> Today's Focus</h3><button onClick={() => openAddModal(todayStr)} className="bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-700 transition-all shadow-lg"><Plus size={16}/></button></div>
-                <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar space-y-2">{todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10 italic">No tasks yet.</div> : todaysTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categories={categories} setCategories={setCategories}/>))}</div>
+                <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar space-y-2">{todaysTasks.length === 0 ? <div className="text-center text-slate-400 py-10 italic">No tasks yet.</div> : todaysTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} categories={categories} setCategories={setCategories}/>))}</div>
             </div>
             <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-8 flex flex-col items-center justify-center text-center h-[28rem]`}>
                 <h3 className="font-black text-slate-800 mb-8 text-xl uppercase tracking-tighter">Completion</h3>
@@ -320,7 +308,7 @@ const DashboardView = ({ tasks, user, openAddModal, toggleTask, deleteTask, onUp
     );
 };
 
-const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, onUpdate, onDelete, categories }) => {
+const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal }) => {
     const year = currentDate.getFullYear(); const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
@@ -338,11 +326,10 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               if (!day) return <div key={i} className="bg-white"></div>;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const dayTasks = tasks.filter(t => t.date === dateStr);
-              const isToday = dateStr === getLocalDateString(new Date());
               return (
                 <div key={i} className="bg-white p-2 hover:bg-violet-50/30 transition-colors group flex flex-col min-h-[100px] border-b border-r border-slate-50 relative">
-                  <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-violet-600 text-white' : 'text-slate-700'}`}>{day}</div>
-                  <div className="space-y-1 overflow-hidden">{dayTasks.slice(0, 3).map(t => (<div key={t.id} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 truncate">{t.title}</div>))}</div>
+                  <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${dateStr === getLocalDateString(new Date()) ? 'bg-violet-600 text-white' : 'text-slate-700'}`}>{day}</div>
+                  <div className="space-y-1 overflow-hidden">{dayTasks.slice(0, 3).map(t => (<div key={t.id} className={`text-[10px] px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 truncate`}>{t.title}</div>))}</div>
                   <button onClick={() => openAddModal(dateStr)} className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 bg-violet-600 text-white p-1 rounded-full"><Plus size={14}/></button>
                 </div>
               );
@@ -353,7 +340,7 @@ const CalendarView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     );
 };
 
-const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdate, moveTask, categories, onCloneYesterday }) => {
+const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdate, categories, onCloneYesterday }) => {
     const hours = Array.from({length: 18}, (_, i) => i + 6); 
     const dateStr = getLocalDateString(currentDate);
     
@@ -378,7 +365,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                 <div key={hour} className="flex gap-4 p-4 rounded-2xl border bg-white border-slate-100 group transition-all">
                     <div className="w-16 pt-2 border-r border-slate-100 mr-2 text-sm font-black text-slate-400">{displayHour}</div>
                     <div className="flex-1 min-h-[60px] flex flex-col justify-center space-y-2">
-                        {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} moveTask={moveTask} categories={categories} showTime={false} format="timeline" />))}
+                        {hourTasks.map(task => (<TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdate={onUpdate} categories={categories} showTime={false} format="timeline" />))}
                         <button onClick={() => openAddModal(dateStr, `${hour.toString().padStart(2, '0')}:00`)} className="text-slate-300 hover:text-violet-500 text-sm flex items-center gap-2 transition-all"><Plus size={14}/> Add task</button>
                     </div>
                 </div>
@@ -551,100 +538,84 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [reviews, setReviews] = useState({ daily: {}, cycle: {}, yearly: {} });
   const [habits, setHabits] = useState([]);
-  
-  // CRITICAL: Tracks which modules have finished initial loading from Firebase
-  const [loadedModules, setLoadedModules] = useState({
-      tasks: false,
-      categories: false,
-      habits: false,
-      reviews: false
-  });
+  const [loadedModules, setLoadedModules] = useState({ tasks: false, categories: false, habits: false, reviews: false });
+
+  // Fallback storage loader
+  const loadLocalStorage = () => {
+      try {
+          const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
+          const h = localStorage.getItem('planner_habits'); if(h) setHabits(JSON.parse(h).list || []);
+          const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || {});
+          const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
+          setLoadedModules({ tasks: true, categories: true, habits: true, reviews: true });
+      } catch(e) { 
+          console.error("Local load failed:", e);
+          setLoadedModules({ tasks: true, categories: true, habits: true, reviews: true });
+      }
+  };
 
   useEffect(() => { 
-    const initAuth = async () => { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); } };
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth initialization failed:", err);
+        // If auth fails (e.g. admin-restricted error), trigger local fallback
+        if (!auth.currentUser) loadLocalStorage();
+      }
+    };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); }); 
+    const unsubscribe = onAuthStateChanged(auth, (u) => { 
+      setUser(u);
+      if (!u) loadLocalStorage();
+    }); 
     return () => unsubscribe(); 
   }, []);
 
   useEffect(() => {
       if (user) {
           const unsubs = [];
-          
-          // TASK LISTENER - RULE 1
+          const check = () => {}; 
+
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', 'list'), d => {
               if(d.exists()) setTasks(d.data().list || []);
               setLoadedModules(prev => ({...prev, tasks: true}));
-          }, (err) => { console.error(err); setLoadedModules(prev => ({...prev, tasks: true})); }));
+          }, () => setLoadedModules(prev => ({...prev, tasks: true}))));
 
-          // CATEGORIES LISTENER - RULE 1
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'categories', 'list'), d => {
               if(d.exists()) setCategories(d.data().list || []);
               setLoadedModules(prev => ({...prev, categories: true}));
-          }, (err) => { setLoadedModules(prev => ({...prev, categories: true})); }));
+          }, () => setLoadedModules(prev => ({...prev, categories: true}))));
 
-          // HABITS LISTENER - RULE 1
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'habits', 'list'), d => {
               if(d.exists()) setHabits(d.data().list || []);
               setLoadedModules(prev => ({...prev, habits: true}));
-          }, (err) => { setLoadedModules(prev => ({...prev, habits: true})); }));
+          }, () => setLoadedModules(prev => ({...prev, habits: true}))));
 
-          // REVIEWS LISTENER - RULE 1
           unsubs.push(onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'reviews', 'data'), d => {
-              if(d.exists()) setReviews(d.data() || { daily: {}, cycle: {}, yearly: {} });
+              if(d.exists()) setReviews(d.data() || {});
               setLoadedModules(prev => ({...prev, reviews: true}));
-          }, (err) => { setLoadedModules(prev => ({...prev, reviews: true})); }));
+          }, () => setLoadedModules(prev => ({...prev, reviews: true}))));
 
           return () => unsubs.forEach(u => u());
-      } else {
-          // Guest Fallback
-          try {
-            const t = localStorage.getItem('planner_tasks'); if(t) setTasks(JSON.parse(t).list || []);
-            const h = localStorage.getItem('planner_habits'); if(h) setHabits(JSON.parse(h).list || []);
-            const r = localStorage.getItem('planner_reviews'); if(r) setReviews(JSON.parse(r) || {});
-            const c = localStorage.getItem('planner_categories'); if(c) setCategories(JSON.parse(c).list || []);
-            setLoadedModules({ tasks: true, categories: true, habits: true, reviews: true });
-          } catch(e) { setLoadedModules({ tasks: true, categories: true, habits: true, reviews: true }); }
       }
   }, [user]);
 
-  // SAVING LOGIC - ONLY RUNS AFTER INITIAL SYNC
-  useEffect(() => { 
-      if(!user || !loadedModules.tasks) return;
-      setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', 'list'), { list: tasks }); 
-  }, [tasks, user, loadedModules.tasks]);
-
-  useEffect(() => { 
-      if(!user || !loadedModules.categories) return;
-      setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'categories', 'list'), { list: categories }); 
-  }, [categories, user, loadedModules.categories]);
-
-  useEffect(() => { 
-      if(!user || !loadedModules.habits) return;
-      setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'habits', 'list'), { list: habits }); 
-  }, [habits, user, loadedModules.habits]);
-
-  useEffect(() => { 
-      if(!user || !loadedModules.reviews) return;
-      setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'reviews', 'data'), reviews); 
-  }, [reviews, user, loadedModules.reviews]);
+  // SAVING LOGIC - PREVENTS OVERWRITING UNTIL SYNC IS CONFIRMED
+  useEffect(() => { if(user && loadedModules.tasks) setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'tasks', 'list'), { list: tasks }); }, [tasks, user, loadedModules.tasks]);
+  useEffect(() => { if(user && loadedModules.categories) setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'categories', 'list'), { list: categories }); }, [categories, user, loadedModules.categories]);
+  useEffect(() => { if(user && loadedModules.habits) setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'habits', 'list'), { list: habits }); }, [habits, user, loadedModules.habits]);
+  useEffect(() => { if(user && loadedModules.reviews) setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'reviews', 'data'), reviews); }, [reviews, user, loadedModules.reviews]);
 
   const addTask = (newTask) => setTasks([...tasks, { id: Date.now(), completed: false, ...newTask }]);
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
   const updateTask = (id, updates) => setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
 
-  const moveTask = (dragId, targetId, position) => {
-      const dragIndex = tasks.findIndex(t => t.id === dragId || t.id === parseInt(dragId));
-      const targetIndex = tasks.findIndex(t => t.id === targetId || t.id === parseInt(targetId));
-      if (dragIndex >= 0 && targetIndex >= 0 && dragIndex !== targetIndex) {
-          const newTasks = [...tasks]; const [draggedItem] = newTasks.splice(dragIndex, 1);
-          const newTargetIndex = newTasks.findIndex(t => t.id === targetId || t.id === parseInt(targetId));
-          newTasks.splice(position === 'bottom' ? newTargetIndex + 1 : newTargetIndex, 0, draggedItem);
-          setTasks(newTasks);
-      }
-  };
-  
   const cloneYesterdayTasks = (targetDateStr) => {
       const yesterday = new Date(new Date(targetDateStr).setDate(new Date(targetDateStr).getDate() - 1));
       const sourceStr = getLocalDateString(yesterday);
@@ -680,7 +651,7 @@ export default function App() {
         <div className="mt-auto p-8">
             {!isAllSynced ? (
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 italic">
-                    <RefreshCw size={12} className="animate-spin" /> Syncing cloud data...
+                    <RefreshCw size={12} className="animate-spin" /> Syncing data...
                 </div>
             ) : user ? (
                 <div className="flex items-center gap-3 overflow-hidden">
@@ -698,9 +669,9 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full w-full overflow-hidden bg-slate-50">
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 z-30"><button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 p-2"><Menu size={24} /></button><span className="font-black text-slate-800 tracking-widest text-sm uppercase">{view}</span><button onClick={() => openAddModal()} className="text-violet-600 p-2"><Plus size={24} /></button></header>
         <div className="flex-1 p-5 md:p-10 overflow-y-auto custom-scrollbar relative">
-          {view === 'focus' && <DashboardView tasks={tasks} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categories={categories} habits={habits} onUpdateHabit={updateHabit} onAddHabit={addHabit} onDeleteHabit={deleteHabit} setCategories={setCategories} />}
-          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} onUpdate={updateTask} onDelete={deleteTask} categories={categories} />}
-          {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} moveTask={moveTask} categories={categories} onCloneYesterday={cloneYesterdayTasks} />}
+          {view === 'focus' && <DashboardView tasks={tasks} user={user} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} categories={categories} habits={habits} onUpdateHabit={updateHabit} onAddHabit={addHabit} onDeleteHabit={deleteHabit} setCategories={setCategories} />}
+          {view === 'calendar' && <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} />}
+          {view === 'kanban' && <TimelineView currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} openAddModal={openAddModal} toggleTask={toggleTask} deleteTask={deleteTask} onUpdate={updateTask} categories={categories} onCloneYesterday={cloneYesterdayTasks} />}
           {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={setReviews}/>}
         </div>
       </main>
