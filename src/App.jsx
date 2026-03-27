@@ -2,9 +2,10 @@ import React, { useState, useEffect, memo } from 'react';
 import { 
   Calendar as CalIcon, Home, Trello, Plus, Clock, ChevronLeft, ChevronRight, X, 
   Target, TrendingUp, ArrowRight, Trash2, Zap, Activity, DollarSign, PieChart, 
-  LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2,
-  Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
-  PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, CheckCircle2
+  LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2, Users,
+  Check, Edit, Edit3, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
+  PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, 
+  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -195,7 +196,10 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+            <div 
+                className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" 
+                onClick={e => e.stopPropagation()}
+            >
                 <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg flex items-center justify-center"><UserPlus size={20}/></div>
@@ -355,6 +359,8 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   );
 };
 
+
+// --- 2. Shared TaskCard Component ---
 const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(task?.title || '');
@@ -416,6 +422,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
     );
 });
 
+// --- 3. HabitTrackerComponent ---
 const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     const today = new Date();
     const currentMonth = today.getMonth();
@@ -541,6 +548,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     );
 };
 
+// --- 4. Main Views ---
 const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
     const today = getLocalDateString(new Date());
     const todayTasks = tasks.filter(t => t.date === today);
@@ -707,6 +715,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                                       <div className="space-y-3">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)}
                                           
+                                          {/* 淡化的添加按钮 */}
                                           <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
                                               <Plus size={16}/> {t('添加任务', 'Add Task')}
                                           </button>
@@ -799,339 +808,7 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
       );
 };
 
-const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
-    const [financeData, setFinanceData] = useState({
-        balance: 0,
-        income: 0,
-        expense: 0,
-        transactions: [],
-        savingsJars: [], 
-        commitments: [] 
-    });
-
-    const [txAmount, setTxAmount] = useState('');
-    const [txType, setTxType] = useState('expense');
-    const [txCategory, setTxCategory] = useState('餐饮 Food');
-    const [txNote, setTxNote] = useState('');
-    const [txDate, setTxDate] = useState(getLocalDateString(new Date()));
-
-    const [isJarModalOpen, setIsJarModalOpen] = useState(false);
-    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0] });
-    
-    const [isCommitmentModalOpen, setIsCommitmentModalOpen] = useState(false);
-    const [commitForm, setCommitForm] = useState({ name: '', amount: '' });
-
-    const [fundJarId, setFundJarId] = useState(null);
-    const [fundAmount, setFundAmount] = useState('');
-
-    const incomeCategories = ['工资 Salary', '投资 Investment', '兼职 Side Hustle', '其他 Other'];
-    const expenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '其他 Other'];
-
-    useEffect(() => {
-        if (!viewedUserId) return;
-        const financeRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'finance', 'data');
-        const unsub = onSnapshot(financeRef, (d) => {
-            if (d.exists()) {
-                setFinanceData(d.data());
-            } else {
-                setFinanceData({ balance: 0, income: 0, expense: 0, transactions: [], savingsJars: [], commitments: [] });
-            }
-        });
-        return () => unsub();
-    }, [viewedUserId]);
-
-    const updateFinance = async (newData) => {
-        setFinanceData(newData);
-        if (user && viewedUserId) {
-            await setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, 'finance', 'data'), newData);
-        }
-    };
-
-    const handleAddTransaction = (e) => {
-        e.preventDefault();
-        if (!txAmount || isNaN(txAmount)) return;
-        const amt = parseFloat(txAmount);
-        const newTx = { id: generateId(), amount: amt, type: txType, category: txCategory, note: txNote, date: txDate, timestamp: Date.now() };
-        const updatedTx = [newTx, ...financeData.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-        const newIncome = txType === 'income' ? financeData.income + amt : financeData.income;
-        const newExpense = txType === 'expense' ? financeData.expense + amt : financeData.expense;
-        updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
-        setTxAmount(''); setTxNote('');
-    };
-
-    const handleDeleteTransaction = (id) => {
-        const txToDelete = financeData.transactions.find(t => t.id === id);
-        if (!txToDelete) return;
-        const updatedTx = financeData.transactions.filter(t => t.id !== id);
-        const newIncome = txToDelete.type === 'income' ? financeData.income - txToDelete.amount : financeData.income;
-        const newExpense = txToDelete.type === 'expense' ? financeData.expense - txToDelete.amount : financeData.expense;
-        updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
-    };
-
-    const currentMonthPrefix = getLocalDateString(new Date()).slice(0, 7);
-    const monthlyTxs = financeData.transactions.filter(t => t.date.startsWith(currentMonthPrefix));
-    
-    const monthlyIncome = monthlyTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const monthlyExpense = monthlyTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    const totalCommitments = (financeData.commitments || []).reduce((s, c) => s + c.amount, 0);
-    
-    const safeToSpend = monthlyIncome - monthlyExpense - totalCommitments;
-
-    const categoryTotals = {};
-    monthlyTxs.filter(t => t.type === 'expense').forEach(t => { categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount; });
-    const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
-
-    return (
-        <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-800 text-white relative overflow-hidden">
-                    <div className="flex items-center gap-2 mb-1 opacity-80"><Wallet size={16}/> <span className="font-medium text-sm">{t('总净资产', 'Total Net Worth')}</span></div>
-                    <div className="text-2xl font-bold">${financeData.balance.toLocaleString()}</div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-1 text-emerald-600 dark:text-emerald-400"><ArrowUpRight size={16}/> <span className="font-medium text-sm">{t('本月总收入', 'Monthly Income')}</span></div>
-                    <div className="text-2xl font-bold text-slate-800 dark:text-white">${monthlyIncome.toLocaleString()}</div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-1 text-indigo-600 dark:text-indigo-400"><Repeat size={16}/> <span className="font-medium text-sm">{t('本月固定扣费', 'Commitments')}</span></div>
-                    <div className="text-2xl font-bold text-slate-800 dark:text-white">${totalCommitments.toLocaleString()}</div>
-                </div>
-                <div className={`rounded-2xl p-5 shadow-sm border ${safeToSpend >= 0 ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50' : 'bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50'}`}>
-                    <div className={`flex items-center gap-2 mb-1 ${safeToSpend >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}><Target size={16}/> <span className="font-bold text-sm">{t('本月剩余可用', 'Safe to Spend')}</span></div>
-                    <div className={`text-2xl font-bold ${safeToSpend >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>${safeToSpend.toLocaleString()}</div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Edit3 size={20} className="text-indigo-500"/> {t('快速记账', 'Quick Log')}</h3>
-                    <form onSubmit={handleAddTransaction} className="space-y-4">
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                            <button type="button" onClick={() => {setTxType('expense'); setTxCategory(expenseCategories[0]);}} className={`flex-1 py-2.5 text-sm font-semibold rounded-md transition-colors ${txType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-600' : 'text-slate-500'}`}>{t('支出 Expense', 'Expense')}</button>
-                            <button type="button" onClick={() => {setTxType('income'); setTxCategory(incomeCategories[0]);}} className={`flex-1 py-2.5 text-sm font-semibold rounded-md transition-colors ${txType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{t('收入 Income', 'Income')}</button>
-                        </div>
-                        <div className="flex gap-4">
-                            <input type="number" value={txAmount} onChange={e=>setTxAmount(e.target.value)} placeholder="0.00" className="w-2/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none focus:border-indigo-500 dark:text-white" required />
-                            <input type="date" value={txDate} onChange={e=>setTxDate(e.target.value)} className="w-1/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-sm outline-none focus:border-indigo-500 dark:text-white" required />
-                        </div>
-                        <select value={txCategory} onChange={e=>setTxCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none dark:text-white focus:border-indigo-500">
-                            {(txType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none focus:border-indigo-500 dark:text-white" />
-                        <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-2">{t('记一笔', 'Save Transaction')}</button>
-                    </form>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><ListOrdered size={20} className="text-indigo-500"/> {t('最近交易', 'Recent Transactions')}</h3>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 max-h-[350px] pr-2">
-                        {financeData.transactions.length === 0 ? <p className="text-center text-slate-400 mt-10">{t('暂无交易记录', 'No transactions yet.')}</p> : 
-                            financeData.transactions.slice(0, 15).map(tx => (
-                                <div key={tx.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 group">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30'}`}>
-                                            {tx.type === 'income' ? <ArrowUpRight size={18}/> : <ArrowDownRight size={18}/>}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{tx.category}</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{tx.date} {tx.note && `• ${tx.note}`}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
-                                            {tx.type === 'income' ? '+' : '-'}${tx.amount}
-                                        </span>
-                                        <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16}/></button>
-                                    </div>
-                                </div>
-                            ))
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('每月固定支出', 'Monthly Commitments')}</h3>
-                        <button onClick={() => setIsCommitmentModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
-                    </div>
-                    <div className="space-y-3">
-                        {(!financeData.commitments || financeData.commitments.length === 0) ? <p className="text-slate-400 text-sm text-center py-4">{t('未设定固定支出', 'No monthly commitments.')}</p> : 
-                            financeData.commitments.map(sub => (
-                                <div key={sub.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center"><Repeat size={14}/></div>
-                                        <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{sub.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold text-slate-800 dark:text-white">${sub.amount}/mo</span>
-                                        <button onClick={() => {
-                                            const updated = financeData.commitments.filter(s => s.id !== sub.id);
-                                            updateFinance({...financeData, commitments: updated});
-                                        }} className="text-slate-400 hover:text-rose-500"><X size={16}/></button>
-                                    </div>
-                                </div>
-                            ))
-                        }
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><PieChart size={20} className="text-indigo-500"/> {t('本月非固定支出分类', 'Flexible Expenses')}</h3>
-                    <div className="space-y-5">
-                        {sortedCategories.length === 0 ? <p className="text-slate-400 text-sm text-center py-4">{t('本月暂无其他支出', 'No expenses logged.')}</p> : 
-                            sortedCategories.map(([cat, amt], i) => {
-                                const pct = Math.round((amt / monthlyExpense) * 100) || 0;
-                                const barColors = ['bg-indigo-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500'];
-                                return (
-                                    <div key={cat}>
-                                        <div className="flex justify-between text-sm mb-1.5 font-medium">
-                                            <span className="text-slate-700 dark:text-slate-300">{cat}</span>
-                                            <span className="text-slate-800 dark:text-white font-bold">${amt} ({pct}%)</span>
-                                        </div>
-                                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full ${barColors[i % barColors.length]}`} style={{ width: `${pct}%` }} />
-                                        </div>
-                                    </div>
-                                )
-                            })
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Landmark size={20} className="text-indigo-500"/> {t('分配储蓄罐', 'Savings Jars')}</h3>
-                        <p className="text-sm text-slate-500 mt-1">{t('把收入分配到您的各个银行账户', 'Allocate your income into banks')}</p>
-                    </div>
-                    <button onClick={() => setIsJarModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {(!financeData.savingsJars || financeData.savingsJars.length === 0) ? <p className="text-slate-400 text-sm col-span-full text-center py-6">{t('点击上方按钮建立第一个储蓄罐吧', 'Set up a savings jar to start allocating.')}</p> : 
-                        financeData.savingsJars.map(jar => {
-                            const pct = Math.min(100, (jar.current / jar.target) * 100) || 0;
-                            return (
-                                <div key={jar.id} className="border border-slate-200 dark:border-slate-700 p-6 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 relative group flex flex-col justify-between">
-                                    <button onClick={() => {
-                                        const updated = financeData.savingsJars.filter(g => g.id !== jar.id);
-                                        updateFinance({...financeData, savingsJars: updated});
-                                    }} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
-                                    
-                                    <div>
-                                        <span className="inline-block px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-600 mb-3">{jar.bank}</span>
-                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">{jar.name}</h4>
-                                        <p className="text-sm text-slate-500 mb-4">${jar.current.toLocaleString()} / ${jar.target.toLocaleString()}</p>
-                                        
-                                        <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-5">
-                                            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                        </div>
-                                    </div>
-                                    
-                                    <button onClick={() => setFundJarId(jar.id)} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
-                                        {t('存入资金', 'Add Funds')}
-                                    </button>
-                                </div>
-                            );
-                        })
-                    }
-                </div>
-            </div>
-
-            {isJarModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
-                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建储蓄罐', 'New Savings Jar')}</h3>
-                            <button onClick={() => setIsJarModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
-                        </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            if(!jarForm.name || !jarForm.target) return;
-                            const newJar = { id: generateId(), name: jarForm.name, target: parseFloat(jarForm.target), current: 0, bank: jarForm.bank };
-                            updateFinance({...financeData, savingsJars: [...(financeData.savingsJars||[]), newJar]});
-                            setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0] });
-                            setIsJarModalOpen(false);
-                        }} className="p-6 space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('储蓄罐名称', 'Jar Name')}</label>
-                                <input value={jarForm.name} onChange={e=>setJarForm({...jarForm, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="e.g. Dream House" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('目标金额', 'Target Amount')}</label>
-                                <input type="number" value={jarForm.target} onChange={e=>setJarForm({...jarForm, target: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="10000" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('存入银行', 'Bank')}</label>
-                                <select value={jarForm.bank} onChange={e=>setJarForm({...jarForm, bank: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500">
-                                    {MALAYSIA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
-                                </select>
-                            </div>
-                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-indigo-700">{t('创建', 'Create')}</button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {isCommitmentModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
-                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加每月固定支出', 'Add Commitment')}</h3>
-                            <button onClick={() => setIsCommitmentModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
-                        </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            if(!commitForm.name || !commitForm.amount) return;
-                            const newSub = { id: generateId(), name: commitForm.name, amount: parseFloat(commitForm.amount) };
-                            updateFinance({...financeData, commitments: [...(financeData.commitments||[]), newSub]});
-                            setCommitForm({ name: '', amount: '' });
-                            setIsCommitmentModalOpen(false);
-                        }} className="p-6 space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('支出名称', 'Name')}</label>
-                                <input value={commitForm.name} onChange={e=>setCommitForm({...commitForm, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="e.g. Car Loan" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('每月金额', 'Monthly Amount')}</label>
-                                <input type="number" value={commitForm.amount} onChange={e=>setCommitForm({...commitForm, amount: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="500" />
-                            </div>
-                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-indigo-700">{t('保存', 'Save')}</button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {fundJarId && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
-                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('存入资金', 'Add Funds')}</h3>
-                            <button onClick={() => {setFundJarId(null); setFundAmount('');}} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
-                        </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            if(!fundAmount || isNaN(fundAmount)) return;
-                            const amt = parseFloat(fundAmount);
-                            const updated = financeData.savingsJars.map(g => g.id === fundJarId ? {...g, current: g.current + amt} : g);
-                            updateFinance({...financeData, savingsJars: updated});
-                            setFundJarId(null); setFundAmount('');
-                        }} className="p-6 space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('存入金额', 'Amount')}</label>
-                                <input type="number" value={fundAmount} onChange={e=>setFundAmount(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none dark:text-white focus:border-indigo-500" required placeholder="0.00" autoFocus />
-                            </div>
-                            <button type="submit" className="w-full bg-emerald-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-emerald-700">{t('确认存入', 'Confirm')}</button>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
+// --- 5. Main App Logic ---
 export default function App() {
   const [view, setView] = useState('focus');
   const [user, setUser] = useState(null);
