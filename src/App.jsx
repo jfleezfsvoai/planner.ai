@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 // --- Firebase Imports ---
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
 
@@ -33,6 +33,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// 初始化双核 App：用于 Admin 注册员工而不被登出
+const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
+const secondaryAuth = getAuth(secondaryApp);
 
 // Critical Fix: Must use environmental appId for correct permissions
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main';
@@ -85,7 +89,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
     };
 
     return (
-        <div className="flex flex-col h-screen w-full font-sans transition-colors duration-300 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+        <div className={`flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
             <div className="absolute top-6 right-8 flex items-center gap-2 z-50">
                 <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg font-bold text-xs transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
@@ -94,23 +98,46 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/5 blur-[120px] rounded-full" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-500/5 blur-[120px] rounded-full" />
 
-                <div className="bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl w-full max-w-lg p-16 border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-500 relative z-10">
+                <div className="bg-white dark:bg-slate-900 rounded-[4rem] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.1)] w-full max-w-lg p-16 border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-500 relative z-10">
                     <div className="text-center mb-12">
-                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-[2.5rem] mx-auto flex items-center justify-center text-white mb-8 shadow-2xl shadow-indigo-200 dark:shadow-none"><Zap size={44} fill="currentColor" /></div>
+                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-[2.5rem] mx-auto flex items-center justify-center text-white mb-8 shadow-2xl shadow-indigo-200 dark:shadow-none transition-transform hover:scale-105 cursor-pointer">
+                            <Zap size={44} fill="currentColor" />
+                        </div>
                         <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter italic uppercase">Planner.AI</h2>
                         <p className="text-xs text-slate-400 font-bold mt-4 uppercase tracking-[0.4em]">{t('私人助理 & 旗舰规划', 'ELITE PERSONAL ASSISTANT')}</p>
                     </div>
-                    {error && <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-sm p-5 rounded-2xl mb-8 border border-rose-100 dark:border-rose-800 text-center font-bold flex items-center justify-center gap-2"><AlertTriangle size={18} /> {error}</div>}
+
+                    {error && (
+                        <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-sm p-5 rounded-2xl mb-8 border border-rose-100 dark:border-rose-800 text-center font-bold flex items-center justify-center gap-2 animate-bounce">
+                            <AlertTriangle size={18} /> {error}
+                        </div>
+                    )}
+
                     <form onSubmit={handleAuth} className="space-y-6">
-                        <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-inner" required />
-                        <input type="password" placeholder="Security Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-inner" required />
-                        <button type="submit" disabled={loading} className="w-full h-20 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-[2rem] shadow-2xl shadow-indigo-500/30 dark:shadow-none hover:from-indigo-700 hover:to-violet-700 hover:-translate-y-1 transition-all flex justify-center items-center gap-4 text-xl mt-8">
-                            {loading ? <RefreshCw className="animate-spin" size={28}/> : <>{isLogin ? t('进入系统', 'LOGIN NOW') : t('注册账号', 'CREATE ACCESS')}<ArrowRight size={24} /></>}
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t('邮箱地址', 'Email Address')}</label>
+                            <input type="email" placeholder="name@lifechanger.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-inner" required />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t('安全密码', 'Security Password')}</label>
+                            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-inner" required />
+                        </div>
+                        
+                        <button type="submit" disabled={loading} className="w-full h-20 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-[2rem] shadow-2xl shadow-indigo-500/30 dark:shadow-none hover:from-indigo-700 hover:to-violet-700 hover:-translate-y-1 active:translate-y-0 transition-all flex justify-center items-center gap-4 text-xl mt-12 group">
+                            {loading ? (
+                                <RefreshCw className="animate-spin" size={28}/>
+                            ) : (
+                                <>
+                                    <span>{isLogin ? t('进入系统', 'LOGIN NOW') : t('注册账号', 'CREATE ACCESS')}</span>
+                                    <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
                         </button>
                     </form>
+
                     <div className="mt-12 flex justify-end">
-                        <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-lg font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors underline-offset-8 hover:underline">
-                            {isLogin ? t('注册新账号', 'Register') : t('返回登录', 'Back')}
+                        <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-lg font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors flex items-center gap-3 group underline-offset-8 hover:underline">
+                            {isLogin ? t('注册新账号', 'Create Account') : t('返回登录', 'Back to Login')}
                         </button>
                     </div>
                 </div>
@@ -119,7 +146,104 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
     );
 };
 
-// --- 1.5 AddTaskModal Component (Restored) ---
+// --- Admin: Staff Creation Modal ---
+const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState({ type: '', msg: '' });
+
+    if (!isOpen) return null;
+
+    const handleCreateStaff = async (e) => {
+        e.preventDefault();
+        if (!email.trim() || !password.trim()) return;
+        setLoading(true); setStatus({ type: '', msg: '' });
+
+        try {
+            // 1. 使用 Secondary Auth 创建用户，不会踢掉当前 Admin
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
+            const newUid = userCredential.user.uid;
+            
+            // 创建成功后立刻退出 SecondaryApp，保持干净
+            await signOut(secondaryAuth);
+
+            // 2. 将新员工登记到白名单中 (使用 Admin 的主 Auth 写入)
+            const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: newUid }];
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
+
+            setStatus({ type: 'success', msg: t('账号创建成功！员工可立刻登录。', 'Account created! Staff can login now.') });
+            setEmail(''); setPassword('');
+        } catch (err) {
+            // 如果账号已存在，也可捕获
+            setStatus({ type: 'error', msg: err.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRemoveStaff = async (staffEmail) => {
+        const updatedList = staffList.filter(s => s.email !== staffEmail);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[200] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl w-full max-w-xl overflow-hidden border border-white dark:border-slate-800 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-10 pb-6 flex justify-between items-center border-b border-slate-50 dark:border-slate-800">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl flex items-center justify-center"><UserPlus size={24}/></div>
+                        <div>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{t('添加新员工', 'Create Staff Account')}</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Admin Access Control</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 transition-colors"><X size={20}/></button>
+                </div>
+
+                <div className="p-10 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+                    <form onSubmit={handleCreateStaff} className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem] space-y-5 border border-slate-100 dark:border-slate-700">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{t('员工邮箱', 'Staff Email')}</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white shadow-inner" placeholder="staff@company.com" required />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{t('初始密码', 'Initial Password')}</label>
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white shadow-inner" placeholder="••••••••" required />
+                        </div>
+                        <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white rounded-2xl py-5 font-black text-lg shadow-xl shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-4">
+                            {loading ? <RefreshCw size={24} className="animate-spin"/> : <UserPlus size={24}/>} 
+                            {t('一键创建并授权', 'Create & Authorize')}
+                        </button>
+                    </form>
+
+                    {status.msg && <div className={`p-5 rounded-2xl text-sm font-bold text-center ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>{status.msg}</div>}
+
+                    <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('已授权员工列表', 'Active Staff')}</h4>
+                        {staffList.length === 0 ? (
+                            <div className="p-8 text-center text-slate-300 dark:text-slate-600 font-black italic rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-800">{t('暂无员工', 'NO STAFF')}</div>
+                        ) : (
+                            staffList.map((s, idx) => {
+                                const emailStr = typeof s === 'string' ? s : (s?.email || 'Unknown');
+                                return (
+                                    <div key={idx} className="flex items-center justify-between p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-black uppercase">{emailStr[0]?.toUpperCase() || 'U'}</div>
+                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">{emailStr}</span>
+                                        </div>
+                                        <button onClick={() => handleRemoveStaff(emailStr)} className="p-3 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={20}/></button>
+                                    </div>
+                                )
+                            })
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCategory, prefilledTime = "", t }) => {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(categories[0]?.name || t('工作', 'Work'));
@@ -375,7 +499,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     );
 };
 
-// --- 4. Main Views (Dashboard, Calendar, Timeline, Review, Admin) ---
+// --- 4. Main Views (Dashboard, Calendar, Timeline, Review) ---
 const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
     const today = getLocalDateString(new Date());
     const todayTasks = tasks.filter(t => t.date === today);
@@ -547,109 +671,53 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
             </div>
           </header>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {tab === 'daily' && dailyCategories.map(x => (
-                <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-8">
-                    <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><x.i size={24} /></div> {x.l}</h4>
-                    <div className="space-y-4">
-                        {[0,1,2].map(i => (
-                        <div key={i} className="flex items-center gap-5">
-                            <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 italic">{i+1}</span>
-                            <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4.5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" />
+            {tab === 'daily' && dailyCategories.map(x => {
+                const Icon = x.i;
+                return (
+                    <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-8">
+                        <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><Icon size={24} /></div> {x.l}</h4>
+                        <div className="space-y-4">
+                            {[0,1,2].map(i => (
+                            <div key={i} className="flex items-center gap-5">
+                                <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 italic">{i+1}</span>
+                                <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base font-medium outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" />
+                            </div>
+                            ))}
                         </div>
-                        ))}
                     </div>
-                </div>
-            ))}
-            {tab === 'cycle' && cycleCategories.map(x => (
-                <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
-                  <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 mb-8 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><x.i size={24} /></div> {x.l}</h4>
-                  <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[200px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-8 text-lg leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-50 dark:text-white transition-colors resize-none shadow-inner" placeholder={t(`记录心得...`, `Record plans...`)} />
-                </div>
-            ))}
-            {tab === 'yearly' && yearlyCategories.map(cat => (
-                <div key={cat.k} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-10">
-                  <div className="flex items-center gap-5">
-                    <div className={`p-4 bg-${cat.c}-50 dark:bg-${cat.c}-950/40 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-2xl shadow-inner`}><cat.i size={32} /></div>
-                    <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{cat.l}</h4>
-                  </div>
-                  <div className="space-y-4">
-                    {[0,1,2].map(i => (
-                      <div key={i} className="flex items-center gap-5">
-                        <span className="text-[10px] font-black text-slate-200 dark:text-slate-800 italic">{i+1}</span>
-                        <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" placeholder={t("核心目标...", "Set goal...")} />
+                );
+            })}
+            {tab === 'cycle' && cycleCategories.map(x => {
+                const Icon = x.i;
+                return (
+                    <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
+                      <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 mb-8 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><Icon size={24} /></div> {x.l}</h4>
+                      <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[200px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-8 text-base font-medium leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-50 dark:text-white transition-colors resize-none shadow-inner" placeholder={t(`记录心得...`, `Record plans...`)} />
+                    </div>
+                );
+            })}
+            {tab === 'yearly' && yearlyCategories.map(cat => {
+                const Icon = cat.i;
+                return (
+                    <div key={cat.k} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-10">
+                      <div className="flex items-center gap-5">
+                        <div className={`p-4 bg-${cat.c}-50 dark:bg-${cat.c}-950/40 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-2xl shadow-inner`}><Icon size={32} /></div>
+                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{cat.l}</h4>
                       </div>
-                    ))}
-                  </div>
-                </div>
-            ))}
+                      <div className="space-y-4">
+                        {[0,1,2].map(i => (
+                          <div key={i} className="flex items-center gap-5">
+                            <span className="text-[10px] font-black text-slate-200 dark:text-slate-800 italic">{i+1}</span>
+                            <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base font-medium outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" placeholder={t("核心目标...", "Set goal...")} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                );
+            })}
           </div>
         </div>
       );
-};
-
-const UserManagementView = ({ t }) => {
-    const [staffList, setStaffList] = useState([]);
-    const [email, setEmail] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState({ type: '', msg: '' });
-
-    useEffect(() => {
-        const staffRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-        const unsub = onSnapshot(staffRef, (d) => {
-            if (d.exists()) setStaffList(d.data().list || []);
-        });
-        return () => unsub();
-    }, []);
-
-    const handleAddStaff = async (e) => {
-        e.preventDefault();
-        if (!email.trim()) return;
-        setLoading(true); setStatus({ type: '', msg: '' });
-        try {
-            if (staffList.find(s => s.email === email.toLowerCase().trim())) {
-                setStatus({ type: 'error', msg: '该员工已在名单中' });
-                setLoading(false);
-                return;
-            }
-            const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: generateId() }];
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
-            setStatus({ type: 'success', msg: t('授权成功，请告知员工自行注册', 'Authorized. Tell staff to register.') });
-            setEmail('');
-        } catch(err) { setStatus({ type: 'error', msg: err.message }); }
-        finally { setLoading(false); }
-    };
-
-    const handleRemoveStaff = async (staffEmail) => {
-        const updatedList = staffList.filter(s => s.email !== staffEmail);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in">
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-12 shadow-sm">
-                <div className="flex items-center gap-4 mb-10"><div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-xl"><ShieldCheck size={32}/></div><div><h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{t('员工管理中心', 'Staff Control')}</h2></div></div>
-                <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem]">
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white" placeholder="Authorized Staff Email" required />
-                    <button type="submit" disabled={loading} className="bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700">{t('授权邮箱', 'Authorize Email')}</button>
-                </form>
-                {status.msg && <div className={`p-5 rounded-2xl mb-8 text-sm font-bold text-center ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{status.msg}</div>}
-                <div className="space-y-4">
-                    {staffList.map((s, idx) => {
-                        const emailStr = typeof s === 'string' ? s : (s?.email || 'Unknown');
-                        return (
-                            <div key={idx} className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-black uppercase">{emailStr[0]?.toUpperCase() || 'U'}</div>
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{emailStr}</span>
-                                </div>
-                                <button onClick={() => handleRemoveStaff(emailStr)} className="p-3 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={20}/></button>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-        </div>
-    );
 };
 
 // --- 5. Main App Logic ---
@@ -661,6 +729,7 @@ export default function App() {
   const [staffRegistry, setStaffRegistry] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false); // Admin专属员工弹窗控制
   const [prefilledTime, setPrefilledTime] = useState("");
   const [targetDate, setTargetDate] = useState(getLocalDateString(new Date()));
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -734,7 +803,6 @@ export default function App() {
     { id: 'review', icon: ClipboardList, label: t('复盘', 'Review') },
     { id: 'finance', icon: DollarSign, label: t('理财', 'Finance') }
   ];
-  if(isAdmin) menuItems.push({ id: 'admin', icon: ShieldCheck, label: t('管理中心', 'Admin') });
 
   return (
     <div className={`flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
@@ -742,15 +810,21 @@ export default function App() {
           <div className="flex items-center gap-4 text-slate-900 dark:text-white font-black text-3xl tracking-tighter italic uppercase"><div className="w-12 h-12 bg-indigo-600 rounded-[1.4rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-100 dark:shadow-none"><Zap size={24}/></div>Planner.AI</div>
           <div className="flex items-center gap-5">
             {isAdmin && (
-                <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-sm">
-                    <Eye size={18} className="text-indigo-600 ml-2" />
-                    <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-xs font-black uppercase outline-none pr-4 cursor-pointer dark:text-slate-200">
-                        <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
-                        {staffRegistry.map((s, i) => {
-                            if (!s || typeof s !== 'object' || !s.uid) return null;
-                            return <option key={s.uid || i} value={s.uid}>{s.email}</option>
-                        })}
-                    </select>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-sm">
+                        <Eye size={18} className="text-indigo-600 ml-2" />
+                        <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-xs font-black uppercase outline-none pr-4 cursor-pointer dark:text-slate-200">
+                            <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
+                            {staffRegistry.map((s, i) => {
+                                if (!s || typeof s !== 'object' || !s.uid) return null;
+                                return <option key={s.uid || i} value={s.uid}>{s.email}</option>
+                            })}
+                        </select>
+                    </div>
+                    {/* Admin 专属的添加员工悬浮按钮 */}
+                    <button onClick={() => setIsStaffModalOpen(true)} className="p-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 hover:scale-105 shadow-xl shadow-indigo-100 dark:shadow-none transition-all flex items-center gap-2" title={t('管理员工', 'Manage Staff')}>
+                        <UserPlus size={18} strokeWidth={3} />
+                    </button>
                 </div>
             )}
             <div className="flex items-center gap-2 border-r border-slate-200 dark:border-slate-800 pr-6">
@@ -778,12 +852,13 @@ export default function App() {
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={(id) => { const n = tasks.map(task => task.id === id ? {...task, completed: !task.completed} : task); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(task => task.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
-                    {view === 'admin' && isAdmin && <UserManagementView t={t} />}
                     {view === 'finance' && <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm p-20 text-center flex flex-col items-center gap-6 transition-colors"><div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl flex items-center justify-center text-emerald-500 shadow-inner"><DollarSign size={48} /></div><h2 className="text-3xl font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Finance Module</h2></div></div>}
                 </>
             )}
         </div>
       </main>
+
+      {/* Task Creation Modal */}
       <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={(taskData) => {
           let n = [];
           if (taskData.recurring === 'daily') {
@@ -796,6 +871,10 @@ export default function App() {
           } else { n = [...tasks, { id: generateId(), completed: false, ...taskData }]; }
           setTasks(n); saveData('tasks', { list: n });
       }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
+
+      {/* Admin: Staff Manager Modal (New) */}
+      <StaffManagerModal t={t} isOpen={isStaffModalOpen} onClose={() => setIsStaffModalOpen(false)} staffList={staffRegistry} />
+
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
