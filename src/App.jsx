@@ -9,8 +9,8 @@ import {
   Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
   Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
   CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
-  CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
-  Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
+  CheckCircle, Circle, Gift, Palette, Aperture, MousePointer2, 
+  Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket,
   Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff
 } from 'lucide-react';
 
@@ -450,9 +450,9 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const updateDaily = (field, idx, val) => { const newList = Array.isArray(daily[field]) ? [...daily[field]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: newList } } }); };
     const updateCycle = (field, val) => onUpdateReview({ ...reviews, cycle: { ...cycle, [field]: val } });
     const updateYearly = (cat, idx, val) => { const newList = Array.isArray(yearly[cat]) ? [...yearly[cat]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [cat]: newList } }); };
-    const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle2}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
+    const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
     const cycleCategories = [{f:'plan', l: t('Plan (规划)', 'Plan'), c:'blue', i: MapPin}, {f:'execute', l: t('Execute (执行)', 'Execute'), c:'rose', i: PlayCircle}, {f:'adjust', l: t('Adjust (调整)', 'Adjust'), c:'amber', i: Settings}, {f:'check', l: t('Check (检查)', 'Check'), c:'emerald', i: Search}];
-    const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users2, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
+    const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
     return (
         <div className="max-w-6xl mx-auto pb-20 space-y-10 animate-in fade-in">
           <header className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
@@ -467,41 +467,50 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
             </div>
           </header>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {tab === 'daily' && dailyCategories.map(x => (
-                <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-8">
-                    <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><x.i size={24} /></div> {x.l}</h4>
-                    <div className="space-y-4">
-                        {[0,1,2].map(i => (
-                        <div key={i} className="flex items-center gap-5">
-                            <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 italic">{i+1}</span>
-                            <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4.5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" />
+            {tab === 'daily' && dailyCategories.map(x => {
+                const Icon = x.i;
+                return (
+                    <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-8">
+                        <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><Icon size={24} /></div> {x.l}</h4>
+                        <div className="space-y-4">
+                            {[0,1,2].map(i => (
+                            <div key={i} className="flex items-center gap-5">
+                                <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 italic">{i+1}</span>
+                                <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4.5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" />
+                            </div>
+                            ))}
                         </div>
-                        ))}
                     </div>
-                </div>
-            ))}
-            {tab === 'cycle' && cycleCategories.map(x => (
-                <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
-                  <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 mb-8 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><x.i size={24} /></div> {x.l}</h4>
-                  <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[200px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-8 text-lg leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-50 dark:text-white transition-colors resize-none shadow-inner" placeholder={t(`记录心得...`, `Record plans...`)} />
-                </div>
-            ))}
-            {tab === 'yearly' && yearlyCategories.map(cat => (
-                <div key={cat.k} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-10">
-                  <div className="flex items-center gap-5">
-                    <div className={`p-4 bg-${cat.c}-50 dark:bg-${cat.c}-950/40 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-2xl shadow-inner`}><cat.i size={32} /></div>
-                    <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{cat.l}</h4>
-                  </div>
-                  <div className="space-y-4">
-                    {[0,1,2].map(i => (
-                      <div key={i} className="flex items-center gap-5">
-                        <span className="text-[10px] font-black text-slate-200 dark:text-slate-800 italic">{i+1}</span>
-                        <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" placeholder={t("核心目标...", "Set goal...")} />
+                );
+            })}
+            {tab === 'cycle' && cycleCategories.map(x => {
+                const Icon = x.i;
+                return (
+                    <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
+                      <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 mb-8 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><Icon size={24} /></div> {x.l}</h4>
+                      <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[200px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-8 text-lg leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-50 dark:text-white transition-colors resize-none shadow-inner" placeholder={t(`记录心得...`, `Record plans...`)} />
+                    </div>
+                );
+            })}
+            {tab === 'yearly' && yearlyCategories.map(cat => {
+                const Icon = cat.i;
+                return (
+                    <div key={cat.k} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-10">
+                      <div className="flex items-center gap-5">
+                        <div className={`p-4 bg-${cat.c}-50 dark:bg-${cat.c}-950/40 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-2xl shadow-inner`}><Icon size={32} /></div>
+                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{cat.l}</h4>
                       </div>
-                    ))}
-                  </div>
-                </div>
-            ))}
+                      <div className="space-y-4">
+                        {[0,1,2].map(i => (
+                          <div key={i} className="flex items-center gap-5">
+                            <span className="text-[10px] font-black text-slate-200 dark:text-slate-800 italic">{i+1}</span>
+                            <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" placeholder={t("核心目标...", "Set goal...")} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                );
+            })}
           </div>
         </div>
       );
@@ -535,7 +544,10 @@ const UserManagementView = ({ t }) => {
     };
 
     const handleRemoveStaff = async (staffEmail) => {
-        const updatedList = staffList.filter(e => e !== staffEmail);
+        const updatedList = staffList.filter(e => {
+            const str = typeof e === 'string' ? e : (e?.email || '');
+            return str !== staffEmail;
+        });
         await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_management'), { emails: updatedList });
     };
 
@@ -548,7 +560,21 @@ const UserManagementView = ({ t }) => {
                     <button type="submit" disabled={loading} className="bg-indigo-600 text-white rounded-2xl px-10 py-4 font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700 whitespace-nowrap">{t('授权邮箱', 'Authorize Email')}</button>
                 </form>
                 {status.msg && <div className={`p-5 rounded-2xl mb-8 text-sm font-bold text-center ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{status.msg}</div>}
-                <div className="space-y-4">{staffList.map(e => (<div key={e} className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-black uppercase">{e[0]}</div><span className="text-sm font-bold text-slate-700 dark:text-slate-200">{e}</span></div><button onClick={() => handleRemoveStaff(e)} className="p-3 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={20}/></button></div>))}</div>
+                <div className="space-y-4">
+                    {staffList.map((e, idx) => {
+                        // 防御性解析：防止旧版本录入的是 Object 导致 Crash
+                        const emailStr = typeof e === 'string' ? e : (e?.email || 'Unknown');
+                        return (
+                            <div key={idx} className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-black uppercase">{emailStr[0]?.toUpperCase() || 'U'}</div>
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{emailStr}</span>
+                                </div>
+                                <button onClick={() => handleRemoveStaff(emailStr)} className="p-3 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={20}/></button>
+                            </div>
+                        )
+                    })}
+                </div>
             </div>
         </div>
     );
@@ -593,16 +619,6 @@ export default function App() {
             setViewedUserId(u.uid);
             
             if (isAdm) {
-                // Admin fetches all registered users to populate the switcher dropdown
-                // Because we cannot list users directly in client SDK easily, we rely on checking documents or simple mapping
-                // For a true multi-user drop-down, admin needs a collection of users.
-                // We will fetch the staff whitelist to show in the dropdown. Note: we need their UIDs to actually view data.
-                // Since this is a client app without Cloud Functions, the easiest way is to let Admin view the whitelist emails,
-                // BUT without UID we can't query their private data path.
-                // To fix this gracefully without backend: We query the global 'users' collection? Not allowed.
-                // Fallback: Admin can only see their own data in this strict security model unless we map Email -> UID globally.
-                // To keep it strictly secure and working right now, we will map the Dropdown using a public registry that users write their UID into when they register.
-                
                 const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
                 onSnapshot(registryRef, (d) => {
                     if (d.exists()) {
@@ -610,7 +626,6 @@ export default function App() {
                     }
                 });
             } else {
-                // When a staff logs in, they register their UID/Email mapping for the Admin to see
                 const userMappingRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
                 getDoc(userMappingRef).then(d => {
                     const currentList = d.exists() ? d.data().list || [] : [];
@@ -662,7 +677,10 @@ export default function App() {
                     <Eye size={18} className="text-indigo-600 ml-2" />
                     <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-xs font-black uppercase outline-none pr-4 cursor-pointer dark:text-slate-200">
                         <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
-                        {staffRegistry.map(s => <option key={s.uid} value={s.uid}>{s.email}</option>)}
+                        {staffRegistry.map((s, i) => {
+                            if (!s || typeof s !== 'object' || !s.uid) return null;
+                            return <option key={s.uid || i} value={s.uid}>{s.email}</option>
+                        })}
                     </select>
                 </div>
             )}
@@ -674,7 +692,12 @@ export default function App() {
           </div>
       </div>
       <div className="px-6 pb-2 shrink-0 w-full"><div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm px-6 py-4 flex justify-center mx-auto max-w-5xl transition-colors"><nav className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full justify-start md:justify-center">
-        {menuItems.map(m => (<button key={m.id} onClick={() => setView(m.id)} className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl font-black text-xs transition-all uppercase tracking-widest ${view === m.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none scale-105' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><m.icon size={18}/> {m.label}</button>))}
+        {menuItems.map(m => {
+            const Icon = m.icon;
+            return (
+                <button key={m.id} onClick={() => setView(m.id)} className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl font-black text-xs transition-all uppercase tracking-widest ${view === m.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none scale-105' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Icon size={18}/> {m.label}</button>
+            )
+        })}
       </nav></div></div>
       <main className="flex-1 overflow-y-auto custom-scrollbar p-8">
         <div className="max-w-7xl mx-auto h-full">
