@@ -667,7 +667,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                                       <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
                                       <div className="space-y-3">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)}
-                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-0 group-hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2"><Plus size={16}/> {t('添加任务', 'Add Task')}</button>
+                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2"><Plus size={16}/> {t('添加任务', 'Add Task')}</button>
                                       </div>
                                   </div>
                               );
