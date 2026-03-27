@@ -175,13 +175,12 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
     );
 };
 
-const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
+const StaffManagerModal = ({ isOpen, onClose, globalStaffRegistry, myStaffRegistry, currentUser, t }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState({ type: '', msg: '' });
 
-    // 一旦弹窗打开，立刻清空所有状态，保证绝对干净
     useEffect(() => {
         if (isOpen) {
             setEmail('');
@@ -207,24 +206,27 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
             const newUid = userCredential.user.uid;
             await signOut(secondaryAuth);
 
-            const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: newUid }];
+            // Important: Tag the new staff with the current Admin's email
+            const updatedList = [...globalStaffRegistry, { email: email.toLowerCase().trim(), uid: newUid, adminEmail: currentUser.email }];
             await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
 
             setStatus({ type: 'success', msg: t('账号创建成功！员工可立刻登录。', 'Account created! Staff can login now.') });
             setEmail(''); 
             setPassword('');
         } catch (err) {
-            // Intelligent Re-activation Logic
             if (err.code === 'auth/email-already-in-use') {
                 try {
                     const userCredential = await signInWithEmailAndPassword(secondaryAuth, email.trim(), password);
                     const existingUid = userCredential.user.uid;
                     await signOut(secondaryAuth);
                     
-                    const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: existingUid }];
+                    // Filter out old records of this email, then add it back tied to THIS admin
+                    const filteredList = globalStaffRegistry.filter(s => s.email !== email.toLowerCase().trim());
+                    const updatedList = [...filteredList, { email: email.toLowerCase().trim(), uid: existingUid, adminEmail: currentUser.email }];
+                    
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
 
-                    setStatus({ type: 'success', msg: t('账号已存在，已成功重新激活与授权！', 'Account exists. Re-authorized successfully!') });
+                    setStatus({ type: 'success', msg: t('账号已存在，已成功重新激活并归入您的管理中！', 'Account exists. Re-authorized to your team successfully!') });
                     setEmail(''); 
                     setPassword('');
                 } catch (loginErr) {
@@ -239,7 +241,8 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
     };
 
     const handleRemoveStaff = async (staffEmail) => {
-        const updatedList = staffList.filter(s => s.email !== staffEmail);
+        // Remove from the global registry
+        const updatedList = globalStaffRegistry.filter(s => s.email !== staffEmail);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
     };
 
@@ -252,7 +255,7 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                 <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg flex items-center justify-center"><UserPlus size={20}/></div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加与管理员工', 'Manage Staff Accounts')}</h3>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加与管理您的员工', 'Manage Your Staff')}</h3>
                     </div>
                     <button onClick={handleCloseModal} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
                 </div>
@@ -261,7 +264,6 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                     <form onSubmit={handleCreateStaff} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('员工邮箱', 'Staff Email')}</label>
-                            {/* 加入 autoComplete="off" 避免浏览器记住 Admin 密码时胡乱填充 */}
                             <input 
                                 type="email" 
                                 value={email} 
@@ -274,7 +276,6 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('设置登录密码', 'Set Password')}</label>
-                            {/* 加入 autoComplete="new-password" 彻底打断自动填充 */}
                             <input 
                                 type="password" 
                                 value={password} 
@@ -287,7 +288,7 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                         </div>
                         <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white rounded-lg py-3 font-semibold text-base shadow-sm hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-2">
                             {loading ? <RefreshCw size={20} className="animate-spin"/> : <UserPlus size={20}/>} 
-                            {t('创建账号', 'Create Account')}
+                            {t('创建并归入名下', 'Create & Authorize')}
                         </button>
                     </form>
 
@@ -298,11 +299,11 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                     )}
 
                     <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('当前已有员工', 'Active Staff List')}</h4>
-                        {staffList.length === 0 ? (
-                            <div className="p-6 text-center text-slate-400 font-medium border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">{t('暂无员工', 'No Staff')}</div>
+                        <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('您名下的员工', 'Your Active Staff')}</h4>
+                        {myStaffRegistry.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 font-medium border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">{t('暂无您的专属员工', 'No Staff assigned to you.')}</div>
                         ) : (
-                            staffList.map((s, idx) => {
+                            myStaffRegistry.map((s, idx) => {
                                 const emailStr = typeof s === 'string' ? s : (s?.email || 'Unknown');
                                 return (
                                     <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -708,12 +709,15 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 
     const closeJarModal = () => { 
         setIsJarModalOpen(false); 
+        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '' });
     };
     const closeCommitModal = () => { 
         setIsCommitmentModalOpen(false); 
+        setCommitForm({ name: '', amount: '' });
     };
     const closeFundModal = () => { 
         setFundJarId(null); 
+        setFundAmount('');
     };
 
     return (
@@ -789,10 +793,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('每月固定支出', 'Monthly Commitments')}</h3>
-                        <button onClick={() => {
-                            setCommitForm({ name: '', amount: '' });
-                            setIsCommitmentModalOpen(true);
-                        }} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
+                        <button onClick={() => setIsCommitmentModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
                     </div>
                     <div className="space-y-3">
                         {(!financeData.commitments || financeData.commitments.length === 0) ? <p className="text-slate-400 text-sm text-center py-4">{t('未设定固定支出', 'No monthly commitments.')}</p> : 
@@ -845,10 +846,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Landmark size={20} className="text-indigo-500"/> {t('分配储蓄罐', 'Savings Jars')}</h3>
                         <p className="text-sm text-slate-500 mt-1">{t('把收入分配到您的各个银行账户', 'Allocate your income into banks')}</p>
                     </div>
-                    <button onClick={() => {
-                        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '' });
-                        setIsJarModalOpen(true);
-                    }} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
+                    <button onClick={() => setIsJarModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {(!financeData.savingsJars || financeData.savingsJars.length === 0) ? <p className="text-slate-400 text-sm col-span-full text-center py-6">{t('点击上方按钮建立第一个储蓄罐吧', 'Set up a savings jar to start allocating.')}</p> : 
@@ -874,10 +872,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                         </div>
                                     </div>
                                     
-                                    <button onClick={() => {
-                                        setFundAmount('');
-                                        setFundJarId(jar.id);
-                                    }} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
+                                    <button onClick={() => setFundJarId(jar.id)} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
                                         {t('存入资金', 'Add Funds')}
                                     </button>
                                 </div>
@@ -1245,7 +1240,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [viewedUserId, setViewedUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [staffRegistry, setStaffRegistry] = useState([]);
+  const [globalStaffRegistry, setGlobalStaffRegistry] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1280,7 +1275,7 @@ export default function App() {
                 const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
                 unsubRegistry = onSnapshot(registryRef, (d) => {
                     if (d.exists()) {
-                        setStaffRegistry(d.data().list || []);
+                        setGlobalStaffRegistry(d.data().list || []);
                     }
                 });
                 setUser(u);
@@ -1327,6 +1322,10 @@ export default function App() {
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
   const isFinanceLocked = isAdmin && viewedUserId !== user?.uid;
 
+  // Dynamic filter: Admin sees only their own staff. 
+  // Fallback: If a staff has no adminEmail (old records), let the admin see them so they aren't completely lost.
+  const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
+
   if (authLoading) return <div className="flex h-screen w-full items-center justify-center dark:bg-slate-950"><RefreshCw className="animate-spin text-indigo-600" size={48} /></div>;
   if (!user) return <LoginPage t={t} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} lang={lang} setLang={setLang} authError={authError} />;
 
@@ -1349,7 +1348,7 @@ export default function App() {
                         <Eye size={16} className="text-indigo-600 ml-1" />
                         <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-sm font-semibold outline-none pr-2 cursor-pointer dark:text-slate-200">
                             <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
-                            {staffRegistry.map((s, i) => {
+                            {myStaffRegistry.map((s, i) => {
                                 if (!s || typeof s !== 'object' || !s.uid) return null;
                                 return <option key={s.uid || i} value={s.uid}>{s.email}</option>
                             })}
@@ -1406,7 +1405,14 @@ export default function App() {
           setTasks(n); saveData('tasks', { list: n });
       }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
 
-      <StaffManagerModal t={t} isOpen={isStaffModalOpen} onClose={() => setIsStaffModalOpen(false)} staffList={staffRegistry} />
+      <StaffManagerModal 
+          t={t} 
+          isOpen={isStaffModalOpen} 
+          onClose={() => setIsStaffModalOpen(false)} 
+          globalStaffRegistry={globalStaffRegistry} 
+          myStaffRegistry={myStaffRegistry}
+          currentUser={user}
+      />
 
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
