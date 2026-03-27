@@ -1,24 +1,16 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { 
-  Calendar as CalIcon, Layout, Trello, CheckSquare, 
-  Plus, Clock, ChevronLeft, ChevronRight, X, Bell, 
-  Search, Target, TrendingUp, ArrowRight, Lock, Unlock, Trash2,
-  Menu, Home, Database, Zap, Download, Activity, 
-  Layers, Shield, BookOpen, DollarSign, PieChart, 
-  Square, LogIn, LogOut, User, AlertTriangle, Briefcase, Heart, Coffee, Book,
-  Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
-  Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
-  CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
-  CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
-  Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
+  Calendar as CalIcon, Home, Trello, Plus, Clock, ChevronLeft, ChevronRight, X, 
+  Target, TrendingUp, ArrowRight, Trash2, Zap, Activity, DollarSign, PieChart, 
+  LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2,
   Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
-  PiggyBank, CreditCard, ListOrdered
+  PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, CheckCircle2
 } from 'lucide-react';
 
 // --- Firebase Imports ---
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -35,11 +27,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// 初始化双核 App：用于 Admin 注册员工而不被登出
+// Secondary App for Admin to create staff without logging out
 const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
 const secondaryAuth = getAuth(secondaryApp);
 
-// Critical Fix: Must use environmental appId for correct permissions
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main';
 
 // --- Constants ---
@@ -51,36 +42,40 @@ const PRIORITIES = {
 };
 
 const LABEL_COLORS = [
-    'bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300',
-    'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300',
-    'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300',
-    'bg-cyan-100 text-cyan-600 border-cyan-200 dark:bg-cyan-500/20 dark:border-cyan-500/30 dark:text-cyan-300'
+    'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30',
+    'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
+    'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
+    'bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30'
 ];
+
+const MALAYSIA_BANKS = ["Maybank", "CIMB Bank", "Public Bank", "RHB Bank", "Hong Leong", "AmBank", "UOB", "Bank Islam", "Standard Chartered", "OCBC", "HSBC", "Cash / 其他"];
 
 // --- Utils ---
 const getLocalDateString = (date) => {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
-
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- 1. LoginPage Component ---
-const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
-    const [isLogin, setIsLogin] = useState(true); 
+// --- Components ---
+
+const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) => {
     const [email, setEmail] = useState(''); 
     const [password, setPassword] = useState(''); 
     const [error, setError] = useState(''); 
     const [loading, setLoading] = useState(false);
     
+    useEffect(() => {
+        if (authError) setError(authError);
+    }, [authError]);
+
     const handleAuth = async (e) => {
         e.preventDefault(); setError(''); setLoading(true);
         try { 
-            if (isLogin) await signInWithEmailAndPassword(auth, email.trim(), password); 
-            else await createUserWithEmailAndPassword(auth, email.trim(), password); 
+            await signInWithEmailAndPassword(auth, email.trim(), password); 
         } catch (err) { 
-            if (isLogin && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password')) {
-                setError(t('查无此人，请创建新账号', 'No users found, please register'));
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+                setError(t('查无此人或密码错误，请确认账号', 'Invalid credentials or user not found.'));
             } else {
                 setError(err.message);
             }
@@ -90,64 +85,47 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
     };
 
     return (
-        <div className={`flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+        <div className={`flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
             <div className="absolute top-6 right-8 flex items-center gap-2 z-50">
-                <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg font-bold text-sm transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
+                <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg font-medium text-sm transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
             </div>
-            <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/5 blur-[120px] rounded-full" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-500/5 blur-[120px] rounded-full" />
-
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-10 border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-500 relative z-10">
+            
+            <div className="flex-1 flex items-center justify-center p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-10 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-300">
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl mx-auto flex items-center justify-center text-white mb-6 shadow-lg shadow-indigo-200 dark:shadow-none">
-                            <Zap size={32} fill="currentColor" />
+                        <div className="w-16 h-16 bg-indigo-600 rounded-xl mx-auto flex items-center justify-center text-white mb-6 shadow-md">
+                            <Zap size={32} />
                         </div>
-                        <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Planner.AI</h2>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Planner.AI</h2>
                         <p className="text-sm text-slate-500 mt-2">{t('私人助理 & 旗舰规划', 'Elite Personal Assistant')}</p>
                     </div>
 
                     {error && (
-                        <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-sm p-4 rounded-lg mb-6 border border-rose-100 dark:border-rose-800 text-center font-medium flex items-center justify-center gap-2">
+                        <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-sm p-4 rounded-lg mb-6 border border-rose-200 dark:border-rose-800 text-center flex items-center justify-center gap-2">
                             <AlertTriangle size={18} /> {error}
                         </div>
                     )}
 
                     <form onSubmit={handleAuth} className="space-y-5">
                         <div className="space-y-1.5">
-                            <label className="text-sm font-semibold text-slate-600 dark:text-slate-300 ml-1">{t('邮箱地址', 'Email Address')}</label>
-                            <input type="email" placeholder="name@lifechanger.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" required />
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('邮箱地址', 'Email Address')}</label>
+                            <input type="email" placeholder="name@company.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" required />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-sm font-semibold text-slate-600 dark:text-slate-300 ml-1">{t('安全密码', 'Security Password')}</label>
-                            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" required />
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('安全密码', 'Password')}</label>
+                            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" required />
                         </div>
-                        
-                        <button type="submit" disabled={loading} className="w-full h-14 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold rounded-lg shadow-md hover:from-indigo-700 hover:to-violet-700 transition-all flex justify-center items-center gap-3 text-lg mt-8">
-                            {loading ? (
-                                <RefreshCw className="animate-spin" size={24}/>
-                            ) : (
-                                <>
-                                    <span>{isLogin ? t('进入系统', 'LOGIN NOW') : t('注册账号', 'CREATE ACCESS')}</span>
-                                    <ArrowRight size={20} />
-                                </>
-                            )}
+                        <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white font-semibold py-4 rounded-lg shadow-md hover:bg-indigo-700 transition-all flex justify-center items-center gap-3 text-lg mt-4">
+                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{t('进入系统', 'LOGIN NOW')}<ArrowRight size={20} /></>}
                         </button>
                     </form>
-
-                    <div className="mt-8 flex justify-center">
-                        <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors flex items-center gap-2 hover:underline">
-                            {isLogin ? t('注册新账号', 'Create Account') : t('返回登录', 'Back to Login')}
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- Admin: Staff Creation Modal ---
 const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -160,16 +138,15 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
         e.preventDefault();
         if (!email.trim() || !password.trim()) return;
         setLoading(true); setStatus({ type: '', msg: '' });
-
         try {
             const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
             const newUid = userCredential.user.uid;
             await signOut(secondaryAuth);
 
             const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: newUid }];
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff_registry', 'whitelist'), { list: updatedList });
 
-            setStatus({ type: 'success', msg: t('账号创建成功！员工可立刻登录。', 'Account created! Staff can login now.') });
+            setStatus({ type: 'success', msg: t('账号创建成功！已永久写入 Firestore。', 'Account created & saved to Firestore!') });
             setEmail(''); setPassword('');
         } catch (err) {
             setStatus({ type: 'error', msg: err.message });
@@ -180,43 +157,40 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
 
     const handleRemoveStaff = async (staffEmail) => {
         const updatedList = staffList.filter(s => s.email !== staffEmail);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff_registry', 'whitelist'), { list: updatedList });
     };
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-xl overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg flex items-center justify-center"><UserPlus size={20}/></div>
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">{t('添加新员工', 'Create Staff Account')}</h3>
-                            <p className="text-xs text-slate-500 mt-1">Admin Access Control</p>
-                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加与管理员工', 'Manage Staff Accounts')}</h3>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-500 hover:text-slate-700 transition-colors"><X size={20}/></button>
+                    <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                    <form onSubmit={handleCreateStaff} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl space-y-4 border border-slate-200 dark:border-slate-700">
+                    <form onSubmit={handleCreateStaff} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300 ml-1">{t('员工邮箱', 'Staff Email')}</label>
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('员工邮箱', 'Staff Email')}</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="staff@company.com" required />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300 ml-1">{t('初始密码', 'Initial Password')}</label>
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('设置登录密码', 'Set Password')}</label>
                             <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="••••••••" required />
                         </div>
                         <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white rounded-lg py-3 font-semibold text-base shadow-sm hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-2">
                             {loading ? <RefreshCw size={20} className="animate-spin"/> : <UserPlus size={20}/>} 
-                            {t('创建并授权', 'Create & Authorize')}
+                            {t('创建账号并授权', 'Create & Authorize')}
                         </button>
                     </form>
 
                     {status.msg && <div className={`p-4 rounded-lg text-sm font-medium text-center ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>{status.msg}</div>}
 
                     <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('已授权员工', 'Active Staff')}</h4>
+                        <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('当前已有员工 (存入 Firestore)', 'Active Staff List')}</h4>
                         {staffList.length === 0 ? (
                             <div className="p-6 text-center text-slate-400 font-medium border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">{t('暂无员工', 'No Staff')}</div>
                         ) : (
@@ -225,10 +199,10 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                                 return (
                                     <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-md flex items-center justify-center font-bold">{emailStr[0]?.toUpperCase() || 'U'}</div>
+                                            <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 rounded-md flex items-center justify-center font-bold text-sm">{emailStr[0]?.toUpperCase() || 'U'}</div>
                                             <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate max-w-[200px]">{emailStr}</span>
                                         </div>
-                                        <button onClick={() => handleRemoveStaff(emailStr)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={18}/></button>
+                                        <button onClick={() => handleRemoveStaff(emailStr)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors" title={t('从系统移除', 'Remove from system')}><Trash2 size={18}/></button>
                                     </div>
                                 )
                             })
@@ -261,18 +235,18 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white">{t('新建计划', 'New Plan')}</h3>
-          <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 transition-colors"><X size={18}/></button>
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建计划', 'New Plan')}</h3>
+          <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-300 ml-1">{t('任务描述', 'Description')}</label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('需要完成什么？', 'Plan task...')} autoFocus />
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('任务描述', 'Description')}</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('需要完成什么？', 'Task details...')} autoFocus />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-600 dark:text-slate-300 ml-1">{t('分类', 'Tag')}</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('分类', 'Category')}</label>
               <div className="flex gap-2">
                 <select value={category} onChange={e => setCategory(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
                   {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -281,23 +255,23 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-600 dark:text-slate-300 ml-1">{t('时间', 'Time')}</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" />
             </div>
           </div>
 
           {showNewCatInput && (
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg flex gap-2 animate-in slide-in-from-top-2">
-              <input value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 text-sm outline-none dark:text-white" placeholder={t('分类名', 'Tag Name')} />
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex gap-2 animate-in slide-in-from-top-2">
+              <input value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 text-sm outline-none dark:text-white" placeholder={t('新分类名称', 'New Category Name')} />
               <button type="button" onClick={() => { if(newCatName) { onAddCategory(newCatName); setNewCatName(''); setShowNewCatInput(false); setCategory(newCatName); } }} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium">{t('添加', 'Add')}</button>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-300 ml-1">{t('优先级', 'Priority')}</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('优先级', 'Priority')}</label>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(PRIORITIES).map(([key, val]) => (
-                <button key={key} type="button" onClick={() => setPriority(priority === key ? '' : key)} className={`p-3 rounded-lg text-sm font-medium border transition-all ${priority === key ? val.color + ' border-transparent shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>{val.label[t('zh', 'en')]}</button>
+                <button key={key} type="button" onClick={() => setPriority(priority === key ? '' : key)} className={`p-3 rounded-lg text-sm font-medium border transition-all ${priority === key ? val.color + ' border-transparent shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>{val.label[t('zh', 'en')]}</button>
               ))}
             </div>
           </div>
@@ -306,11 +280,11 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
               <button type="button" onClick={() => setIsRecurring(!isRecurring)} className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${isRecurring ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'}`}>{isRecurring && <Check size={14} strokeWidth={3} />}</button>
               <div>
                   <h4 className="text-sm font-medium text-slate-800 dark:text-white flex items-center gap-2"><Repeat size={14}/> {t('每日循环', 'Daily Recurring')}</h4>
-                  <p className="text-xs text-slate-500">{t('同步到未来30天', 'Copy to next 30 days')}</p>
+                  <p className="text-xs text-slate-500">{t('将此任务自动排期到未来30天', 'Copy to next 30 days')}</p>
               </div>
           </div>
 
-          <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-all text-base mt-2">{t('确认计划', 'Confirm Plan')}</button>
+          <button type="submit" className="w-full bg-indigo-600 text-white font-semibold py-3.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-all text-base mt-4">{t('保存', 'Save Task')}</button>
         </form>
       </div>
     </div>
@@ -673,7 +647,6 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                                       <div className="space-y-3">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)}
                                           
-                                          {/* 淡化的添加按钮 */}
                                           <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
                                               <Plus size={16}/> {t('添加任务', 'Add Task')}
                                           </button>
@@ -772,10 +745,9 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
         balance: 0,
         income: 0,
         expense: 0,
-        budget: 3000,
         transactions: [],
-        savingsGoals: [],
-        subscriptions: []
+        savingsJars: [], 
+        commitments: [] 
     });
 
     const [txAmount, setTxAmount] = useState('');
@@ -784,8 +756,17 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const [txNote, setTxNote] = useState('');
     const [txDate, setTxDate] = useState(getLocalDateString(new Date()));
 
+    const [isJarModalOpen, setIsJarModalOpen] = useState(false);
+    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0] });
+    
+    const [isCommitmentModalOpen, setIsCommitmentModalOpen] = useState(false);
+    const [commitForm, setCommitForm] = useState({ name: '', amount: '' });
+
+    const [fundJarId, setFundJarId] = useState(null);
+    const [fundAmount, setFundAmount] = useState('');
+
     const incomeCategories = ['工资 Salary', '投资 Investment', '兼职 Side Hustle', '其他 Other'];
-    const expenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '固定账单 Bills', '其他 Other'];
+    const expenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '其他 Other'];
 
     useEffect(() => {
         if (!viewedUserId) return;
@@ -794,7 +775,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
             if (d.exists()) {
                 setFinanceData(d.data());
             } else {
-                setFinanceData({ balance: 0, income: 0, expense: 0, budget: 3000, transactions: [], savingsGoals: [], subscriptions: [] });
+                setFinanceData({ balance: 0, income: 0, expense: 0, transactions: [], savingsJars: [], commitments: [] });
             }
         });
         return () => unsub();
@@ -810,145 +791,78 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const handleAddTransaction = (e) => {
         e.preventDefault();
         if (!txAmount || isNaN(txAmount)) return;
-        
         const amt = parseFloat(txAmount);
-        const newTx = {
-            id: generateId(),
-            amount: amt,
-            type: txType,
-            category: txCategory,
-            note: txNote,
-            date: txDate,
-            timestamp: Date.now()
-        };
-
+        const newTx = { id: generateId(), amount: amt, type: txType, category: txCategory, note: txNote, date: txDate, timestamp: Date.now() };
         const updatedTx = [newTx, ...financeData.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-        
         const newIncome = txType === 'income' ? financeData.income + amt : financeData.income;
         const newExpense = txType === 'expense' ? financeData.expense + amt : financeData.expense;
-        const newBalance = newIncome - newExpense;
-
-        updateFinance({
-            ...financeData,
-            transactions: updatedTx,
-            income: newIncome,
-            expense: newExpense,
-            balance: newBalance
-        });
-
+        updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
         setTxAmount(''); setTxNote('');
     };
 
     const handleDeleteTransaction = (id) => {
         const txToDelete = financeData.transactions.find(t => t.id === id);
         if (!txToDelete) return;
-
         const updatedTx = financeData.transactions.filter(t => t.id !== id);
         const newIncome = txToDelete.type === 'income' ? financeData.income - txToDelete.amount : financeData.income;
         const newExpense = txToDelete.type === 'expense' ? financeData.expense - txToDelete.amount : financeData.expense;
-        
-        updateFinance({
-            ...financeData,
-            transactions: updatedTx,
-            income: newIncome,
-            expense: newExpense,
-            balance: newIncome - newExpense
-        });
+        updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
     };
 
-    const handleAddSavingsGoal = () => {
-        const goalName = prompt(t("输入心愿单名称 (如: MacBook)", "Enter Savings Goal Name"));
-        if (!goalName) return;
-        const target = parseFloat(prompt(t("设定目标金额", "Enter Target Amount")));
-        if (!target || isNaN(target)) return;
-
-        const newGoal = { id: generateId(), name: goalName, target, current: 0 };
-        updateFinance({ ...financeData, savingsGoals: [...financeData.savingsGoals, newGoal] });
-    };
-
-    const handleAddSubscription = () => {
-        const subName = prompt(t("输入账单名称 (如: Netflix)", "Enter Subscription Name"));
-        if (!subName) return;
-        const amt = parseFloat(prompt(t("每月扣费金额", "Monthly Amount")));
-        if (!amt || isNaN(amt)) return;
-        
-        const newSub = { id: generateId(), name: subName, amount: amt };
-        updateFinance({ ...financeData, subscriptions: [...financeData.subscriptions, newSub] });
-    };
-
-    // Calculate analytics
     const currentMonthPrefix = getLocalDateString(new Date()).slice(0, 7);
-    const monthlyExpenses = financeData.transactions.filter(t => t.type === 'expense' && t.date.startsWith(currentMonthPrefix));
-    const monthlyTotalExpense = monthlyExpenses.reduce((sum, t) => sum + t.amount, 0);
-    const budgetProgress = financeData.budget > 0 ? Math.min(100, (monthlyTotalExpense / financeData.budget) * 100) : 0;
+    const monthlyTxs = financeData.transactions.filter(t => t.date.startsWith(currentMonthPrefix));
     
+    const monthlyIncome = monthlyTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const monthlyExpense = monthlyTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const totalCommitments = (financeData.commitments || []).reduce((s, c) => s + c.amount, 0);
+    
+    const safeToSpend = monthlyIncome - monthlyExpense - totalCommitments;
+
     const categoryTotals = {};
-    monthlyExpenses.forEach(t => {
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
-    });
+    monthlyTxs.filter(t => t.type === 'expense').forEach(t => { categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount; });
     const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-10">
-            {/* Top Row: Overview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-900 rounded-2xl p-6 shadow-lg border border-slate-800 text-white relative overflow-hidden">
-                    <div className="absolute -right-6 -top-6 text-slate-800/50"><Wallet size={120} /></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-2 opacity-80"><Wallet size={18}/> <span className="font-medium text-sm">{t('总净结余', 'Net Worth')}</span></div>
-                        <div className="text-4xl font-bold tracking-tight">${financeData.balance.toLocaleString()}</div>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-800 text-white relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-1 opacity-80"><Wallet size={16}/> <span className="font-medium text-sm">{t('总净资产', 'Total Net Worth')}</span></div>
+                    <div className="text-2xl font-bold">${financeData.balance.toLocaleString()}</div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-2 text-emerald-600 dark:text-emerald-400"><ArrowUpRight size={18}/> <span className="font-medium text-sm">{t('总收入', 'Total Income')}</span></div>
-                    <div className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">${financeData.income.toLocaleString()}</div>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mb-1 text-emerald-600 dark:text-emerald-400"><ArrowUpRight size={16}/> <span className="font-medium text-sm">{t('本月总收入', 'Monthly Income')}</span></div>
+                    <div className="text-2xl font-bold text-slate-800 dark:text-white">${monthlyIncome.toLocaleString()}</div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-2 text-rose-600 dark:text-rose-400"><ArrowDownRight size={18}/> <span className="font-medium text-sm">{t('总支出', 'Total Expense')}</span></div>
-                    <div className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">${financeData.expense.toLocaleString()}</div>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mb-1 text-indigo-600 dark:text-indigo-400"><Repeat size={16}/> <span className="font-medium text-sm">{t('本月固定扣费', 'Commitments')}</span></div>
+                    <div className="text-2xl font-bold text-slate-800 dark:text-white">${totalCommitments.toLocaleString()}</div>
                 </div>
-            </div>
-
-            {/* Budget Progress */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="flex justify-between items-end mb-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Target size={20} className="text-indigo-500"/> {t('月度预算进度', 'Monthly Budget')}</h3>
-                        <p className="text-sm text-slate-500 mt-1">{t('本月已花费', 'Spent this month')}: <span className="font-bold text-slate-700 dark:text-slate-300">${monthlyTotalExpense.toLocaleString()}</span> / ${financeData.budget}</p>
-                    </div>
-                    <div className="text-right">
-                        <button onClick={() => { const b = prompt("Set new budget:", financeData.budget); if(b && !isNaN(b)) updateFinance({...financeData, budget: parseFloat(b)}) }} className="text-xs text-indigo-500 hover:underline">{t('修改预算', 'Edit Budget')}</button>
-                        <div className="text-2xl font-bold text-slate-800 dark:text-white">{Math.round(budgetProgress)}%</div>
-                    </div>
-                </div>
-                <div className="h-4 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <div className={`h-full rounded-full transition-all duration-1000 ${budgetProgress > 80 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${budgetProgress}%` }} />
+                <div className={`rounded-2xl p-5 shadow-sm border ${safeToSpend >= 0 ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50' : 'bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50'}`}>
+                    <div className={`flex items-center gap-2 mb-1 ${safeToSpend >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}><Target size={16}/> <span className="font-bold text-sm">{t('本月剩余可用', 'Safe to Spend')}</span></div>
+                    <div className={`text-2xl font-bold ${safeToSpend >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>${safeToSpend.toLocaleString()}</div>
                 </div>
             </div>
 
-            {/* Middle Grid: Quick Log & Transactions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Quick Log Form */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Edit3 size={20} className="text-indigo-500"/> {t('快速记账', 'Quick Log')}</h3>
                     <form onSubmit={handleAddTransaction} className="space-y-4">
                         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                            <button type="button" onClick={() => {setType('expense'); setCategory(expenseCategories[0]);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-600' : 'text-slate-500'}`}>{t('支出 Expense', 'Expense')}</button>
-                            <button type="button" onClick={() => {setType('income'); setCategory(incomeCategories[0]);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{t('收入 Income', 'Income')}</button>
+                            <button type="button" onClick={() => {setTxType('expense'); setTxCategory(expenseCategories[0]);}} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${txType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-600' : 'text-slate-500'}`}>{t('支出 Expense', 'Expense')}</button>
+                            <button type="button" onClick={() => {setTxType('income'); setTxCategory(incomeCategories[0]);}} className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${txType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{t('收入 Income', 'Income')}</button>
                         </div>
                         <div className="flex gap-4">
                             <input type="number" value={txAmount} onChange={e=>setTxAmount(e.target.value)} placeholder="0.00" className="w-2/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none focus:border-indigo-500 dark:text-white" required />
                             <input type="date" value={txDate} onChange={e=>setTxDate(e.target.value)} className="w-1/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-sm outline-none focus:border-indigo-500 dark:text-white" required />
                         </div>
-                        <select value={txCategory} onChange={e=>setTxCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                        <select value={txCategory} onChange={e=>setTxCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none dark:text-white focus:border-indigo-500">
                             {(txType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white" />
-                        <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">{t('记一笔', 'Save Transaction')}</button>
+                        <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none focus:border-indigo-500 dark:text-white" />
+                        <button type="submit" className="w-full bg-indigo-600 text-white font-semibold py-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-2">{t('记一笔', 'Save Transaction')}</button>
                     </form>
                 </div>
 
-                {/* Recent Transactions */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><ListOrdered size={20} className="text-indigo-500"/> {t('最近交易', 'Recent Transactions')}</h3>
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 max-h-[350px] pr-2">
@@ -961,7 +875,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                         </div>
                                         <div>
                                             <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{tx.category}</p>
-                                            <p className="text-xs text-slate-400 mt-0.5">{tx.date} {tx.note && `• ${tx.note}`}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{tx.date} {tx.note && `• ${tx.note}`}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -977,15 +891,39 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 </div>
             </div>
 
-            {/* Analytics & Subscriptions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Expense Analytics */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><PieChart size={20} className="text-indigo-500"/> {t('本月支出排行', 'Top Expenses')}</h3>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('每月固定支出', 'Monthly Commitments')}</h3>
+                        <button onClick={() => setIsCommitmentModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
+                    </div>
+                    <div className="space-y-3">
+                        {(!financeData.commitments || financeData.commitments.length === 0) ? <p className="text-slate-400 text-sm text-center py-4">{t('未设定固定支出', 'No monthly commitments.')}</p> : 
+                            financeData.commitments.map(sub => (
+                                <div key={sub.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center"><Repeat size={14}/></div>
+                                        <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{sub.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold text-slate-800 dark:text-white">${sub.amount}/mo</span>
+                                        <button onClick={() => {
+                                            const updated = financeData.commitments.filter(s => s.id !== sub.id);
+                                            updateFinance({...financeData, commitments: updated});
+                                        }} className="text-slate-400 hover:text-rose-500"><X size={16}/></button>
+                                    </div>
+                                </div>
+                            ))
+                        }
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><PieChart size={20} className="text-indigo-500"/> {t('本月非固定支出分类', 'Flexible Expenses')}</h3>
                     <div className="space-y-5">
-                        {sortedCategories.length === 0 ? <p className="text-slate-400 text-sm">{t('本月无支出', 'No expenses this month.')}</p> : 
+                        {sortedCategories.length === 0 ? <p className="text-slate-400 text-sm text-center py-4">{t('本月暂无其他支出', 'No expenses logged.')}</p> : 
                             sortedCategories.map(([cat, amt], i) => {
-                                const pct = Math.round((amt / monthlyTotalExpense) * 100);
+                                const pct = Math.round((amt / monthlyExpense) * 100) || 0;
                                 const barColors = ['bg-indigo-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500'];
                                 return (
                                     <div key={cat}>
@@ -1002,66 +940,38 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                         }
                     </div>
                 </div>
-
-                {/* Subscriptions */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('固定账单', 'Subscriptions')}</h3>
-                        <button onClick={handleAddSubscription} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"><Plus size={16}/> {t('添加', 'Add')}</button>
-                    </div>
-                    <div className="space-y-3">
-                        {financeData.subscriptions.length === 0 ? <p className="text-slate-400 text-sm">{t('未设定账单', 'No subscriptions.')}</p> : 
-                            financeData.subscriptions.map(sub => (
-                                <div key={sub.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center"><Repeat size={14}/></div>
-                                        <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{sub.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold text-slate-800 dark:text-white">${sub.amount}/mo</span>
-                                        <button onClick={() => {
-                                            const updated = financeData.subscriptions.filter(s => s.id !== sub.id);
-                                            updateFinance({...financeData, subscriptions: updated});
-                                        }} className="text-slate-400 hover:text-rose-500"><X size={16}/></button>
-                                    </div>
-                                </div>
-                            ))
-                        }
-                    </div>
-                </div>
             </div>
 
-            {/* Savings Goals */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><PiggyBank size={20} className="text-indigo-500"/> {t('储蓄心愿单', 'Savings Goals')}</h3>
-                    <button onClick={handleAddSavingsGoal} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"><Plus size={16}/> {t('新建目标', 'New Goal')}</button>
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Landmark size={20} className="text-indigo-500"/> {t('分配储蓄罐', 'Savings Jars')}</h3>
+                        <p className="text-sm text-slate-500 mt-1">{t('把收入分配到您的各个银行账户', 'Allocate your income into banks')}</p>
+                    </div>
+                    <button onClick={() => setIsJarModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {financeData.savingsGoals.length === 0 ? <p className="text-slate-400 text-sm col-span-full">{t('建立一个储蓄目标吧', 'Set a savings goal to start tracking.')}</p> : 
-                        financeData.savingsGoals.map(goal => {
-                            const pct = Math.min(100, (goal.current / goal.target) * 100);
+                    {(!financeData.savingsJars || financeData.savingsJars.length === 0) ? <p className="text-slate-400 text-sm col-span-full text-center py-6">{t('点击上方按钮建立第一个储蓄罐吧', 'Set up a savings jar to start allocating.')}</p> : 
+                        financeData.savingsJars.map(jar => {
+                            const pct = Math.min(100, (jar.current / jar.target) * 100) || 0;
                             return (
-                                <div key={goal.id} className="border border-slate-200 dark:border-slate-700 p-5 rounded-xl bg-slate-50 dark:bg-slate-800/30 relative group">
+                                <div key={jar.id} className="border border-slate-200 dark:border-slate-700 p-6 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 relative group flex flex-col justify-between">
                                     <button onClick={() => {
-                                        const updated = financeData.savingsGoals.filter(g => g.id !== goal.id);
-                                        updateFinance({...financeData, savingsGoals: updated});
+                                        const updated = financeData.savingsJars.filter(g => g.id !== jar.id);
+                                        updateFinance({...financeData, savingsJars: updated});
                                     }} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                                     
-                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{goal.name}</h4>
-                                    <p className="text-xs text-slate-500 mb-4">${goal.current} / ${goal.target}</p>
-                                    
-                                    <div className="h-2.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-4">
-                                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    <div>
+                                        <span className="inline-block px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-600 mb-3">{jar.bank}</span>
+                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">{jar.name}</h4>
+                                        <p className="text-sm text-slate-500 mb-4">${jar.current.toLocaleString()} / ${jar.target.toLocaleString()}</p>
+                                        
+                                        <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-5">
+                                            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                        </div>
                                     </div>
                                     
-                                    <button onClick={() => {
-                                        const addAmt = parseFloat(prompt(t("存入金额:", "Add funds:")));
-                                        if(addAmt && !isNaN(addAmt)) {
-                                            const updated = financeData.savingsGoals.map(g => g.id === goal.id ? {...g, current: g.current + addAmt} : g);
-                                            updateFinance({...financeData, savingsGoals: updated});
-                                        }
-                                    }} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 transition-colors">
+                                    <button onClick={() => setFundJarId(jar.id)} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
                                         {t('存入资金', 'Add Funds')}
                                     </button>
                                 </div>
@@ -1070,6 +980,95 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                     }
                 </div>
             </div>
+
+            {isJarModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建储蓄罐', 'New Savings Jar')}</h3>
+                            <button onClick={() => setIsJarModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                        </div>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if(!jarForm.name || !jarForm.target) return;
+                            const newJar = { id: generateId(), name: jarForm.name, target: parseFloat(jarForm.target), current: 0, bank: jarForm.bank };
+                            updateFinance({...financeData, savingsJars: [...(financeData.savingsJars||[]), newJar]});
+                            setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0] });
+                            setIsJarModalOpen(false);
+                        }} className="p-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('储蓄罐名称', 'Jar Name')}</label>
+                                <input value={jarForm.name} onChange={e=>setJarForm({...jarForm, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="e.g. Dream House" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('目标金额', 'Target Amount')}</label>
+                                <input type="number" value={jarForm.target} onChange={e=>setJarForm({...jarForm, target: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="10000" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('存入银行', 'Bank')}</label>
+                                <select value={jarForm.bank} onChange={e=>setJarForm({...jarForm, bank: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500">
+                                    {MALAYSIA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                                </select>
+                            </div>
+                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-indigo-700">{t('创建', 'Create')}</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {isCommitmentModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加每月固定支出', 'Add Commitment')}</h3>
+                            <button onClick={() => setIsCommitmentModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                        </div>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if(!commitForm.name || !commitForm.amount) return;
+                            const newSub = { id: generateId(), name: commitForm.name, amount: parseFloat(commitForm.amount) };
+                            updateFinance({...financeData, commitments: [...(financeData.commitments||[]), newSub]});
+                            setCommitForm({ name: '', amount: '' });
+                            setIsCommitmentModalOpen(false);
+                        }} className="p-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('支出名称', 'Name')}</label>
+                                <input value={commitForm.name} onChange={e=>setCommitForm({...commitForm, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="e.g. Car Loan" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('每月金额', 'Monthly Amount')}</label>
+                                <input type="number" value={commitForm.amount} onChange={e=>setCommitForm({...commitForm, amount: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="500" />
+                            </div>
+                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-indigo-700">{t('保存', 'Save')}</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {fundJarId && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('存入资金', 'Add Funds')}</h3>
+                            <button onClick={() => {setFundJarId(null); setFundAmount('');}} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                        </div>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if(!fundAmount || isNaN(fundAmount)) return;
+                            const amt = parseFloat(fundAmount);
+                            const updated = financeData.savingsJars.map(g => g.id === fundJarId ? {...g, current: g.current + amt} : g);
+                            updateFinance({...financeData, savingsJars: updated});
+                            setFundJarId(null); setFundAmount('');
+                        }} className="p-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('存入金额', 'Amount')}</label>
+                                <input type="number" value={fundAmount} onChange={e=>setFundAmount(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none dark:text-white focus:border-indigo-500" required placeholder="0.00" autoFocus />
+                            </div>
+                            <button type="submit" className="w-full bg-emerald-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-emerald-700">{t('确认存入', 'Confirm')}</button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1082,6 +1081,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [staffRegistry, setStaffRegistry] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [prefilledTime, setPrefilledTime] = useState("");
@@ -1103,34 +1103,50 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
+    let unsubRegistry = () => {};
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
-        setUser(u);
         if (u) {
             const isAdm = ADMIN_EMAILS.includes(u.email?.toLowerCase());
             setIsAdmin(isAdm);
-            setViewedUserId(u.uid);
             
             if (isAdm) {
-                const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-                onSnapshot(registryRef, (d) => {
+                setViewedUserId(u.uid);
+                const registryRef = doc(db, 'artifacts', appId, 'public', 'data', 'staff_registry', 'whitelist');
+                unsubRegistry = onSnapshot(registryRef, (d) => {
                     if (d.exists()) {
                         setStaffRegistry(d.data().list || []);
                     }
                 });
+                setUser(u);
+                setAuthLoading(false);
             } else {
-                const userMappingRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-                getDoc(userMappingRef).then(d => {
+                // Staff logging in - Check Authorization using exact correct path
+                const userMappingRef = doc(db, 'artifacts', appId, 'public', 'data', 'staff_registry', 'whitelist');
+                unsubRegistry = onSnapshot(userMappingRef, (d) => {
                     const currentList = d.exists() ? d.data().list || [] : [];
                     if (!currentList.find(x => x.uid === u.uid)) {
-                        setDoc(userMappingRef, { list: [...currentList, { email: u.email, uid: u.uid }] }, { merge: true });
+                        // Unauthorized or Deleted! Kick them out!
+                        signOut(auth);
+                        setUser(null);
+                        setAuthError(lang === 'zh' ? '您的账号已被管理员移除' : 'Your account has been removed by admin.');
+                        setAuthLoading(false);
+                    } else {
+                        setViewedUserId(u.uid);
+                        setUser(u);
+                        setAuthLoading(false);
                     }
                 });
             }
+        } else {
+            setUser(null);
+            setAuthLoading(false);
         }
-        setAuthLoading(false);
     });
-    return () => unsubAuth();
-  }, []);
+    return () => {
+        unsubAuth();
+        unsubRegistry();
+    };
+  }, [lang]);
 
   useEffect(() => {
     if (!user || !viewedUserId) return;
@@ -1148,7 +1164,7 @@ export default function App() {
   const isFinanceLocked = isAdmin && viewedUserId !== user?.uid;
 
   if (authLoading) return <div className="flex h-screen w-full items-center justify-center dark:bg-slate-950"><RefreshCw className="animate-spin text-indigo-600" size={48} /></div>;
-  if (!user) return <LoginPage t={t} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} lang={lang} setLang={setLang} />;
+  if (!user) return <LoginPage t={t} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} lang={lang} setLang={setLang} authError={authError} />;
 
   const menuItems = [
     { id: 'focus', icon: Home, label: t('仪表盘', 'Dashboard') },
@@ -1161,76 +1177,4 @@ export default function App() {
   return (
     <div className={`flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
       <div className="px-6 md:px-10 pt-6 pb-4 flex justify-between items-center max-w-7xl mx-auto w-full shrink-0">
-          <div className="flex items-center gap-3 text-slate-900 dark:text-white font-bold text-2xl"><div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md"><Zap size={20}/></div>Planner.AI</div>
-          <div className="flex items-center gap-4">
-            {isAdmin && (
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg shadow-sm">
-                        <Eye size={16} className="text-indigo-600 ml-1" />
-                        <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-sm font-semibold outline-none pr-2 cursor-pointer dark:text-slate-200">
-                            <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
-                            {staffRegistry.map((s, i) => {
-                                if (!s || typeof s !== 'object' || !s.uid) return null;
-                                return <option key={s.uid || i} value={s.uid}>{s.email}</option>
-                            })}
-                        </select>
-                    </div>
-                    <button onClick={() => setIsStaffModalOpen(true)} className="p-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md transition-colors flex items-center gap-2" title={t('添加员工', 'Add Staff')}>
-                        <UserPlus size={18} />
-                    </button>
-                </div>
-            )}
-            <div className="hidden md:flex items-center gap-2 border-r border-slate-200 dark:border-slate-800 pr-4">
-                <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
-            </div>
-            <button onClick={() => signOut(auth)} className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 px-4 py-2 rounded-lg border border-rose-100 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors font-semibold text-sm flex items-center gap-2">
-                <LogOut size={16}/> <span className="hidden md:inline">{t('退出', 'Logout')}</span>
-            </button>
-          </div>
-      </div>
-      <div className="px-4 pb-2 shrink-0 w-full"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm px-4 py-3 flex justify-center mx-auto max-w-5xl transition-colors"><nav className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full justify-start md:justify-center">
-        {menuItems.map(m => {
-            const Icon = m.icon;
-            return (
-                <button key={m.id} onClick={() => setView(m.id)} className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${view === m.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-400'}`}><Icon size={16}/> {m.label}</button>
-            )
-        })}
-      </nav></div></div>
-      <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8">
-        <div className="max-w-7xl mx-auto h-full">
-            {view === 'finance' && isFinanceLocked ? (
-                <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
-            ) : (
-                <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
-                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
-                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={(id) => { const n = tasks.map(task => task.id === id ? {...task, completed: !task.completed} : task); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(task => task.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
-                    {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
-                    
-                    {/* 新增的 FinanceVault 理财中心 */}
-                    {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
-                </>
-            )}
-        </div>
-      </main>
-
-      <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={(taskData) => {
-          let n = [];
-          if (taskData.recurring === 'daily') {
-              const newTasks = [];
-              for(let i=0; i<30; i++) {
-                  const d = new Date(taskData.date); d.setDate(d.getDate() + i);
-                  newTasks.push({ id: generateId(), completed: false, ...taskData, date: getLocalDateString(d) });
-              }
-              n = [...tasks, ...newTasks];
-          } else { n = [...tasks, { id: generateId(), completed: false, ...taskData }]; }
-          setTasks(n); saveData('tasks', { list: n });
-      }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
-
-      <StaffManagerModal t={t} isOpen={isStaffModalOpen} onClose={() => setIsStaffModalOpen(false)} staffList={staffRegistry} />
-
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-    </div>
-  );
-}
+          <div className="flex items-center gap-3 text-slate-900 dark:text-white font-bold
