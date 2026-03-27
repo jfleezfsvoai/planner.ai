@@ -11,7 +11,8 @@ import {
   CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
   CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
   Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
-  Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff
+  Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
+  PiggyBank, CreditCard, ListOrdered
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -505,7 +506,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     );
 };
 
-// --- 4. Main Views (Dashboard, Calendar, Timeline, Review) ---
+// --- 4. Main Views ---
 const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
     const today = getLocalDateString(new Date());
     const todayTasks = tasks.filter(t => t.date === today);
@@ -622,9 +623,10 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     const daysToShow = [currentDate, new Date(currentDate.getTime() + 86400000)];
     const navDays = Array.from({length: 7}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 3 + i); return d; });
     const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
+    
     return (
       <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-10 relative">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 relative">
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
               <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
               <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
@@ -640,6 +642,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               </div>
               <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={24}/></button>
           </div>
+          
           <div className="grid grid-cols-[80px_1fr_1fr] gap-6 mb-8">
               <div></div>
               {daysToShow.map((d, i) => (
@@ -649,11 +652,13 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                   </div>
               ))}
           </div>
+
           <div className="space-y-6">
               {hours.map(hour => {
                   let timeLabel; if (hour === 24 || hour === 0) timeLabel = '12:00 AM'; else if (hour === 12) timeLabel = '12:00 PM'; else if (hour > 12) timeLabel = `${hour - 12}:00 PM`; else timeLabel = `${hour}:00 AM`;
                   const hourValue = hour === 24 ? '00:00' : `${hour.toString().padStart(2, '0')}:00`;
                   const matchHour = hour === 24 ? 0 : hour;
+                  
                   return (
                       <div key={hour} className="grid grid-cols-[80px_1fr_1fr] gap-6 group items-start min-h-[100px]">
                           <div className="pt-2 text-right shrink-0">
@@ -663,11 +668,15 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                               const dateStr = getLocalDateString(d);
                               const hourTasks = tasks.filter(taskObj => taskObj.date === dateStr && taskObj.time && parseInt(taskObj.time.split(':')[0]) === matchHour);
                               return (
-                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const tid = e.dataTransfer.getData('taskId'); if(tid) onUpdateTask(tid, { date: dateStr, time: hourValue }); }} className="flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
+                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
                                       <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
                                       <div className="space-y-3">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)}
-                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2"><Plus size={16}/> {t('添加任务', 'Add Task')}</button>
+                                          
+                                          {/* 淡化的添加按钮 */}
+                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
+                                              <Plus size={16}/> {t('添加任务', 'Add Task')}
+                                          </button>
                                       </div>
                                   </div>
                               );
@@ -755,6 +764,314 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
           </div>
         </div>
       );
+};
+
+// --- NEW 6. FinanceVault Component ---
+const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
+    const [financeData, setFinanceData] = useState({
+        balance: 0,
+        income: 0,
+        expense: 0,
+        budget: 3000,
+        transactions: [],
+        savingsGoals: [],
+        subscriptions: []
+    });
+
+    const [txAmount, setTxAmount] = useState('');
+    const [txType, setTxType] = useState('expense');
+    const [txCategory, setTxCategory] = useState('餐饮 Food');
+    const [txNote, setTxNote] = useState('');
+    const [txDate, setTxDate] = useState(getLocalDateString(new Date()));
+
+    const incomeCategories = ['工资 Salary', '投资 Investment', '兼职 Side Hustle', '其他 Other'];
+    const expenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '固定账单 Bills', '其他 Other'];
+
+    useEffect(() => {
+        if (!viewedUserId) return;
+        const financeRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'finance', 'data');
+        const unsub = onSnapshot(financeRef, (d) => {
+            if (d.exists()) {
+                setFinanceData(d.data());
+            } else {
+                setFinanceData({ balance: 0, income: 0, expense: 0, budget: 3000, transactions: [], savingsGoals: [], subscriptions: [] });
+            }
+        });
+        return () => unsub();
+    }, [viewedUserId]);
+
+    const updateFinance = async (newData) => {
+        setFinanceData(newData);
+        if (user && viewedUserId) {
+            await setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, 'finance', 'data'), newData);
+        }
+    };
+
+    const handleAddTransaction = (e) => {
+        e.preventDefault();
+        if (!txAmount || isNaN(txAmount)) return;
+        
+        const amt = parseFloat(txAmount);
+        const newTx = {
+            id: generateId(),
+            amount: amt,
+            type: txType,
+            category: txCategory,
+            note: txNote,
+            date: txDate,
+            timestamp: Date.now()
+        };
+
+        const updatedTx = [newTx, ...financeData.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        const newIncome = txType === 'income' ? financeData.income + amt : financeData.income;
+        const newExpense = txType === 'expense' ? financeData.expense + amt : financeData.expense;
+        const newBalance = newIncome - newExpense;
+
+        updateFinance({
+            ...financeData,
+            transactions: updatedTx,
+            income: newIncome,
+            expense: newExpense,
+            balance: newBalance
+        });
+
+        setTxAmount(''); setTxNote('');
+    };
+
+    const handleDeleteTransaction = (id) => {
+        const txToDelete = financeData.transactions.find(t => t.id === id);
+        if (!txToDelete) return;
+
+        const updatedTx = financeData.transactions.filter(t => t.id !== id);
+        const newIncome = txToDelete.type === 'income' ? financeData.income - txToDelete.amount : financeData.income;
+        const newExpense = txToDelete.type === 'expense' ? financeData.expense - txToDelete.amount : financeData.expense;
+        
+        updateFinance({
+            ...financeData,
+            transactions: updatedTx,
+            income: newIncome,
+            expense: newExpense,
+            balance: newIncome - newExpense
+        });
+    };
+
+    const handleAddSavingsGoal = () => {
+        const goalName = prompt(t("输入心愿单名称 (如: MacBook)", "Enter Savings Goal Name"));
+        if (!goalName) return;
+        const target = parseFloat(prompt(t("设定目标金额", "Enter Target Amount")));
+        if (!target || isNaN(target)) return;
+
+        const newGoal = { id: generateId(), name: goalName, target, current: 0 };
+        updateFinance({ ...financeData, savingsGoals: [...financeData.savingsGoals, newGoal] });
+    };
+
+    const handleAddSubscription = () => {
+        const subName = prompt(t("输入账单名称 (如: Netflix)", "Enter Subscription Name"));
+        if (!subName) return;
+        const amt = parseFloat(prompt(t("每月扣费金额", "Monthly Amount")));
+        if (!amt || isNaN(amt)) return;
+        
+        const newSub = { id: generateId(), name: subName, amount: amt };
+        updateFinance({ ...financeData, subscriptions: [...financeData.subscriptions, newSub] });
+    };
+
+    // Calculate analytics
+    const currentMonthPrefix = getLocalDateString(new Date()).slice(0, 7);
+    const monthlyExpenses = financeData.transactions.filter(t => t.type === 'expense' && t.date.startsWith(currentMonthPrefix));
+    const monthlyTotalExpense = monthlyExpenses.reduce((sum, t) => sum + t.amount, 0);
+    const budgetProgress = financeData.budget > 0 ? Math.min(100, (monthlyTotalExpense / financeData.budget) * 100) : 0;
+    
+    const categoryTotals = {};
+    monthlyExpenses.forEach(t => {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+    });
+    const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-10">
+            {/* Top Row: Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-slate-900 rounded-2xl p-6 shadow-lg border border-slate-800 text-white relative overflow-hidden">
+                    <div className="absolute -right-6 -top-6 text-slate-800/50"><Wallet size={120} /></div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-2 opacity-80"><Wallet size={18}/> <span className="font-medium text-sm">{t('总净结余', 'Net Worth')}</span></div>
+                        <div className="text-4xl font-bold tracking-tight">${financeData.balance.toLocaleString()}</div>
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mb-2 text-emerald-600 dark:text-emerald-400"><ArrowUpRight size={18}/> <span className="font-medium text-sm">{t('总收入', 'Total Income')}</span></div>
+                    <div className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">${financeData.income.toLocaleString()}</div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mb-2 text-rose-600 dark:text-rose-400"><ArrowDownRight size={18}/> <span className="font-medium text-sm">{t('总支出', 'Total Expense')}</span></div>
+                    <div className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">${financeData.expense.toLocaleString()}</div>
+                </div>
+            </div>
+
+            {/* Budget Progress */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex justify-between items-end mb-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Target size={20} className="text-indigo-500"/> {t('月度预算进度', 'Monthly Budget')}</h3>
+                        <p className="text-sm text-slate-500 mt-1">{t('本月已花费', 'Spent this month')}: <span className="font-bold text-slate-700 dark:text-slate-300">${monthlyTotalExpense.toLocaleString()}</span> / ${financeData.budget}</p>
+                    </div>
+                    <div className="text-right">
+                        <button onClick={() => { const b = prompt("Set new budget:", financeData.budget); if(b && !isNaN(b)) updateFinance({...financeData, budget: parseFloat(b)}) }} className="text-xs text-indigo-500 hover:underline">{t('修改预算', 'Edit Budget')}</button>
+                        <div className="text-2xl font-bold text-slate-800 dark:text-white">{Math.round(budgetProgress)}%</div>
+                    </div>
+                </div>
+                <div className="h-4 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
+                    <div className={`h-full rounded-full transition-all duration-1000 ${budgetProgress > 80 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${budgetProgress}%` }} />
+                </div>
+            </div>
+
+            {/* Middle Grid: Quick Log & Transactions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Quick Log Form */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Edit3 size={20} className="text-indigo-500"/> {t('快速记账', 'Quick Log')}</h3>
+                    <form onSubmit={handleAddTransaction} className="space-y-4">
+                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                            <button type="button" onClick={() => {setType('expense'); setCategory(expenseCategories[0]);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-600' : 'text-slate-500'}`}>{t('支出 Expense', 'Expense')}</button>
+                            <button type="button" onClick={() => {setType('income'); setCategory(incomeCategories[0]);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{t('收入 Income', 'Income')}</button>
+                        </div>
+                        <div className="flex gap-4">
+                            <input type="number" value={txAmount} onChange={e=>setTxAmount(e.target.value)} placeholder="0.00" className="w-2/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none focus:border-indigo-500 dark:text-white" required />
+                            <input type="date" value={txDate} onChange={e=>setTxDate(e.target.value)} className="w-1/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-sm outline-none focus:border-indigo-500 dark:text-white" required />
+                        </div>
+                        <select value={txCategory} onChange={e=>setTxCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                            {(txType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white" />
+                        <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">{t('记一笔', 'Save Transaction')}</button>
+                    </form>
+                </div>
+
+                {/* Recent Transactions */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><ListOrdered size={20} className="text-indigo-500"/> {t('最近交易', 'Recent Transactions')}</h3>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 max-h-[350px] pr-2">
+                        {financeData.transactions.length === 0 ? <p className="text-center text-slate-400 mt-10">{t('暂无交易记录', 'No transactions yet.')}</p> : 
+                            financeData.transactions.slice(0, 15).map(tx => (
+                                <div key={tx.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 group">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30'}`}>
+                                            {tx.type === 'income' ? <ArrowUpRight size={18}/> : <ArrowDownRight size={18}/>}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{tx.category}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">{tx.date} {tx.note && `• ${tx.note}`}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
+                                            {tx.type === 'income' ? '+' : '-'}${tx.amount}
+                                        </span>
+                                        <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16}/></button>
+                                    </div>
+                                </div>
+                            ))
+                        }
+                    </div>
+                </div>
+            </div>
+
+            {/* Analytics & Subscriptions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Expense Analytics */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><PieChart size={20} className="text-indigo-500"/> {t('本月支出排行', 'Top Expenses')}</h3>
+                    <div className="space-y-5">
+                        {sortedCategories.length === 0 ? <p className="text-slate-400 text-sm">{t('本月无支出', 'No expenses this month.')}</p> : 
+                            sortedCategories.map(([cat, amt], i) => {
+                                const pct = Math.round((amt / monthlyTotalExpense) * 100);
+                                const barColors = ['bg-indigo-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500'];
+                                return (
+                                    <div key={cat}>
+                                        <div className="flex justify-between text-sm mb-1.5 font-medium">
+                                            <span className="text-slate-700 dark:text-slate-300">{cat}</span>
+                                            <span className="text-slate-800 dark:text-white font-bold">${amt} ({pct}%)</span>
+                                        </div>
+                                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full ${barColors[i % barColors.length]}`} style={{ width: `${pct}%` }} />
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        }
+                    </div>
+                </div>
+
+                {/* Subscriptions */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('固定账单', 'Subscriptions')}</h3>
+                        <button onClick={handleAddSubscription} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"><Plus size={16}/> {t('添加', 'Add')}</button>
+                    </div>
+                    <div className="space-y-3">
+                        {financeData.subscriptions.length === 0 ? <p className="text-slate-400 text-sm">{t('未设定账单', 'No subscriptions.')}</p> : 
+                            financeData.subscriptions.map(sub => (
+                                <div key={sub.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center"><Repeat size={14}/></div>
+                                        <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{sub.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold text-slate-800 dark:text-white">${sub.amount}/mo</span>
+                                        <button onClick={() => {
+                                            const updated = financeData.subscriptions.filter(s => s.id !== sub.id);
+                                            updateFinance({...financeData, subscriptions: updated});
+                                        }} className="text-slate-400 hover:text-rose-500"><X size={16}/></button>
+                                    </div>
+                                </div>
+                            ))
+                        }
+                    </div>
+                </div>
+            </div>
+
+            {/* Savings Goals */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><PiggyBank size={20} className="text-indigo-500"/> {t('储蓄心愿单', 'Savings Goals')}</h3>
+                    <button onClick={handleAddSavingsGoal} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"><Plus size={16}/> {t('新建目标', 'New Goal')}</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {financeData.savingsGoals.length === 0 ? <p className="text-slate-400 text-sm col-span-full">{t('建立一个储蓄目标吧', 'Set a savings goal to start tracking.')}</p> : 
+                        financeData.savingsGoals.map(goal => {
+                            const pct = Math.min(100, (goal.current / goal.target) * 100);
+                            return (
+                                <div key={goal.id} className="border border-slate-200 dark:border-slate-700 p-5 rounded-xl bg-slate-50 dark:bg-slate-800/30 relative group">
+                                    <button onClick={() => {
+                                        const updated = financeData.savingsGoals.filter(g => g.id !== goal.id);
+                                        updateFinance({...financeData, savingsGoals: updated});
+                                    }} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
+                                    
+                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{goal.name}</h4>
+                                    <p className="text-xs text-slate-500 mb-4">${goal.current} / ${goal.target}</p>
+                                    
+                                    <div className="h-2.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-4">
+                                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    </div>
+                                    
+                                    <button onClick={() => {
+                                        const addAmt = parseFloat(prompt(t("存入金额:", "Add funds:")));
+                                        if(addAmt && !isNaN(addAmt)) {
+                                            const updated = financeData.savingsGoals.map(g => g.id === goal.id ? {...g, current: g.current + addAmt} : g);
+                                            updateFinance({...financeData, savingsGoals: updated});
+                                        }
+                                    }} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 transition-colors">
+                                        {t('存入资金', 'Add Funds')}
+                                    </button>
+                                </div>
+                            );
+                        })
+                    }
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // --- 5. Main App Logic ---
@@ -890,7 +1207,9 @@ export default function App() {
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={(id) => { const n = tasks.map(task => task.id === id ? {...task, completed: !task.completed} : task); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(task => task.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
-                    {view === 'finance' && <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-16 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center text-emerald-500 shadow-inner"><DollarSign size={40} /></div><h2 className="text-2xl font-bold text-slate-700 dark:text-slate-300">{t('理财模块建设中', 'Finance Module')}</h2></div></div>}
+                    
+                    {/* 新增的 FinanceVault 理财中心 */}
+                    {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
                 </>
             )}
         </div>
