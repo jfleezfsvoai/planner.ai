@@ -61,6 +61,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // --- Components ---
 
 const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) => {
+    const [isLogin, setIsLogin] = useState(true); 
     const [email, setEmail] = useState(''); 
     const [password, setPassword] = useState(''); 
     const [error, setError] = useState(''); 
@@ -75,7 +76,11 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
         setError(''); 
         setLoading(true);
         try { 
-            await signInWithEmailAndPassword(auth, email.trim(), password); 
+            if (isLogin) {
+                await signInWithEmailAndPassword(auth, email.trim(), password); 
+            } else {
+                await createUserWithEmailAndPassword(auth, email.trim(), password);
+            }
         } catch (err) { 
             if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
                 setError(t('查无此人或密码错误，请确认账号', 'Invalid credentials or user not found.'));
@@ -85,6 +90,13 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
         } finally { 
             setLoading(false); 
         }
+    };
+
+    const handleToggleMode = () => {
+        setIsLogin(!isLogin);
+        setEmail('');
+        setPassword('');
+        setError('');
     };
 
     return (
@@ -148,9 +160,15 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
                             disabled={loading} 
                             className="w-full bg-indigo-600 text-white font-semibold py-4 rounded-lg shadow-md hover:bg-indigo-700 transition-all flex justify-center items-center gap-3 text-lg mt-4"
                         >
-                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{t('进入系统', 'LOGIN NOW')}<ArrowRight size={20} /></>}
+                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{isLogin ? t('进入系统', 'LOGIN NOW') : t('注册账号', 'CREATE ACCESS')}<ArrowRight size={20} /></>}
                         </button>
                     </form>
+
+                    <div className="mt-8 flex justify-center">
+                        <button type="button" onClick={handleToggleMode} className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline transition-colors">
+                            {isLogin ? t('注册新账号', 'Create new account') : t('返回登录', 'Back to login')}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -163,7 +181,20 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState({ type: '', msg: '' });
 
+    // 一旦弹窗打开，立刻清空所有状态，保证绝对干净
+    useEffect(() => {
+        if (isOpen) {
+            setEmail('');
+            setPassword('');
+            setStatus({ type: '', msg: '' });
+        }
+    }, [isOpen]);
+
     if (!isOpen) return null;
+
+    const handleCloseModal = () => {
+        onClose();
+    };
 
     const handleCreateStaff = async (e) => {
         e.preventDefault();
@@ -183,7 +214,25 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
             setEmail(''); 
             setPassword('');
         } catch (err) {
-            setStatus({ type: 'error', msg: err.message });
+            // Intelligent Re-activation Logic
+            if (err.code === 'auth/email-already-in-use') {
+                try {
+                    const userCredential = await signInWithEmailAndPassword(secondaryAuth, email.trim(), password);
+                    const existingUid = userCredential.user.uid;
+                    await signOut(secondaryAuth);
+                    
+                    const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: existingUid }];
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
+
+                    setStatus({ type: 'success', msg: t('账号已存在，已成功重新激活与授权！', 'Account exists. Re-authorized successfully!') });
+                    setEmail(''); 
+                    setPassword('');
+                } catch (loginErr) {
+                    setStatus({ type: 'error', msg: t('该邮箱已被注册，且密码不匹配。请在后台彻底删除或使用旧密码。', 'Email in use with wrong password. Use correct password.') });
+                }
+            } else {
+                setStatus({ type: 'error', msg: err.message });
+            }
         } finally {
             setLoading(false);
         }
@@ -195,7 +244,7 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={handleCloseModal}>
             <div 
                 className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" 
                 onClick={e => e.stopPropagation()}
@@ -205,17 +254,19 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                         <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg flex items-center justify-center"><UserPlus size={20}/></div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加与管理员工', 'Manage Staff Accounts')}</h3>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+                    <button onClick={handleCloseModal} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                     <form onSubmit={handleCreateStaff} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('员工邮箱', 'Staff Email')}</label>
+                            {/* 加入 autoComplete="off" 避免浏览器记住 Admin 密码时胡乱填充 */}
                             <input 
                                 type="email" 
                                 value={email} 
                                 onChange={e => setEmail(e.target.value)} 
+                                autoComplete="off"
                                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" 
                                 placeholder="staff@company.com" 
                                 required 
@@ -223,10 +274,12 @@ const StaffManagerModal = ({ isOpen, onClose, staffList, t }) => {
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('设置登录密码', 'Set Password')}</label>
+                            {/* 加入 autoComplete="new-password" 彻底打断自动填充 */}
                             <input 
                                 type="password" 
                                 value={password} 
                                 onChange={e => setPassword(e.target.value)} 
+                                autoComplete="new-password"
                                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" 
                                 placeholder="••••••••" 
                                 required 
@@ -288,24 +341,30 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
           setTime(prefilledTime); 
           setPriority(''); 
           setIsRecurring(false); 
+          setNewCatName('');
+          setShowNewCatInput(false);
       } 
   }, [isOpen, prefilledTime]);
 
   if (!isOpen) return null;
 
+  const handleCloseModal = () => {
+      onClose();
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault(); 
     if (!title.trim()) return;
     onAdd({ title, category, priority, time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
-    onClose();
+    handleCloseModal();
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={handleCloseModal}>
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建计划', 'New Plan')}</h3>
-          <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+          <button onClick={handleCloseModal} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="space-y-1.5">
@@ -433,6 +492,12 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newHabit, setNewHabit] = useState({ name: '', goal: '', frequency: daysInMonth });
 
+    useEffect(() => {
+        if (isAddModalOpen) {
+            setNewHabit({ name: '', goal: '', frequency: daysInMonth });
+        }
+    }, [isAddModalOpen, daysInMonth]);
+
     const toggleDay = (habitId, day) => {
         const habit = habits.find(h => h.id === habitId); if (!habit) return;
         const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -444,7 +509,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     const handleAddHabit = () => {
         if (newHabit.name) {
             onAdd({ name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth, completedDays: [] });
-            setIsAddModalOpen(false); setNewHabit({ name: '', goal: '', frequency: daysInMonth });
+            setIsAddModalOpen(false); 
         }
     };
 
@@ -566,7 +631,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const [txDate, setTxDate] = useState(getLocalDateString(new Date()));
 
     const [isJarModalOpen, setIsJarModalOpen] = useState(false);
-    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0] });
+    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '' });
     
     const [isCommitmentModalOpen, setIsCommitmentModalOpen] = useState(false);
     const [commitForm, setCommitForm] = useState({ name: '', amount: '' });
@@ -614,6 +679,8 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
         const newIncome = txType === 'income' ? financeData.income + amt : financeData.income;
         const newExpense = txType === 'expense' ? financeData.expense + amt : financeData.expense;
         updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
+        
+        // Clean quick log after save
         setTxAmount(''); setTxNote('');
     };
 
@@ -638,6 +705,16 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const categoryTotals = {};
     monthlyTxs.filter(t => t.type === 'expense').forEach(t => { categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount; });
     const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+    const closeJarModal = () => { 
+        setIsJarModalOpen(false); 
+    };
+    const closeCommitModal = () => { 
+        setIsCommitmentModalOpen(false); 
+    };
+    const closeFundModal = () => { 
+        setFundJarId(null); 
+    };
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-10">
@@ -676,7 +753,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                             {(txType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none focus:border-indigo-500 dark:text-white" />
-                        <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-2">{t('记一笔', 'Save Transaction')}</button>
+                        <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-2">{t('记一笔', 'Save Transaction')}</button>
                     </form>
                 </div>
 
@@ -712,10 +789,13 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('每月固定支出', 'Monthly Commitments')}</h3>
-                        <button onClick={() => setIsCommitmentModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
+                        <button onClick={() => {
+                            setCommitForm({ name: '', amount: '' });
+                            setIsCommitmentModalOpen(true);
+                        }} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
                     </div>
                     <div className="space-y-3">
-                        {financeData.commitments.length === 0 ? <p className="text-slate-400 text-sm text-center py-4">{t('未设定固定支出', 'No monthly commitments.')}</p> : 
+                        {(!financeData.commitments || financeData.commitments.length === 0) ? <p className="text-slate-400 text-sm text-center py-4">{t('未设定固定支出', 'No monthly commitments.')}</p> : 
                             financeData.commitments.map(sub => (
                                 <div key={sub.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
                                     <div className="flex items-center gap-3">
@@ -765,10 +845,13 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Landmark size={20} className="text-indigo-500"/> {t('分配储蓄罐', 'Savings Jars')}</h3>
                         <p className="text-sm text-slate-500 mt-1">{t('把收入分配到您的各个银行账户', 'Allocate your income into banks')}</p>
                     </div>
-                    <button onClick={() => setIsJarModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
+                    <button onClick={() => {
+                        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '' });
+                        setIsJarModalOpen(true);
+                    }} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {financeData.savingsJars.length === 0 ? <p className="text-slate-400 text-sm col-span-full text-center py-6">{t('点击上方按钮建立第一个储蓄罐吧', 'Set up a savings jar to start allocating.')}</p> : 
+                    {(!financeData.savingsJars || financeData.savingsJars.length === 0) ? <p className="text-slate-400 text-sm col-span-full text-center py-6">{t('点击上方按钮建立第一个储蓄罐吧', 'Set up a savings jar to start allocating.')}</p> : 
                         financeData.savingsJars.map(jar => {
                             const pct = Math.min(100, (jar.current / jar.target) * 100) || 0;
                             return (
@@ -779,7 +862,10 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                     }} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                                     
                                     <div>
-                                        <span className="inline-block px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-600 mb-3">{jar.bank}</span>
+                                        <div className="flex flex-col gap-1 mb-3">
+                                            <span className="inline-block self-start px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-600">{jar.bank}</span>
+                                            {jar.account && <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{jar.account}</span>}
+                                        </div>
                                         <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">{jar.name}</h4>
                                         <p className="text-sm text-slate-500 mb-4">${jar.current.toLocaleString()} / ${jar.target.toLocaleString()}</p>
                                         
@@ -788,7 +874,10 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                         </div>
                                     </div>
                                     
-                                    <button onClick={() => setFundJarId(jar.id)} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
+                                    <button onClick={() => {
+                                        setFundAmount('');
+                                        setFundJarId(jar.id);
+                                    }} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
                                         {t('存入资金', 'Add Funds')}
                                     </button>
                                 </div>
@@ -799,19 +888,18 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
             </div>
 
             {isJarModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={closeJarModal}>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建储蓄罐', 'New Savings Jar')}</h3>
-                            <button onClick={() => setIsJarModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                            <button onClick={closeJarModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
                         </div>
                         <form onSubmit={(e) => {
                             e.preventDefault();
                             if(!jarForm.name || !jarForm.target) return;
-                            const newJar = { id: generateId(), name: jarForm.name, target: parseFloat(jarForm.target), current: 0, bank: jarForm.bank };
+                            const newJar = { id: generateId(), name: jarForm.name, target: parseFloat(jarForm.target), current: 0, bank: jarForm.bank, account: jarForm.account };
                             updateFinance({...financeData, savingsJars: [...(financeData.savingsJars||[]), newJar]});
-                            setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0] });
-                            setIsJarModalOpen(false);
+                            closeJarModal();
                         }} className="p-6 space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('储蓄罐名称', 'Jar Name')}</label>
@@ -827,6 +915,10 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                     {MALAYSIA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                                 </select>
                             </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('银行账号 (可选)', 'Account Number')}</label>
+                                <input type="text" value={jarForm.account} onChange={e=>setJarForm({...jarForm, account: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500 font-mono" placeholder="e.g. 1122334455" />
+                            </div>
                             <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-indigo-700">{t('创建', 'Create')}</button>
                         </form>
                     </div>
@@ -834,19 +926,18 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
             )}
 
             {isCommitmentModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={closeCommitModal}>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('添加每月固定支出', 'Add Commitment')}</h3>
-                            <button onClick={() => setIsCommitmentModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                            <button onClick={closeCommitModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
                         </div>
                         <form onSubmit={(e) => {
                             e.preventDefault();
                             if(!commitForm.name || !commitForm.amount) return;
                             const newSub = { id: generateId(), name: commitForm.name, amount: parseFloat(commitForm.amount) };
                             updateFinance({...financeData, commitments: [...(financeData.commitments||[]), newSub]});
-                            setCommitForm({ name: '', amount: '' });
-                            setIsCommitmentModalOpen(false);
+                            closeCommitModal();
                         }} className="p-6 space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('支出名称', 'Name')}</label>
@@ -863,11 +954,11 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
             )}
 
             {fundJarId && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={closeFundModal}>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('存入资金', 'Add Funds')}</h3>
-                            <button onClick={() => {setFundJarId(null); setFundAmount('');}} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                            <button onClick={closeFundModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
                         </div>
                         <form onSubmit={(e) => {
                             e.preventDefault();
@@ -875,7 +966,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                             const amt = parseFloat(fundAmount);
                             const updated = financeData.savingsJars.map(g => g.id === fundJarId ? {...g, current: g.current + amt} : g);
                             updateFinance({...financeData, savingsJars: updated});
-                            setFundJarId(null); setFundAmount('');
+                            closeFundModal();
                         }} className="p-6 space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('存入金额', 'Amount')}</label>
@@ -1149,7 +1240,6 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
       );
 };
 
-// --- Main App Logic ---
 export default function App() {
   const [view, setView] = useState('focus');
   const [user, setUser] = useState(null);
@@ -1199,7 +1289,7 @@ export default function App() {
                 const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
                 unsubRegistry = onSnapshot(registryRef, (d) => {
                     const currentList = d.exists() ? d.data().list || [] : [];
-                    if (!currentList.find(x => x.uid === u.uid)) {
+                    if (!currentList.find(x => x.email === u.email)) {
                         signOut(auth);
                         setUser(null);
                         setAuthError(lang === 'zh' ? '您的账号已被管理员移除' : 'Your account has been removed by admin.');
