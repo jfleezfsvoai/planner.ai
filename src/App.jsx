@@ -17,7 +17,7 @@ import {
 // --- Firebase Imports ---
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -34,7 +34,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Critical Fix: Must use environmental appId for correct permissions
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main';
 
 // --- Constants ---
@@ -91,6 +90,9 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
             </div>
             <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/5 blur-[120px] rounded-full" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-500/5 blur-[120px] rounded-full" />
+
                 <div className="bg-white dark:bg-slate-900 rounded-[4rem] shadow-2xl w-full max-w-lg p-16 border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-500 relative z-10">
                     <div className="text-center mb-12">
                         <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-[2.5rem] mx-auto flex items-center justify-center text-white mb-8 shadow-2xl shadow-indigo-200 dark:shadow-none"><Zap size={44} fill="currentColor" /></div>
@@ -233,6 +235,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                     </thead>
                     <tbody>
                         {habits.map(habit => {
+                            const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
                             const monthCompletions = (habit.completedDays || []).filter(d => d.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`)).length;
                             const freq = habit.frequency || 1;
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
@@ -390,6 +393,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     const hours = Array.from({ length: 19 }, (_, i) => i + 6);
     const daysToShow = [currentDate, new Date(currentDate.getTime() + 86400000)];
     const navDays = Array.from({length: 9}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 4 + i); return d; });
+    const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
     return (
       <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
         <div className="bg-white dark:bg-slate-800 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm p-10 relative">
@@ -405,7 +409,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
           </div>
           <div className="grid grid-cols-[100px_1fr_1fr] gap-10 mb-10">
               <div></div>
-              {daysToShow.map((d, i) => (<div key={i} className="text-center"><h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</h3><p className="text-indigo-500 font-bold text-[10px] uppercase tracking-[0.4em] mt-2">{d.toLocaleDateString(t('zh-CN', 'en-US'), { day: 'numeric', month: 'short' })}</p></div>))}
+              {daysToShow.map((d, i) => (<div key={i} className="text-center group"><h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</h3><p className="text-indigo-500 font-bold text-[10px] uppercase tracking-[0.4em] mt-2 group-hover:tracking-[0.6em] transition-all">{d.toLocaleDateString(t('zh-CN', 'en-US'), { day: 'numeric', month: 'short' })}</p></div>))}
           </div>
           <div className="space-y-8">
               {hours.map(hour => {
@@ -506,46 +510,45 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
 const UserManagementView = ({ t }) => {
     const [staffList, setStaffList] = useState([]);
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState({ type: '', msg: '' });
 
     useEffect(() => {
-        const staffRef = doc(db, 'artifacts', appId, 'public', 'data', 'staff_management', 'registry');
+        const staffRef = doc(db, 'artifacts', appId, 'public', 'staff_management');
         const unsub = onSnapshot(staffRef, (d) => {
-            if (d.exists()) setStaffList(d.data().list || []);
+            if (d.exists()) setStaffList(d.data().emails || []);
         });
         return () => unsub();
     }, []);
 
-    const handleCreateStaff = async (e) => {
+    const handleAddStaff = async (e) => {
         e.preventDefault();
         if (!email.trim()) return;
         setLoading(true); setStatus({ type: '', msg: '' });
         try {
-            const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: generateId() }];
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff_management', 'registry'), { list: updatedList });
+            const updatedList = [...staffList, email.toLowerCase().trim()];
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_management'), { emails: updatedList });
             setStatus({ type: 'success', msg: t('授权成功，请告知员工自行注册', 'Authorized. Tell staff to register.') });
-            setEmail(''); setPassword('');
+            setEmail('');
         } catch(e) { setStatus({ type: 'error', msg: e.message }); }
         finally { setLoading(false); }
     };
 
     const handleRemoveStaff = async (staffEmail) => {
-        const updatedList = staffList.filter(s => s.email !== staffEmail);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'staff_management', 'registry'), { list: updatedList });
+        const updatedList = staffList.filter(e => e !== staffEmail);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_management'), { emails: updatedList });
     };
 
     return (
         <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-12 shadow-sm">
                 <div className="flex items-center gap-4 mb-10"><div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-xl"><ShieldCheck size={32}/></div><div><h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{t('员工管理中心', 'Staff Control')}</h2></div></div>
-                <form onSubmit={handleCreateStaff} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem]">
-                    <input value={email} onChange={e => setEmail(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white" placeholder="Authorized Staff Email" required />
-                    <button type="submit" disabled={loading} className="bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700">{t('授权邮箱', 'Authorize Email')}</button>
+                <form onSubmit={handleAddStaff} className="flex flex-col md:flex-row gap-4 mb-12 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem]">
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white shadow-inner" placeholder="Authorized Staff Email" required />
+                    <button type="submit" disabled={loading} className="bg-indigo-600 text-white rounded-2xl px-10 py-4 font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700 whitespace-nowrap">{t('授权邮箱', 'Authorize Email')}</button>
                 </form>
                 {status.msg && <div className={`p-5 rounded-2xl mb-8 text-sm font-bold text-center ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{status.msg}</div>}
-                <div className="space-y-4">{staffList.map(s => (<div key={s.email} className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-black uppercase">{s.email[0]}</div><span className="text-sm font-bold text-slate-700 dark:text-slate-200">{s.email}</span></div><button onClick={() => handleRemoveStaff(s.email)} className="p-3 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={20}/></button></div>))}</div>
+                <div className="space-y-4">{staffList.map(e => (<div key={e} className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-black uppercase">{e[0]}</div><span className="text-sm font-bold text-slate-700 dark:text-slate-200">{e}</span></div><button onClick={() => handleRemoveStaff(e)} className="p-3 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={20}/></button></div>))}</div>
             </div>
         </div>
     );
@@ -563,6 +566,7 @@ export default function App() {
   const [prefilledTime, setPrefilledTime] = useState("");
   const [targetDate, setTargetDate] = useState(getLocalDateString(new Date()));
   const [currentDate, setCurrentDate] = useState(new Date());
+  
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [lang, setLang] = useState('zh');
   const t = (zh, en) => lang === 'zh' ? zh : en;
@@ -573,19 +577,45 @@ export default function App() {
   const [reviews, setReviews] = useState({ daily: {}, cycle: {}, yearly: {} });
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, async (u) => {
         setUser(u);
         if (u) {
             const isAdm = ADMIN_EMAILS.includes(u.email?.toLowerCase());
             setIsAdmin(isAdm);
             setViewedUserId(u.uid);
+            
             if (isAdm) {
-                const registryRef = doc(db, 'artifacts', appId, 'public', 'data', 'staff_management', 'registry');
+                // Admin fetches all registered users to populate the switcher dropdown
+                // Because we cannot list users directly in client SDK easily, we rely on checking documents or simple mapping
+                // For a true multi-user drop-down, admin needs a collection of users.
+                // We will fetch the staff whitelist to show in the dropdown. Note: we need their UIDs to actually view data.
+                // Since this is a client app without Cloud Functions, the easiest way is to let Admin view the whitelist emails,
+                // BUT without UID we can't query their private data path.
+                // To fix this gracefully without backend: We query the global 'users' collection? Not allowed.
+                // Fallback: Admin can only see their own data in this strict security model unless we map Email -> UID globally.
+                // To keep it strictly secure and working right now, we will map the Dropdown using a public registry that users write their UID into when they register.
+                
+                const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
                 onSnapshot(registryRef, (d) => {
                     if (d.exists()) {
-                        // Admin needs UID mapping, if staff registered, we'd find their actual UID
-                        // For now we map based on what's in registry
                         setStaffRegistry(d.data().list || []);
+                    }
+                });
+            } else {
+                // When a staff logs in, they register their UID/Email mapping for the Admin to see
+                const userMappingRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
+                getDoc(userMappingRef).then(d => {
+                    const currentList = d.exists() ? d.data().list || [] : [];
+                    if (!currentList.find(x => x.uid === u.uid)) {
+                        setDoc(userMappingRef, { list: [...currentList, { email: u.email, uid: u.uid }] }, { merge: true });
                     }
                 });
             }
@@ -623,33 +653,33 @@ export default function App() {
   if(isAdmin) menuItems.push({ id: 'admin', icon: ShieldCheck, label: t('管理中心', 'Admin') });
 
   return (
-    <div className={`flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+    <div className={`flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
       <div className="px-10 pt-8 pb-4 flex justify-between items-center max-w-7xl mx-auto w-full shrink-0">
-          <div className="flex items-center gap-4 text-slate-900 dark:text-white font-black text-3xl tracking-tighter italic uppercase"><div className="w-12 h-12 bg-indigo-600 rounded-[1.4rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-100"><Zap size={24}/></div>Planner.AI</div>
+          <div className="flex items-center gap-4 text-slate-900 dark:text-white font-black text-3xl tracking-tighter italic uppercase"><div className="w-12 h-12 bg-indigo-600 rounded-[1.4rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-100 dark:shadow-none"><Zap size={24}/></div>Planner.AI</div>
           <div className="flex items-center gap-5">
             {isAdmin && (
                 <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-sm">
                     <Eye size={18} className="text-indigo-600 ml-2" />
-                    <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-xs font-black uppercase outline-none pr-4 cursor-pointer">
+                    <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-xs font-black uppercase outline-none pr-4 cursor-pointer dark:text-slate-200">
                         <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
-                        {staffRegistry.map(s => <option key={s.email} value={s.uid}>{s.email}</option>)}
+                        {staffRegistry.map(s => <option key={s.uid} value={s.uid}>{s.email}</option>)}
                     </select>
                 </div>
             )}
             <div className="flex items-center gap-2 border-r border-slate-200 dark:border-slate-800 pr-6">
-                <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 font-black text-xs">{lang === 'zh' ? 'EN' : '中'}</button>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500">{isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
+                <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 font-black text-xs hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">{isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
             </div>
-            <button onClick={() => signOut(auth)} className="bg-rose-50 dark:bg-rose-900/20 text-rose-500 px-5 py-3 rounded-2xl border border-rose-100 dark:border-rose-900/50 hover:bg-rose-100 transition-all font-black text-xs group"><LogOut size={16}/></button>
+            <button onClick={() => signOut(auth)} className="bg-rose-50 dark:bg-rose-900/20 text-rose-500 px-5 py-3 rounded-2xl border border-rose-100 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all font-black text-xs group"><LogOut size={16}/></button>
           </div>
       </div>
-      <div className="px-6 pb-2 shrink-0 w-full"><div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm px-6 py-4 flex justify-center mx-auto max-w-5xl"><nav className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full justify-start md:justify-center">
-        {menuItems.map(m => (<button key={m.id} onClick={() => setView(m.id)} className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl font-black text-xs transition-all uppercase tracking-widest ${view === m.id ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><m.icon size={18}/> {m.label}</button>))}
+      <div className="px-6 pb-2 shrink-0 w-full"><div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm px-6 py-4 flex justify-center mx-auto max-w-5xl transition-colors"><nav className="flex items-center gap-3 overflow-x-auto no-scrollbar w-full justify-start md:justify-center">
+        {menuItems.map(m => (<button key={m.id} onClick={() => setView(m.id)} className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl font-black text-xs transition-all uppercase tracking-widest ${view === m.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none scale-105' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><m.icon size={18}/> {m.label}</button>))}
       </nav></div></div>
       <main className="flex-1 overflow-y-auto custom-scrollbar p-8">
         <div className="max-w-7xl mx-auto h-full">
             {view === 'finance' && isFinanceLocked ? (
-                <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm p-20 text-center flex flex-col items-center gap-6"><div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 rounded-3xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={48} /></div><h2 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-widest italic">{t('隐私锁定', 'PRIVACY LOCKED')}</h2><p className="text-slate-400 font-bold max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
+                <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm p-20 text-center flex flex-col items-center gap-6 transition-colors"><div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 rounded-3xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={48} /></div><h2 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-widest italic">{t('隐私锁定', 'PRIVACY LOCKED')}</h2><p className="text-slate-400 font-bold max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
                 <>
                     {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
@@ -657,7 +687,7 @@ export default function App() {
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={(id) => { const n = tasks.map(task => task.id === id ? {...task, completed: !task.completed} : task); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(task => task.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
                     {view === 'admin' && isAdmin && <UserManagementView t={t} />}
-                    {view === 'finance' && <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm p-20 text-center flex flex-col items-center gap-6"><div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl flex items-center justify-center text-emerald-500 shadow-inner"><DollarSign size={48} /></div><h2 className="text-3xl font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Finance Module</h2></div></div>}
+                    {view === 'finance' && <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm p-20 text-center flex flex-col items-center gap-6 transition-colors"><div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl flex items-center justify-center text-emerald-500 shadow-inner"><DollarSign size={48} /></div><h2 className="text-3xl font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Finance Module</h2></div></div>}
                 </>
             )}
         </div>
@@ -674,7 +704,7 @@ export default function App() {
           } else { n = [...tasks, { id: generateId(), completed: false, ...taskData }]; }
           setTasks(n); saveData('tasks', { list: n });
       }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
 }
