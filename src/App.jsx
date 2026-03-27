@@ -9,15 +9,15 @@ import {
   Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
   Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
   CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
-  CheckCircle, Circle, Gift, Palette, Aperture, MousePointer2, 
-  Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket,
+  CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
+  Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
   Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff
 } from 'lucide-react';
 
 // --- Firebase Imports ---
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -34,6 +34,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Critical Fix: Must use environmental appId for correct permissions
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main';
 
 // --- Constants ---
@@ -84,7 +85,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
     };
 
     return (
-        <div className={`flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+        <div className="flex flex-col h-screen w-full font-sans transition-colors duration-300 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
             <div className="absolute top-6 right-8 flex items-center gap-2 z-50">
                 <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg font-bold text-xs transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
@@ -117,6 +118,85 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang }) => {
         </div>
     );
 };
+
+// --- 1.5 AddTaskModal Component (Restored) ---
+const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCategory, prefilledTime = "", t }) => {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState(categories[0]?.name || t('工作', 'Work'));
+  const [priority, setPriority] = useState('');
+  const [time, setTime] = useState(prefilledTime);
+  const [showNewCatInput, setShowNewCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+
+  useEffect(() => { if (isOpen) { setTitle(''); setTime(prefilledTime); setPriority(''); setIsRecurring(false); } }, [isOpen, prefilledTime]);
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault(); if (!title.trim()) return;
+    onAdd({ title, category, priority, time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[100] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-white dark:border-slate-800 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="p-10 pb-0 flex justify-between items-center">
+          <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{t('新建计划', 'New Plan')}</h3>
+          <button onClick={onClose} className="p-2.5 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-400 hover:text-slate-600 transition-colors"><X size={20}/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-10 space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('任务描述', 'Description')}</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-base outline-none focus:border-indigo-500 dark:text-white shadow-inner" placeholder={t('需要完成什么？', 'Plan task...')} autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('分类', 'Tag')}</label>
+              <div className="flex gap-2">
+                <select value={category} onChange={e => setCategory(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white">
+                  {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setShowNewCatInput(!showNewCatInput)} className="p-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl hover:bg-indigo-100 transition-colors"><Plus size={20}/></button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('时间', 'Time')}</label>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white" />
+            </div>
+          </div>
+
+          {showNewCatInput && (
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex gap-2 animate-in slide-in-from-top-2">
+              <input value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 rounded-xl px-4 text-sm outline-none dark:text-white" placeholder={t('分类名', 'Tag Name')} />
+              <button type="button" onClick={() => { if(newCatName) { onAddCategory(newCatName); setNewCatName(''); setShowNewCatInput(false); setCategory(newCatName); } }} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg">{t('添加', 'Add')}</button>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('优先级', 'Priority')}</label>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(PRIORITIES).map(([key, val]) => (
+                <button key={key} type="button" onClick={() => setPriority(priority === key ? '' : key)} className={`p-4 rounded-2xl text-[11px] font-bold border transition-all ${priority === key ? val.color + ' border-transparent shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>{val.label[t('zh', 'en')]}</button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+              <button type="button" onClick={() => setIsRecurring(!isRecurring)} className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors ${isRecurring ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>{isRecurring && <Check size={16} strokeWidth={4} />}</button>
+              <div>
+                  <h4 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2"><Repeat size={14}/> {t('每日循环', 'Daily Recurring')}</h4>
+                  <p className="text-[10px] text-slate-400 font-medium">{t('同步到未来30天', 'Copy to next 30 days')}</p>
+              </div>
+          </div>
+
+          <button type="submit" className="w-full bg-indigo-600 text-white font-black py-5 rounded-3xl shadow-xl shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 active:scale-95 transition-all text-base mt-4">{t('确认计划', 'Confirm Plan')}</button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 
 // --- 2. Shared TaskCard Component ---
 const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }) => {
@@ -450,9 +530,9 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const updateDaily = (field, idx, val) => { const newList = Array.isArray(daily[field]) ? [...daily[field]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: newList } } }); };
     const updateCycle = (field, val) => onUpdateReview({ ...reviews, cycle: { ...cycle, [field]: val } });
     const updateYearly = (cat, idx, val) => { const newList = Array.isArray(yearly[cat]) ? [...yearly[cat]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [cat]: newList } }); };
-    const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
+    const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle2}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
     const cycleCategories = [{f:'plan', l: t('Plan (规划)', 'Plan'), c:'blue', i: MapPin}, {f:'execute', l: t('Execute (执行)', 'Execute'), c:'rose', i: PlayCircle}, {f:'adjust', l: t('Adjust (调整)', 'Adjust'), c:'amber', i: Settings}, {f:'check', l: t('Check (检查)', 'Check'), c:'emerald', i: Search}];
-    const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
+    const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users2, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
     return (
         <div className="max-w-6xl mx-auto pb-20 space-y-10 animate-in fade-in">
           <header className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
@@ -467,50 +547,41 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
             </div>
           </header>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {tab === 'daily' && dailyCategories.map(x => {
-                const Icon = x.i;
-                return (
-                    <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-8">
-                        <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><Icon size={24} /></div> {x.l}</h4>
-                        <div className="space-y-4">
-                            {[0,1,2].map(i => (
-                            <div key={i} className="flex items-center gap-5">
-                                <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 italic">{i+1}</span>
-                                <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4.5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" />
-                            </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            })}
-            {tab === 'cycle' && cycleCategories.map(x => {
-                const Icon = x.i;
-                return (
-                    <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
-                      <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 mb-8 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><Icon size={24} /></div> {x.l}</h4>
-                      <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[200px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-8 text-lg leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-50 dark:text-white transition-colors resize-none shadow-inner" placeholder={t(`记录心得...`, `Record plans...`)} />
-                    </div>
-                );
-            })}
-            {tab === 'yearly' && yearlyCategories.map(cat => {
-                const Icon = cat.i;
-                return (
-                    <div key={cat.k} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-10">
-                      <div className="flex items-center gap-5">
-                        <div className={`p-4 bg-${cat.c}-50 dark:bg-${cat.c}-950/40 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-2xl shadow-inner`}><Icon size={32} /></div>
-                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{cat.l}</h4>
-                      </div>
-                      <div className="space-y-4">
+            {tab === 'daily' && dailyCategories.map(x => (
+                <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-8">
+                    <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><x.i size={24} /></div> {x.l}</h4>
+                    <div className="space-y-4">
                         {[0,1,2].map(i => (
-                          <div key={i} className="flex items-center gap-5">
-                            <span className="text-[10px] font-black text-slate-200 dark:text-slate-800 italic">{i+1}</span>
-                            <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" placeholder={t("核心目标...", "Set goal...")} />
-                          </div>
+                        <div key={i} className="flex items-center gap-5">
+                            <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 italic">{i+1}</span>
+                            <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4.5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" />
+                        </div>
                         ))}
-                      </div>
                     </div>
-                );
-            })}
+                </div>
+            ))}
+            {tab === 'cycle' && cycleCategories.map(x => (
+                <div key={x.f} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors">
+                  <h4 className={`text-sm font-black text-${x.c}-600 dark:text-${x.c}-400 mb-8 flex items-center gap-4 uppercase tracking-widest`}><div className={`p-3 bg-${x.c}-50 dark:bg-${x.c}-950/40 rounded-2xl shadow-inner`}><x.i size={24} /></div> {x.l}</h4>
+                  <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[200px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-8 text-lg leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-50 dark:text-white transition-colors resize-none shadow-inner" placeholder={t(`记录心得...`, `Record plans...`)} />
+                </div>
+            ))}
+            {tab === 'yearly' && yearlyCategories.map(cat => (
+                <div key={cat.k} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-10">
+                  <div className="flex items-center gap-5">
+                    <div className={`p-4 bg-${cat.c}-50 dark:bg-${cat.c}-950/40 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-2xl shadow-inner`}><cat.i size={32} /></div>
+                    <h4 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{cat.l}</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {[0,1,2].map(i => (
+                      <div key={i} className="flex items-center gap-5">
+                        <span className="text-[10px] font-black text-slate-200 dark:text-slate-800 italic">{i+1}</span>
+                        <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 text-base outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-all shadow-inner" placeholder={t("核心目标...", "Set goal...")} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+            ))}
           </div>
         </div>
       );
@@ -523,9 +594,9 @@ const UserManagementView = ({ t }) => {
     const [status, setStatus] = useState({ type: '', msg: '' });
 
     useEffect(() => {
-        const staffRef = doc(db, 'artifacts', appId, 'public', 'staff_management');
+        const staffRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
         const unsub = onSnapshot(staffRef, (d) => {
-            if (d.exists()) setStaffList(d.data().emails || []);
+            if (d.exists()) setStaffList(d.data().list || []);
         });
         return () => unsub();
     }, []);
@@ -535,35 +606,36 @@ const UserManagementView = ({ t }) => {
         if (!email.trim()) return;
         setLoading(true); setStatus({ type: '', msg: '' });
         try {
-            const updatedList = [...staffList, email.toLowerCase().trim()];
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_management'), { emails: updatedList });
+            if (staffList.find(s => s.email === email.toLowerCase().trim())) {
+                setStatus({ type: 'error', msg: '该员工已在名单中' });
+                setLoading(false);
+                return;
+            }
+            const updatedList = [...staffList, { email: email.toLowerCase().trim(), uid: generateId() }];
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
             setStatus({ type: 'success', msg: t('授权成功，请告知员工自行注册', 'Authorized. Tell staff to register.') });
             setEmail('');
-        } catch(e) { setStatus({ type: 'error', msg: e.message }); }
+        } catch(err) { setStatus({ type: 'error', msg: err.message }); }
         finally { setLoading(false); }
     };
 
     const handleRemoveStaff = async (staffEmail) => {
-        const updatedList = staffList.filter(e => {
-            const str = typeof e === 'string' ? e : (e?.email || '');
-            return str !== staffEmail;
-        });
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_management'), { emails: updatedList });
+        const updatedList = staffList.filter(s => s.email !== staffEmail);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
     };
 
     return (
         <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-12 shadow-sm">
                 <div className="flex items-center gap-4 mb-10"><div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-xl"><ShieldCheck size={32}/></div><div><h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{t('员工管理中心', 'Staff Control')}</h2></div></div>
-                <form onSubmit={handleAddStaff} className="flex flex-col md:flex-row gap-4 mb-12 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem]">
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white shadow-inner" placeholder="Authorized Staff Email" required />
-                    <button type="submit" disabled={loading} className="bg-indigo-600 text-white rounded-2xl px-10 py-4 font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700 whitespace-nowrap">{t('授权邮箱', 'Authorize Email')}</button>
+                <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem]">
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm outline-none dark:text-white" placeholder="Authorized Staff Email" required />
+                    <button type="submit" disabled={loading} className="bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700">{t('授权邮箱', 'Authorize Email')}</button>
                 </form>
                 {status.msg && <div className={`p-5 rounded-2xl mb-8 text-sm font-bold text-center ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{status.msg}</div>}
                 <div className="space-y-4">
-                    {staffList.map((e, idx) => {
-                        // 防御性解析：防止旧版本录入的是 Object 导致 Crash
-                        const emailStr = typeof e === 'string' ? e : (e?.email || 'Unknown');
+                    {staffList.map((s, idx) => {
+                        const emailStr = typeof s === 'string' ? s : (s?.email || 'Unknown');
                         return (
                             <div key={idx} className="flex items-center justify-between p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
                                 <div className="flex items-center gap-4">
@@ -603,11 +675,8 @@ export default function App() {
   const [reviews, setReviews] = useState({ daily: {}, cycle: {}, yearly: {} });
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (isDarkMode) { document.documentElement.classList.add('dark'); } 
+    else { document.documentElement.classList.remove('dark'); }
   }, [isDarkMode]);
 
   useEffect(() => {
