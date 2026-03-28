@@ -426,13 +426,32 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
     const [editTitle, setEditTitle] = useState(task?.title || '');
     const [editCategory, setEditCategory] = useState(task?.category || categories[0]?.name);
     const [editPriority, setEditPriority] = useState(task?.priority || '');
+    const [editRecurring, setEditRecurring] = useState(task?.recurring === 'daily');
+
+    useEffect(() => {
+        if (isEditing) {
+            setEditTitle(task?.title || '');
+            setEditCategory(task?.category || categories[0]?.name);
+            setEditPriority(task?.priority || '');
+            setEditRecurring(task?.recurring === 'daily');
+        }
+    }, [isEditing, task, categories]);
   
     const priorityInfo = PRIORITIES[task?.priority];
     const catObj = categories.find(c => c.name === task?.category) || { color: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400' };
     const isUrgentHighlight = task?.priority === 'urgent_important' && !task?.completed;
   
     const handleSave = () => {
-        if (editTitle.trim()) onUpdateTask(task.id, { title: editTitle, category: editCategory, priority: editPriority });
+        if (!editTitle.trim()) return;
+        const updates = { title: editTitle, category: editCategory, priority: editPriority, recurring: editRecurring ? 'daily' : 'none' };
+        
+        if (task?.recurring === 'daily' && !editRecurring) {
+            updates.cancelRecurring = true;
+        } else if (task?.recurring !== 'daily' && editRecurring) {
+            updates.makeRecurring = true;
+        }
+        
+        onUpdateTask(task.id, updates);
         setIsEditing(false);
     };
   
@@ -448,6 +467,17 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
                         <option value="">{t('无优先级', 'No Priority')}</option>
                         {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label[t('zh','en')]}</option>)}
                     </select>
+                </div>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setEditRecurring(!editRecurring)} className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${editRecurring ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-transparent'}`}>
+                            {editRecurring && <Check size={12} strokeWidth={3} />}
+                        </button>
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('每日循环', 'Daily Recurring')}</span>
+                    </div>
+                    {task?.recurring === 'daily' && !editRecurring && (
+                        <span className="text-xs font-semibold text-rose-500 animate-pulse">{t('将取消未来重复', 'Will cancel future tasks')}</span>
+                    )}
                 </div>
                 <div className="flex justify-end gap-2">
                     <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-md transition-colors">{t('取消', 'Cancel')}</button>
@@ -471,6 +501,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
               <span className={`text-xs px-2 py-0.5 rounded font-medium border ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
               {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
               {task?.time && <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"><Clock size={12}/>{task.time}</span>}
+              {task?.recurring === 'daily' && <span className="text-xs text-indigo-500 dark:text-indigo-400 flex items-center gap-1"><Repeat size={12}/></span>}
             </div>
           </div>
           <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
@@ -1322,6 +1353,47 @@ export default function App() {
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
   const isFinanceLocked = isAdmin && viewedUserId !== user?.uid;
 
+  const handleToggleTask = (id) => {
+      const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+      setTasks(n); saveData('tasks', { list: n });
+  };
+
+  const handleDeleteTask = (id) => {
+      const n = tasks.filter(t => t.id !== id);
+      setTasks(n); saveData('tasks', { list: n });
+  };
+
+  const handleUpdateTask = (id, up) => {
+      let n = [...tasks];
+      if (up.cancelRecurring) {
+          const taskToCancel = n.find(t => t.id === id);
+          if (taskToCancel) {
+              n = n.filter(t => {
+                  const isFuture = t.date > taskToCancel.date;
+                  const isSameGroup = taskToCancel.groupId ? t.groupId === taskToCancel.groupId : (t.title === taskToCancel.title && t.recurring === 'daily');
+                  return !(isFuture && isSameGroup); 
+              });
+          }
+          delete up.cancelRecurring;
+      } else if (up.makeRecurring) {
+          const taskToMake = n.find(t => t.id === id);
+          if (taskToMake) {
+              const groupId = generateId();
+              up.groupId = groupId;
+              const newTasks = [];
+              for(let i=1; i<=30; i++) {
+                  const d = new Date(taskToMake.date); d.setDate(d.getDate() + i);
+                  newTasks.push({ ...taskToMake, ...up, id: generateId(), date: getLocalDateString(d), completed: false });
+              }
+              n = [...n, ...newTasks];
+          }
+          delete up.makeRecurring;
+      }
+      n = n.map(t => t.id === id ? { ...t, ...up } : t);
+      setTasks(n); 
+      saveData('tasks', { list: n });
+  };
+
   // Dynamic filter: Admin sees only their own staff. 
   // Fallback: If a staff has no adminEmail (old records), let the admin see them so they aren't completely lost.
   const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
@@ -1382,9 +1454,9 @@ export default function App() {
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
                 <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
-                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={(id) => { const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(t => t.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
-                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={(id) => { const n = tasks.map(task => task.id === id ? {...task, completed: !task.completed} : task); setTasks(n); saveData('tasks', { list: n }); }} deleteTask={(id) => { const n = tasks.filter(task => task.id !== id); setTasks(n); saveData('tasks', { list: n }); }} onUpdateTask={(id, up) => { const n = tasks.map(t => t.id === id ? {...t, ...up} : t); setTasks(n); saveData('tasks', { list: n }); }} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
+                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
+                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
                     {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
                 </>
@@ -1393,15 +1465,16 @@ export default function App() {
       </main>
 
       <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={(taskData) => {
-          let n = [];
+          let n = [...tasks];
           if (taskData.recurring === 'daily') {
               const newTasks = [];
+              const groupId = generateId();
               for(let i=0; i<30; i++) {
                   const d = new Date(taskData.date); d.setDate(d.getDate() + i);
-                  newTasks.push({ id: generateId(), completed: false, ...taskData, date: getLocalDateString(d) });
+                  newTasks.push({ id: generateId(), groupId, completed: false, ...taskData, date: getLocalDateString(d) });
               }
-              n = [...tasks, ...newTasks];
-          } else { n = [...tasks, { id: generateId(), completed: false, ...taskData }]; }
+              n = [...n, ...newTasks];
+          } else { n.push({ id: generateId(), completed: false, ...taskData }); }
           setTasks(n); saveData('tasks', { list: n });
       }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
 
