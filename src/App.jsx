@@ -5,7 +5,7 @@ import {
   LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2, Users,
   Check, Edit, Edit3, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
   PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, 
-  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap
+  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -67,14 +67,9 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
     const [error, setError] = useState(''); 
     const [loading, setLoading] = useState(false);
     
-    // Listen to secure auth errors translated locally to prevent dependency loops
     useEffect(() => {
-        if (authError === 'unauthorized') {
-            setError(t('您的账号已被管理员移除', 'Your account has been removed by admin.'));
-        } else if (authError) {
-            setError(authError);
-        }
-    }, [authError, lang]); // Use lang to re-trigger translation if changed
+        if (authError) setError(authError);
+    }, [authError]);
 
     const handleAuth = async (e) => {
         e.preventDefault(); 
@@ -211,7 +206,6 @@ const StaffManagerModal = ({ isOpen, onClose, globalStaffRegistry, myStaffRegist
             const newUid = userCredential.user.uid;
             await signOut(secondaryAuth);
 
-            // Important: Tag the new staff with the current Admin's email
             const updatedList = [...globalStaffRegistry, { email: email.toLowerCase().trim(), uid: newUid, adminEmail: currentUser.email }];
             await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
 
@@ -225,7 +219,6 @@ const StaffManagerModal = ({ isOpen, onClose, globalStaffRegistry, myStaffRegist
                     const existingUid = userCredential.user.uid;
                     await signOut(secondaryAuth);
                     
-                    // Filter out old records of this email, then add it back tied to THIS admin
                     const filteredList = globalStaffRegistry.filter(s => s.email !== email.toLowerCase().trim());
                     const updatedList = [...filteredList, { email: email.toLowerCase().trim(), uid: existingUid, adminEmail: currentUser.email }];
                     
@@ -246,7 +239,6 @@ const StaffManagerModal = ({ isOpen, onClose, globalStaffRegistry, myStaffRegist
     };
 
     const handleRemoveStaff = async (staffEmail) => {
-        // Remove from the global registry
         const updatedList = globalStaffRegistry.filter(s => s.email !== staffEmail);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'staff_registry'), { list: updatedList });
     };
@@ -424,7 +416,6 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   );
 };
 
-
 // --- Shared TaskCard Component ---
 const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -521,13 +512,17 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
 // --- 3. HabitTrackerComponent ---
 const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newHabit, setNewHabit] = useState({ name: '', goal: '', frequency: daysInMonth });
+
+    const years = Array.from({length: 10}, (_, i) => today.getFullYear() - 5 + i);
+    const months = Array.from({length: 12}, (_, i) => i);
 
     useEffect(() => {
         if (isAddModalOpen) {
@@ -537,16 +532,21 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
 
     const toggleDay = (habitId, day) => {
         const habit = habits.find(h => h.id === habitId); if (!habit) return;
-        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const currentDone = habit.completedDays || [];
         const newDone = currentDone.includes(dateStr) ? currentDone.filter(d => d !== dateStr) : [...currentDone, dateStr];
         onUpdate(habitId, { completedDays: newDone });
     };
 
+    const handleCloseModal = () => {
+        setIsAddModalOpen(false);
+        setNewHabit({ name: '', goal: '', frequency: daysInMonth });
+    };
+
     const handleAddHabit = () => {
         if (newHabit.name) {
             onAdd({ name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth, completedDays: [] });
-            setIsAddModalOpen(false); 
+            handleCloseModal();
         }
     };
 
@@ -557,7 +557,15 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                     <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center"><Activity size={20}/></div>
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('习惯追踪', 'Habit Tracker')}</h4>
-                        <p className="text-sm text-slate-500">{currentYear} / {currentMonth + 1}</p>
+                        <div className="flex items-center gap-1 mt-1 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 w-fit">
+                            <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} className="bg-transparent text-xs font-semibold text-slate-600 dark:text-slate-400 outline-none cursor-pointer dark:bg-slate-800">
+                                {years.map(y => <option key={y} value={y}>{y} {t('年', 'Year')}</option>)}
+                            </select>
+                            <span className="text-slate-300 dark:text-slate-600">/</span>
+                            <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-transparent text-xs font-semibold text-slate-600 dark:text-slate-400 outline-none cursor-pointer dark:bg-slate-800">
+                                {months.map(m => <option key={m} value={m}>{String(m + 1).padStart(2, '0')} {t('月', 'Month')}</option>)}
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm"><Plus size={18}/> {t('添加习惯', 'Add Habit')}</button>
@@ -566,10 +574,9 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                 <table className="w-full border-collapse min-w-[800px]">
                     <thead>
                         <tr className="text-xs font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                            {/* 这里加入了 whitespace-nowrap 和 min-w-[120px] 强制横排 */}
                             <th className="text-left py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10 whitespace-nowrap min-w-[120px]">{t('习惯', 'Habit')}</th>
                             <th className="text-left py-3 px-4 w-32 whitespace-nowrap">{t('目标', 'Goal')}</th>
-                            <th className="text-left py-3 px-4 w-48 whitespace-nowrap">{t('进度', 'Progress')}</th>
+                            <th className="text-left py-3 px-4 w-48 whitespace-nowrap">{t('当月进度', 'Progress')}</th>
                             <th className="py-3 px-4">
                                 <div className="flex gap-1">
                                     {daysArray.map(d => <div key={d} className="w-8 h-8 flex items-center justify-center shrink-0 font-medium">{d}</div>)}
@@ -580,13 +587,12 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                     </thead>
                     <tbody>
                         {habits.map(habit => {
-                            const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+                            const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
                             const monthCompletions = (habit.completedDays || []).filter(d => d.startsWith(currentMonthKey)).length;
                             const freq = habit.frequency || 1;
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
                             return (
                                 <tr key={habit.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors last:border-0">
-                                    {/* 这里加入了 whitespace-nowrap 确保无论多挤，文字都保持横向 */}
                                     <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 whitespace-nowrap">
                                         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{habit.name}</span>
                                     </td>
@@ -604,7 +610,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                                     <td className="py-3 px-4">
                                         <div className="flex gap-1">
                                             {daysArray.map(d => {
-                                                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                                                const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                                                 const isDone = (habit.completedDays || []).includes(dateStr);
                                                 return (
                                                     <button key={d} onClick={() => toggleDay(habit.id, d)} className={`w-8 h-8 rounded-md shrink-0 flex items-center justify-center border transition-all ${isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-emerald-400'}`}>
@@ -624,7 +630,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                 </table>
             </div>
             {isAddModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={() => setIsAddModalOpen(false)}>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={handleCloseModal}>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">{t('添加新习惯', 'New Habit')}</h3>
                         <div className="space-y-4">
@@ -641,7 +647,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                                 <input type="number" value={newHabit.frequency} onChange={e => setNewHabit({...newHabit, frequency: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none dark:text-white focus:border-emerald-500 transition-all" />
                             </div>
                             <div className="flex gap-3 mt-6">
-                                <button onClick={() => setIsAddModalOpen(false)} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition-colors">{t('取消', 'Cancel')}</button>
+                                <button onClick={handleCloseModal} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition-colors">{t('取消', 'Cancel')}</button>
                                 <button onClick={handleAddHabit} className="flex-1 py-3 rounded-lg font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
                             </div>
                         </div>
@@ -652,34 +658,53 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
     );
 };
 
-// --- 4. Finance Vault (Data-Bulletproofed) ---
+// --- NEW 4. Finance Vault (RM Currency, Custom Categories, Image Backgrounds, Simplified Tx UI) ---
+const PRESET_BGS = [
+    "bg-gradient-to-br from-slate-800 to-slate-900",
+    "bg-gradient-to-br from-indigo-500 to-purple-700",
+    "bg-gradient-to-br from-emerald-500 to-teal-700",
+    "bg-gradient-to-br from-rose-500 to-orange-500",
+    "bg-gradient-to-br from-blue-500 to-cyan-600"
+];
+
 const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
+    const defaultIncomeCategories = ['工资 Salary', '投资 Investment', '兼职 Side Hustle', '其他 Other'];
+    const defaultExpenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '其他 Other'];
+
     const [financeData, setFinanceData] = useState({
         balance: 0,
         income: 0,
         expense: 0,
         transactions: [],
         savingsJars: [], 
-        commitments: [] 
+        commitments: [],
+        customIncomeCategories: [],
+        customExpenseCategories: []
     });
+
+    const incomeCategories = [...defaultIncomeCategories, ...(financeData.customIncomeCategories || [])];
+    const expenseCategories = [...defaultExpenseCategories, ...(financeData.customExpenseCategories || [])];
 
     const [txAmount, setTxAmount] = useState('');
     const [txType, setTxType] = useState('expense');
-    const [txCategory, setTxCategory] = useState('餐饮 Food');
+    const [txCategory, setTxCategory] = useState(expenseCategories[0]);
     const [txNote, setTxNote] = useState('');
     const [txDate, setTxDate] = useState(getLocalDateString(new Date()));
+    
+    const [showAddCategory, setShowAddCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
     const [isJarModalOpen, setIsJarModalOpen] = useState(false);
-    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '' });
+    const [editJarId, setEditJarId] = useState(null);
+    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: PRESET_BGS[0], bgImage: '' });
     
+    const [viewJarHistory, setViewJarHistory] = useState(null);
+
     const [isCommitmentModalOpen, setIsCommitmentModalOpen] = useState(false);
     const [commitForm, setCommitForm] = useState({ name: '', amount: '' });
 
     const [fundJarId, setFundJarId] = useState(null);
     const [fundAmount, setFundAmount] = useState('');
-
-    const incomeCategories = ['工资 Salary', '投资 Investment', '兼职 Side Hustle', '其他 Other'];
-    const expenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '其他 Other'];
 
     useEffect(() => {
         if (!viewedUserId) return;
@@ -693,10 +718,12 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                     expense: data.expense || 0,
                     transactions: data.transactions || [],
                     savingsJars: data.savingsJars || [],
-                    commitments: data.commitments || []
+                    commitments: data.commitments || [],
+                    customIncomeCategories: data.customIncomeCategories || [],
+                    customExpenseCategories: data.customExpenseCategories || []
                 });
             } else {
-                setFinanceData({ balance: 0, income: 0, expense: 0, transactions: [], savingsJars: [], commitments: [] });
+                setFinanceData({ balance: 0, income: 0, expense: 0, transactions: [], savingsJars: [], commitments: [], customIncomeCategories: [], customExpenseCategories: [] });
             }
         });
         return () => unsub();
@@ -709,6 +736,20 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
         }
     };
 
+    const handleAddCategory = () => {
+        if(!newCategoryName.trim()) return;
+        let updatedData = { ...financeData };
+        if(txType === 'income') {
+            updatedData.customIncomeCategories = [...(updatedData.customIncomeCategories || []), newCategoryName];
+        } else {
+            updatedData.customExpenseCategories = [...(updatedData.customExpenseCategories || []), newCategoryName];
+        }
+        updateFinance(updatedData);
+        setTxCategory(newCategoryName);
+        setNewCategoryName('');
+        setShowAddCategory(false);
+    };
+
     const handleAddTransaction = (e) => {
         e.preventDefault();
         if (!txAmount || isNaN(txAmount)) return;
@@ -719,7 +760,6 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
         const newExpense = txType === 'expense' ? financeData.expense + amt : financeData.expense;
         updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
         
-        // Clean quick log after save
         setTxAmount(''); setTxNote('');
     };
 
@@ -732,93 +772,182 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
         updateFinance({ ...financeData, transactions: updatedTx, income: newIncome, expense: newExpense, balance: newIncome - newExpense });
     };
 
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 600;
+                let width = img.width;
+                let height = img.height;
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 压缩图片质量以适应数据库
+                setJarForm({ ...jarForm, bgImage: dataUrl, bgColor: '' });
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveJar = (e) => {
+        e.preventDefault();
+        if(!jarForm.name || !jarForm.target) return;
+        
+        if (editJarId) {
+            const updated = financeData.savingsJars.map(g => g.id === editJarId ? { ...g, ...jarForm, target: parseFloat(jarForm.target) } : g);
+            updateFinance({...financeData, savingsJars: updated});
+        } else {
+            const newJar = { id: generateId(), name: jarForm.name, target: parseFloat(jarForm.target), current: 0, bank: jarForm.bank, account: jarForm.account, bgColor: jarForm.bgColor, bgImage: jarForm.bgImage, history: [] };
+            updateFinance({...financeData, savingsJars: [...(financeData.savingsJars||[]), newJar]});
+        }
+        closeJarModal();
+    };
+
+    const handleEditJar = (jar) => {
+        setJarForm({ name: jar.name, target: jar.target, bank: jar.bank || MALAYSIA_BANKS[0], account: jar.account || '', bgColor: jar.bgColor || PRESET_BGS[0], bgImage: jar.bgImage || '' });
+        setEditJarId(jar.id);
+        setIsJarModalOpen(true);
+    };
+
+    const handleAddFund = (e) => {
+        e.preventDefault();
+        if(!fundAmount || isNaN(fundAmount)) return;
+        const amt = parseFloat(fundAmount);
+
+        const updatedJars = financeData.savingsJars.map(g => {
+            if(g.id === fundJarId) {
+                const newBalance = g.current + amt;
+                const historyItem = { id: generateId(), date: getLocalDateString(new Date()), time: new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}), amount: amt, balanceAfter: newBalance };
+                return { ...g, current: newBalance, history: [historyItem, ...(g.history || [])] };
+            }
+            return g;
+        });
+
+        updateFinance({...financeData, savingsJars: updatedJars});
+        closeFundModal();
+    };
+
+    const closeJarModal = () => { 
+        setIsJarModalOpen(false); 
+        setEditJarId(null);
+        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: PRESET_BGS[0], bgImage: '' });
+    };
+    const closeCommitModal = () => { setIsCommitmentModalOpen(false); setCommitForm({ name: '', amount: '' }); };
+    const closeFundModal = () => { setFundJarId(null); setFundAmount(''); };
+
+    // Calculations for the current month
     const currentMonthPrefix = getLocalDateString(new Date()).slice(0, 7);
     const monthlyTxs = financeData.transactions.filter(t => t.date.startsWith(currentMonthPrefix));
-    
     const monthlyIncome = monthlyTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const monthlyExpense = monthlyTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     const totalCommitments = financeData.commitments.reduce((s, c) => s + c.amount, 0);
-    
     const safeToSpend = monthlyIncome - monthlyExpense - totalCommitments;
 
     const categoryTotals = {};
     monthlyTxs.filter(t => t.type === 'expense').forEach(t => { categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount; });
     const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
-    const closeJarModal = () => { 
-        setIsJarModalOpen(false); 
-        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '' });
-    };
-    const closeCommitModal = () => { 
-        setIsCommitmentModalOpen(false); 
-        setCommitForm({ name: '', amount: '' });
-    };
-    const closeFundModal = () => { 
-        setFundJarId(null); 
-        setFundAmount('');
-    };
+    // Group transactions by date for a cleaner UI
+    const groupedTxs = {};
+    financeData.transactions.forEach(tx => {
+        if(!groupedTxs[tx.date]) groupedTxs[tx.date] = [];
+        groupedTxs[tx.date].push(tx);
+    });
+    const sortedDates = Object.keys(groupedTxs).sort((a,b) => new Date(b) - new Date(a));
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-10">
+            {/* Top Row: Flow & Disposable Income Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-800 text-white relative overflow-hidden">
                     <div className="flex items-center gap-2 mb-1 opacity-80"><Wallet size={16}/> <span className="font-medium text-sm">{t('总净资产', 'Total Net Worth')}</span></div>
-                    <div className="text-2xl font-bold">${financeData.balance.toLocaleString()}</div>
+                    <div className="text-2xl font-bold">RM {financeData.balance.toLocaleString()}</div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-2 mb-1 text-emerald-600 dark:text-emerald-400"><ArrowUpRight size={16}/> <span className="font-medium text-sm">{t('本月总收入', 'Monthly Income')}</span></div>
-                    <div className="text-2xl font-bold text-slate-800 dark:text-white">${monthlyIncome.toLocaleString()}</div>
+                    <div className="text-2xl font-bold text-slate-800 dark:text-white">RM {monthlyIncome.toLocaleString()}</div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-2 mb-1 text-indigo-600 dark:text-indigo-400"><Repeat size={16}/> <span className="font-medium text-sm">{t('本月固定扣费', 'Commitments')}</span></div>
-                    <div className="text-2xl font-bold text-slate-800 dark:text-white">${totalCommitments.toLocaleString()}</div>
+                    <div className="text-2xl font-bold text-slate-800 dark:text-white">RM {totalCommitments.toLocaleString()}</div>
                 </div>
                 <div className={`rounded-2xl p-5 shadow-sm border ${safeToSpend >= 0 ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50' : 'bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50'}`}>
                     <div className={`flex items-center gap-2 mb-1 ${safeToSpend >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}><Target size={16}/> <span className="font-bold text-sm">{t('本月剩余可用', 'Safe to Spend')}</span></div>
-                    <div className={`text-2xl font-bold ${safeToSpend >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>${safeToSpend.toLocaleString()}</div>
+                    <div className={`text-2xl font-bold ${safeToSpend >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>RM {safeToSpend.toLocaleString()}</div>
                 </div>
             </div>
 
+            {/* Middle Grid: Quick Log & Transactions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Edit3 size={20} className="text-indigo-500"/> {t('快速记账', 'Quick Log')}</h3>
-                    <form onSubmit={handleAddTransaction} className="space-y-4">
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                            <button type="button" onClick={() => {setTxType('expense'); setTxCategory(expenseCategories[0]);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-600' : 'text-slate-500'}`}>{t('支出 Expense', 'Expense')}</button>
-                            <button type="button" onClick={() => {setTxType('income'); setTxCategory(incomeCategories[0]);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{t('收入 Income', 'Income')}</button>
-                        </div>
-                        <div className="flex gap-4">
-                            <input type="number" value={txAmount} onChange={e=>setTxAmount(e.target.value)} placeholder="0.00" className="w-2/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none focus:border-indigo-500 dark:text-white" required />
-                            <input type="date" value={txDate} onChange={e=>setTxDate(e.target.value)} className="w-1/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-sm outline-none focus:border-indigo-500 dark:text-white" required />
-                        </div>
-                        <select value={txCategory} onChange={e=>setTxCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none dark:text-white focus:border-indigo-500">
-                            {(txType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none focus:border-indigo-500 dark:text-white" />
-                        <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-2">{t('记一笔', 'Save Transaction')}</button>
-                    </form>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><Edit3 size={20} className="text-indigo-500"/> {t('快速记账', 'Quick Log')}</h3>
+                        <form onSubmit={handleAddTransaction} className="space-y-4">
+                            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                                <button type="button" onClick={() => {setTxType('expense'); setTxCategory(expenseCategories[0]); setShowAddCategory(false);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-600' : 'text-slate-500'}`}>{t('支出 Expense', 'Expense')}</button>
+                                <button type="button" onClick={() => {setTxType('income'); setTxCategory(incomeCategories[0]); setShowAddCategory(false);}} className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${txType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-500'}`}>{t('收入 Income', 'Income')}</button>
+                            </div>
+                            <div className="flex gap-4">
+                                <input type="number" value={txAmount} onChange={e=>setTxAmount(e.target.value)} placeholder="0.00" className="w-2/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none focus:border-indigo-500 dark:text-white" required />
+                                <input type="date" value={txDate} onChange={e=>setTxDate(e.target.value)} className="w-1/3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-sm outline-none focus:border-indigo-500 dark:text-white" required />
+                            </div>
+                            <div className="flex gap-2">
+                                <select value={txCategory} onChange={e=>setTxCategory(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none dark:text-white focus:border-indigo-500">
+                                    {(txType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <button type="button" onClick={() => setShowAddCategory(!showAddCategory)} className="p-3.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"><Plus size={18}/></button>
+                            </div>
+
+                            {showAddCategory && (
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex gap-2 animate-in slide-in-from-top-2">
+                                  <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 text-sm outline-none dark:text-white" placeholder={t('新类别名称', 'New Category')} />
+                                  <button type="button" onClick={handleAddCategory} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium">{t('添加', 'Add')}</button>
+                                </div>
+                            )}
+
+                            <input type="text" value={txNote} onChange={e=>setTxNote(e.target.value)} placeholder={t("添加备注 (可选)", "Add note (optional)")} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 text-sm outline-none focus:border-indigo-500 dark:text-white" />
+                            <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-2">{t('记一笔', 'Save Transaction')}</button>
+                        </form>
+                    </div>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2"><ListOrdered size={20} className="text-indigo-500"/> {t('最近交易', 'Recent Transactions')}</h3>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 max-h-[350px] pr-2">
-                        {financeData.transactions.length === 0 ? <p className="text-center text-slate-400 mt-10">{t('暂无交易记录', 'No transactions yet.')}</p> : 
-                            financeData.transactions.slice(0, 15).map(tx => (
-                                <div key={tx.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 group">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30'}`}>
-                                            {tx.type === 'income' ? <ArrowUpRight size={18}/> : <ArrowDownRight size={18}/>}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{tx.category}</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{tx.date} {tx.note && `• ${tx.note}`}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
-                                            {tx.type === 'income' ? '+' : '-'}${tx.amount}
-                                        </span>
-                                        <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16}/></button>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 max-h-[400px] pr-2">
+                        {sortedDates.length === 0 ? <p className="text-center text-slate-400 mt-10">{t('暂无交易记录', 'No transactions yet.')}</p> : 
+                            sortedDates.slice(0, 10).map(date => (
+                                <div key={date} className="space-y-2">
+                                    <h4 className="text-xs font-bold text-slate-400 sticky top-0 bg-white dark:bg-slate-900 py-1 z-10">{date}</h4>
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 overflow-hidden">
+                                        {groupedTxs[date].map((tx, idx) => (
+                                            <div key={tx.id} className={`flex justify-between items-center p-3 group ${idx !== groupedTxs[date].length - 1 ? 'border-b border-slate-100 dark:border-slate-700/50' : ''}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30'}`}>
+                                                        {tx.type === 'income' ? <ArrowUpRight size={14}/> : <ArrowDownRight size={14}/>}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{tx.category}</span>
+                                                        {tx.note && <span className="text-[10px] text-slate-500">{tx.note}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`font-bold text-sm ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
+                                                        {tx.type === 'income' ? '+' : '-'}RM {tx.amount}
+                                                    </span>
+                                                    <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={14}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             ))
@@ -827,14 +956,12 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 </div>
             </div>
 
+            {/* Commitments & Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={20} className="text-indigo-500"/> {t('每月固定支出', 'Monthly Commitments')}</h3>
-                        <button onClick={() => {
-                            setCommitForm({ name: '', amount: '' });
-                            setIsCommitmentModalOpen(true);
-                        }} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
+                        <button onClick={() => setIsCommitmentModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md"><Plus size={16}/> {t('添加', 'Add')}</button>
                     </div>
                     <div className="space-y-3">
                         {(!financeData.commitments || financeData.commitments.length === 0) ? <p className="text-slate-400 text-sm text-center py-4">{t('未设定固定支出', 'No monthly commitments.')}</p> : 
@@ -845,7 +972,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                         <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{sub.name}</span>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="font-bold text-slate-800 dark:text-white">${sub.amount}/mo</span>
+                                        <span className="font-bold text-slate-800 dark:text-white">RM {sub.amount}/mo</span>
                                         <button onClick={() => {
                                             const updated = financeData.commitments.filter(s => s.id !== sub.id);
                                             updateFinance({...financeData, commitments: updated});
@@ -868,7 +995,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                     <div key={cat}>
                                         <div className="flex justify-between text-sm mb-1.5 font-medium">
                                             <span className="text-slate-700 dark:text-slate-300">{cat}</span>
-                                            <span className="text-slate-800 dark:text-white font-bold">${amt} ({pct}%)</span>
+                                            <span className="text-slate-800 dark:text-white font-bold">RM {amt} ({pct}%)</span>
                                         </div>
                                         <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                             <div className={`h-full rounded-full ${barColors[i % barColors.length]}`} style={{ width: `${pct}%` }} />
@@ -881,11 +1008,12 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 </div>
             </div>
 
+            {/* Savings Jars */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Landmark size={20} className="text-indigo-500"/> {t('分配储蓄罐', 'Savings Jars')}</h3>
-                        <p className="text-sm text-slate-500 mt-1">{t('把收入分配到您的各个银行账户', 'Allocate your income into banks')}</p>
+                        <p className="text-sm text-slate-500 mt-1">{t('把收入分配到您的各个银行账户，支持自定义背景', 'Allocate income & set backgrounds')}</p>
                     </div>
                     <button onClick={() => setIsJarModalOpen(true)} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-md"><Plus size={16}/> {t('新建储蓄罐', 'New Jar')}</button>
                 </div>
@@ -894,28 +1022,33 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                         financeData.savingsJars.map(jar => {
                             const pct = Math.min(100, (jar.current / jar.target) * 100) || 0;
                             return (
-                                <div key={jar.id} className="border border-slate-200 dark:border-slate-700 p-6 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 relative group flex flex-col justify-between">
-                                    <button onClick={() => {
-                                        const updated = financeData.savingsJars.filter(g => g.id !== jar.id);
-                                        updateFinance({...financeData, savingsJars: updated});
-                                    }} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
-                                    
-                                    <div>
-                                        <div className="flex flex-col gap-1 mb-3">
-                                            <span className="inline-block self-start px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-600">{jar.bank}</span>
-                                            {jar.account && <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{jar.account}</span>}
+                                <div key={jar.id} className={`relative p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden group flex flex-col justify-between min-h-[240px] ${!jar.bgImage ? (jar.bgColor || PRESET_BGS[0]) : 'bg-slate-900'}`}>
+                                    {jar.bgImage && <img src={jar.bgImage} className="absolute inset-0 w-full h-full object-cover opacity-50 z-0 mix-blend-overlay" alt="bg" />}
+                                    <div className="absolute inset-0 bg-black/10 dark:bg-black/30 z-0 pointer-events-none" />
+
+                                    <div className="relative z-10 flex justify-between items-start mb-6">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="inline-block px-2.5 py-1 bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-md shadow-sm w-fit">{jar.bank}</span>
+                                            {jar.account && <span className="text-xs font-mono font-bold text-white/90 drop-shadow-md">{jar.account}</span>}
                                         </div>
-                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">{jar.name}</h4>
-                                        <p className="text-sm text-slate-500 mb-4">${jar.current.toLocaleString()} / ${jar.target.toLocaleString()}</p>
-                                        
-                                        <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-5">
-                                            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm p-1.5 rounded-lg">
+                                            <button onClick={() => setViewJarHistory(jar)} title={t('历史记录', 'History')} className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-md transition-colors"><History size={14}/></button>
+                                            <button onClick={() => handleEditJar(jar)} title={t('编辑', 'Edit')} className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-md transition-colors"><Edit size={14}/></button>
+                                            <button onClick={() => { const updated = financeData.savingsJars.filter(g => g.id !== jar.id); updateFinance({...financeData, savingsJars: updated}); }} title={t('删除', 'Delete')} className="p-1.5 text-white/80 hover:text-rose-400 hover:bg-white/20 rounded-md transition-colors"><Trash2 size={14}/></button>
                                         </div>
                                     </div>
                                     
-                                    <button onClick={() => setFundJarId(jar.id)} className="w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 transition-colors">
-                                        {t('存入资金', 'Add Funds')}
-                                    </button>
+                                    <div className="relative z-10">
+                                        <h4 className="text-xl font-bold text-white mb-1 drop-shadow-md">{jar.name}</h4>
+                                        <p className="text-sm text-white/90 mb-4 drop-shadow-md font-medium">RM {jar.current.toLocaleString()} / RM {jar.target.toLocaleString()}</p>
+                                        
+                                        <div className="h-2.5 w-full bg-black/30 rounded-full overflow-hidden mb-5 backdrop-blur-sm border border-white/10">
+                                            <div className="h-full bg-white rounded-full transition-all shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <button onClick={() => setFundJarId(jar.id)} className="w-full py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 rounded-lg text-sm font-bold text-white transition-colors shadow-sm">
+                                            {t('存入资金', 'Add Funds')}
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })
@@ -923,20 +1056,15 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 </div>
             </div>
 
+            {/* Custom Modals for Finance */}
             {isJarModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={closeJarModal}>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建储蓄罐', 'New Savings Jar')}</h3>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editJarId ? t('编辑储蓄罐', 'Edit Savings Jar') : t('新建储蓄罐', 'New Savings Jar')}</h3>
                             <button onClick={closeJarModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
                         </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            if(!jarForm.name || !jarForm.target) return;
-                            const newJar = { id: generateId(), name: jarForm.name, target: parseFloat(jarForm.target), current: 0, bank: jarForm.bank, account: jarForm.account };
-                            updateFinance({...financeData, savingsJars: [...(financeData.savingsJars||[]), newJar]});
-                            closeJarModal();
-                        }} className="p-6 space-y-4">
+                        <form onSubmit={handleSaveJar} className="p-6 space-y-4 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('储蓄罐名称', 'Jar Name')}</label>
                                 <input value={jarForm.name} onChange={e=>setJarForm({...jarForm, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500" required placeholder="e.g. Dream House" />
@@ -955,8 +1083,67 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('银行账号 (可选)', 'Account Number')}</label>
                                 <input type="text" value={jarForm.account} onChange={e=>setJarForm({...jarForm, account: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500 font-mono" placeholder="e.g. 1122334455" />
                             </div>
-                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-4 hover:bg-indigo-700">{t('创建', 'Create')}</button>
+                            
+                            <div className="space-y-2 pt-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('外观设计', 'Visual Design')}</label>
+                                <div className="grid grid-cols-5 gap-2">
+                                    {PRESET_BGS.map(bg => (
+                                        <button key={bg} type="button" onClick={() => setJarForm({...jarForm, bgColor: bg, bgImage: ''})} className={`w-full aspect-square rounded-lg border-2 ${bg} ${jarForm.bgColor === bg && !jarForm.bgImage ? 'border-indigo-500 scale-105 shadow-md' : 'border-transparent'}`} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('自定义背景图 (可选)', 'Custom Photo (Optional)')}</label>
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center justify-center gap-2 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                        <ImageIcon size={18} className="text-indigo-500" />
+                                        <span className="text-slate-600 dark:text-slate-300 font-medium">{jarForm.bgImage ? t('已上传图片 (点击更换)', 'Image Uploaded (Click to change)') : t('上传风景照', 'Upload Photo')}</span>
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                    </label>
+                                    {jarForm.bgImage && (
+                                        <button type="button" onClick={() => setJarForm({...jarForm, bgImage: ''})} className="p-3 bg-rose-50 dark:bg-rose-900/30 text-rose-500 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/50">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-lg font-bold mt-6 hover:bg-indigo-700">{editJarId ? t('保存修改', 'Save Changes') : t('创建储蓄罐', 'Create')}</button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Jar History Modal */}
+            {viewJarHistory && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setViewJarHistory(null)}>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">{viewJarHistory.name}</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">{t('存入记录明细', 'Deposit History')}</p>
+                            </div>
+                            <button onClick={() => setViewJarHistory(null)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
+                            {(!viewJarHistory.history || viewJarHistory.history.length === 0) ? <p className="text-center text-slate-400 font-medium py-6">{t('暂无存入记录', 'No deposit history.')}</p> : 
+                                viewJarHistory.history.map((record, i) => (
+                                    <div key={record.id || i} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center"><ArrowDownRight size={16}/></div>
+                                            <div>
+                                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{record.date}</p>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">{record.time}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">+ RM {record.amount}</p>
+                                            <p className="text-[10px] text-slate-400 mt-0.5">{t('余额:', 'Bal:')} RM {record.balanceAfter}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                        </div>
                     </div>
                 </div>
             )}
@@ -996,14 +1183,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('存入资金', 'Add Funds')}</h3>
                             <button onClick={closeFundModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
                         </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            if(!fundAmount || isNaN(fundAmount)) return;
-                            const amt = parseFloat(fundAmount);
-                            const updated = financeData.savingsJars.map(g => g.id === fundJarId ? {...g, current: g.current + amt} : g);
-                            updateFinance({...financeData, savingsJars: updated});
-                            closeFundModal();
-                        }} className="p-6 space-y-4">
+                        <form onSubmit={handleAddFund} className="p-6 space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('存入金额', 'Amount')}</label>
                                 <input type="number" value={fundAmount} onChange={e=>setFundAmount(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-2xl font-bold outline-none dark:text-white focus:border-indigo-500" required placeholder="0.00" autoFocus />
@@ -1264,7 +1444,7 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                         {[0,1,2].map(i => (
                           <div key={i} className="flex items-center gap-3">
                             <span className="text-sm font-medium text-slate-400">{i+1}.</span>
-                            <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" placeholder={t("核心目标...", "Set goal...")} />
+                            <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" placeholder={t("RM 核心目标...", "RM Set goal...")} />
                           </div>
                         ))}
                       </div>
@@ -1313,7 +1493,6 @@ export default function App() {
             setIsAdmin(isAdm);
             
             if (isAdm) {
-                // Recover previously viewed user from memory to avoid visual data reset
                 const savedViewedId = localStorage.getItem('planner_viewed_userId');
                 setViewedUserId(savedViewedId || u.uid);
                 
@@ -1350,7 +1529,7 @@ export default function App() {
         unsubAuth();
         unsubRegistry();
     };
-  }, []); // Empty dependency array prevents re-triggering auth flow on lang change
+  }, []); 
 
   // Synchronize Firestore Data based on viewedUserId
   useEffect(() => {
