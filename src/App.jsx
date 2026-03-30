@@ -566,9 +566,10 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                 <table className="w-full border-collapse min-w-[800px]">
                     <thead>
                         <tr className="text-xs font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                            <th className="text-left py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10">{t('习惯', 'Habit')}</th>
-                            <th className="text-left py-3 px-4 w-32">{t('目标', 'Goal')}</th>
-                            <th className="text-left py-3 px-4 w-48">{t('进度', 'Progress')}</th>
+                            {/* 这里加入了 whitespace-nowrap 和 min-w-[120px] 强制横排 */}
+                            <th className="text-left py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10 whitespace-nowrap min-w-[120px]">{t('习惯', 'Habit')}</th>
+                            <th className="text-left py-3 px-4 w-32 whitespace-nowrap">{t('目标', 'Goal')}</th>
+                            <th className="text-left py-3 px-4 w-48 whitespace-nowrap">{t('进度', 'Progress')}</th>
                             <th className="py-3 px-4">
                                 <div className="flex gap-1">
                                     {daysArray.map(d => <div key={d} className="w-8 h-8 flex items-center justify-center shrink-0 font-medium">{d}</div>)}
@@ -585,7 +586,8 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
                             return (
                                 <tr key={habit.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors last:border-0">
-                                    <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10">
+                                    {/* 这里加入了 whitespace-nowrap 确保无论多挤，文字都保持横向 */}
+                                    <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 whitespace-nowrap">
                                         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{habit.name}</span>
                                     </td>
                                     <td className="py-3 px-4">
