@@ -5,7 +5,7 @@ import {
   LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2, Users,
   Check, Edit, Edit3, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
   PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, 
-  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History
+  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History, Palette
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -50,6 +50,24 @@ const LABEL_COLORS = [
 ];
 
 const MALAYSIA_BANKS = ["Maybank", "CIMB Bank", "Public Bank", "RHB Bank", "Hong Leong", "AmBank", "UOB", "Bank Islam", "Standard Chartered", "OCBC", "HSBC", "Cash / 其他"];
+
+const SOLID_BGS = [
+    "bg-indigo-600", "bg-emerald-600", "bg-rose-600", "bg-amber-600", "bg-slate-800"
+];
+const GRADIENT_BGS = [
+    "bg-gradient-to-br from-slate-800 to-slate-900",
+    "bg-gradient-to-br from-indigo-500 to-purple-700",
+    "bg-gradient-to-br from-emerald-500 to-teal-700",
+    "bg-gradient-to-br from-rose-500 to-orange-500",
+    "bg-gradient-to-br from-blue-500 to-cyan-600"
+];
+const METALLIC_BGS = [
+    "bg-gradient-to-br from-yellow-600 via-amber-700 to-yellow-900", // Dark Gold
+    "bg-gradient-to-br from-slate-400 via-slate-600 to-slate-800",   // Steel / Silver
+    "bg-gradient-to-br from-orange-600 via-orange-800 to-stone-900", // Bronze
+    "bg-gradient-to-br from-rose-500 via-rose-700 to-rose-950",      // Rose Gold
+    "bg-gradient-to-br from-zinc-600 via-zinc-800 to-zinc-950"       // Titanium
+];
 
 // --- Utils ---
 const getLocalDateString = (date) => {
@@ -416,6 +434,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   );
 };
 
+
 // --- Shared TaskCard Component ---
 const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -659,14 +678,6 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
 };
 
 // --- NEW 4. Finance Vault (RM Currency, Custom Categories, Image Backgrounds, Simplified Tx UI) ---
-const PRESET_BGS = [
-    "bg-gradient-to-br from-slate-800 to-slate-900",
-    "bg-gradient-to-br from-indigo-500 to-purple-700",
-    "bg-gradient-to-br from-emerald-500 to-teal-700",
-    "bg-gradient-to-br from-rose-500 to-orange-500",
-    "bg-gradient-to-br from-blue-500 to-cyan-600"
-];
-
 const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const defaultIncomeCategories = ['工资 Salary', '投资 Investment', '兼职 Side Hustle', '其他 Other'];
     const defaultExpenseCategories = ['餐饮 Food', '交通 Transport', '购物 Shopping', '居住 Housing', '娱乐 Entertainment', '其他 Other'];
@@ -697,6 +708,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const [isJarModalOpen, setIsJarModalOpen] = useState(false);
     const [editJarId, setEditJarId] = useState(null);
     const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: PRESET_BGS[0], bgImage: '' });
+    const [bgType, setBgType] = useState('gradient');
     
     const [viewJarHistory, setViewJarHistory] = useState(null);
 
@@ -791,7 +803,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 压缩图片质量以适应数据库
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
                 setJarForm({ ...jarForm, bgImage: dataUrl, bgColor: '' });
             };
             img.src = event.target.result;
@@ -814,7 +826,12 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     };
 
     const handleEditJar = (jar) => {
-        setJarForm({ name: jar.name, target: jar.target, bank: jar.bank || MALAYSIA_BANKS[0], account: jar.account || '', bgColor: jar.bgColor || PRESET_BGS[0], bgImage: jar.bgImage || '' });
+        setJarForm({ name: jar.name, target: jar.target, bank: jar.bank || MALAYSIA_BANKS[0], account: jar.account || '', bgColor: jar.bgColor || GRADIENT_BGS[0], bgImage: jar.bgImage || '' });
+        
+        if (SOLID_BGS.includes(jar.bgColor)) setBgType('solid');
+        else if (METALLIC_BGS.includes(jar.bgColor)) setBgType('metallic');
+        else setBgType('gradient');
+
         setEditJarId(jar.id);
         setIsJarModalOpen(true);
     };
@@ -840,7 +857,8 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
     const closeJarModal = () => { 
         setIsJarModalOpen(false); 
         setEditJarId(null);
-        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: PRESET_BGS[0], bgImage: '' });
+        setJarForm({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: GRADIENT_BGS[0], bgImage: '' });
+        setBgType('gradient');
     };
     const closeCommitModal = () => { setIsCommitmentModalOpen(false); setCommitForm({ name: '', amount: '' }); };
     const closeFundModal = () => { setFundJarId(null); setFundAmount(''); };
@@ -1021,10 +1039,18 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                     {(!financeData.savingsJars || financeData.savingsJars.length === 0) ? <p className="text-slate-400 text-sm col-span-full text-center py-6">{t('点击上方按钮建立第一个储蓄罐吧', 'Set up a savings jar to start allocating.')}</p> : 
                         financeData.savingsJars.map(jar => {
                             const pct = Math.min(100, (jar.current / jar.target) * 100) || 0;
+                            // Render intelligent background: Image with overlay, OR selected color.
                             return (
-                                <div key={jar.id} className={`relative p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden group flex flex-col justify-between min-h-[240px] ${!jar.bgImage ? (jar.bgColor || PRESET_BGS[0]) : 'bg-slate-900'}`}>
-                                    {jar.bgImage && <img src={jar.bgImage} className="absolute inset-0 w-full h-full object-cover opacity-50 z-0 mix-blend-overlay" alt="bg" />}
-                                    <div className="absolute inset-0 bg-black/10 dark:bg-black/30 z-0 pointer-events-none" />
+                                <div key={jar.id} className={`relative p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden group flex flex-col justify-between min-h-[240px] ${jar.bgImage ? 'bg-slate-950' : (jar.bgColor || GRADIENT_BGS[0])}`}>
+                                    {/* Image with intelligent dark fade overlay */}
+                                    {jar.bgImage && (
+                                        <>
+                                            <img src={jar.bgImage} className="absolute inset-0 w-full h-full object-cover opacity-60 z-0 transition-transform duration-700 group-hover:scale-105" alt="bg" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-slate-900/20 z-0 pointer-events-none" />
+                                        </>
+                                    )}
+                                    {/* Default slight dim for solid/gradient colors to ensure white text readability */}
+                                    {!jar.bgImage && <div className="absolute inset-0 bg-black/10 dark:bg-black/20 z-0 pointer-events-none" />}
 
                                     <div className="relative z-10 flex justify-between items-start mb-6">
                                         <div className="flex flex-col gap-1">
@@ -1086,14 +1112,21 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
                             
                             <div className="space-y-2 pt-2">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('外观设计', 'Visual Design')}</label>
+                                
+                                <div className="flex gap-2 mb-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                                    <button type="button" onClick={()=>setBgType('gradient')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${bgType==='gradient' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-500'}`}>{t('渐变 Gradient', 'Gradient')}</button>
+                                    <button type="button" onClick={()=>setBgType('metallic')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${bgType==='metallic' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-500'}`}>{t('金属 Metallic', 'Metallic')}</button>
+                                    <button type="button" onClick={()=>setBgType('solid')} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${bgType==='solid' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-500'}`}>{t('单色 Solid', 'Solid')}</button>
+                                </div>
+                                
                                 <div className="grid grid-cols-5 gap-2">
-                                    {PRESET_BGS.map(bg => (
-                                        <button key={bg} type="button" onClick={() => setJarForm({...jarForm, bgColor: bg, bgImage: ''})} className={`w-full aspect-square rounded-lg border-2 ${bg} ${jarForm.bgColor === bg && !jarForm.bgImage ? 'border-indigo-500 scale-105 shadow-md' : 'border-transparent'}`} />
+                                    {(bgType === 'solid' ? SOLID_BGS : bgType === 'metallic' ? METALLIC_BGS : GRADIENT_BGS).map(bg => (
+                                        <button key={bg} type="button" onClick={() => setJarForm({...jarForm, bgColor: bg, bgImage: ''})} className={`w-full aspect-square rounded-lg border-2 ${bg} ${jarForm.bgColor === bg && !jarForm.bgImage ? 'border-indigo-500 scale-105 shadow-md' : 'border-transparent hover:scale-105 transition-transform'}`} />
                                     ))}
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('自定义背景图 (可选)', 'Custom Photo (Optional)')}</label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('自定义背景图 (覆盖颜色)', 'Custom Photo (Overrides Color)')}</label>
                                 <div className="flex items-center gap-3">
                                     <label className="flex items-center justify-center gap-2 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                                         <ImageIcon size={18} className="text-indigo-500" />
