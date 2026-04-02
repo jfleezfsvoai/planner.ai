@@ -707,7 +707,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 
     const [isJarModalOpen, setIsJarModalOpen] = useState(false);
     const [editJarId, setEditJarId] = useState(null);
-    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: PRESET_BGS[0], bgImage: '' });
+    const [jarForm, setJarForm] = useState({ name: '', target: '', bank: MALAYSIA_BANKS[0], account: '', bgColor: GRADIENT_BGS[0], bgImage: '' });
     const [bgType, setBgType] = useState('gradient');
     
     const [viewJarHistory, setViewJarHistory] = useState(null);
