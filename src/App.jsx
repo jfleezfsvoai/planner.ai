@@ -1244,7 +1244,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
     const completedCount = todayTasks.filter(t => t.completed).length;
     const progressValue = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
     return (
-      <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in pb-10">
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-10">
         <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
@@ -1258,21 +1258,25 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-              <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
-              <button onClick={() => goToTimeline(today)} className="bg-indigo-600 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors"><Plus size={20}/></button>
-          </div>
-          {/* 这里加入了 max-h-[45vh] 和 overflow-y-auto custom-scrollbar 限制最大高度并支持滚动 */}
-          <div className="flex flex-col gap-3 max-h-[45vh] overflow-y-auto custom-scrollbar pr-2 pb-2">
-              {todayTasks.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
-              ) : (
-                 todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)
-              )}
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
+                  <button onClick={() => goToTimeline(today)} className="bg-indigo-600 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors"><Plus size={20}/></button>
+              </div>
+              <div className="flex flex-col gap-3 max-h-[55vh] overflow-y-auto custom-scrollbar pr-2 pb-2">
+                  {todayTasks.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
+                  ) : (
+                     todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)
+                  )}
+              </div>
+            </div>
+
+            <div className="lg:col-span-8 flex flex-col min-w-0">
+                <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} t={t} />
+            </div>
         </div>
-        <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} t={t} />
       </div>
     );
 };
@@ -1362,7 +1366,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
       <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-10 relative">
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
-              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
+              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
               <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
                   {navDays.map((d, i) => {
                       const isSelected = d.toDateString() === currentDate.toDateString();
