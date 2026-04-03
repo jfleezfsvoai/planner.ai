@@ -1233,7 +1233,14 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
 const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
     const today = getLocalDateString(new Date());
-    const todayTasks = tasks.filter(t => t.date === today);
+    const todayTasks = tasks
+        .filter(t => t.date === today)
+        .sort((a, b) => {
+            if (!a.time && !b.time) return 0;
+            if (!a.time) return 1;
+            if (!b.time) return -1;
+            return a.time.localeCompare(b.time);
+        });
     const completedCount = todayTasks.filter(t => t.completed).length;
     const progressValue = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
     return (
@@ -1343,6 +1350,8 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
 };
 
 const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, categories, t }) => {
+    const [dropPrompt, setDropPrompt] = useState(null);
+    const [dropTime, setDropTime] = useState('09:00');
     const hours = Array.from({ length: 19 }, (_, i) => i + 6);
     const daysToShow = [currentDate, new Date(currentDate.getTime() + 86400000)];
     const navDays = Array.from({length: 7}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 3 + i); return d; });
@@ -1357,7 +1366,20 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                   {navDays.map((d, i) => {
                       const isSelected = d.toDateString() === currentDate.toDateString();
                       return (
-                          <button key={i} onClick={() => setCurrentDate(d)} className={`flex flex-col items-center justify-center min-w-[60px] py-2 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                          <button 
+                              key={i} 
+                              onClick={() => setCurrentDate(d)} 
+                              onDragOver={e => e.preventDefault()}
+                              onDrop={e => {
+                                  e.preventDefault();
+                                  const taskId = e.dataTransfer.getData('taskId');
+                                  if (taskId) {
+                                      setDropPrompt({ taskId, date: getLocalDateString(d) });
+                                      setDropTime('09:00');
+                                  }
+                              }}
+                              className={`flex flex-col items-center justify-center min-w-[60px] py-2 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                          >
                               <span className="text-xs font-semibold uppercase mb-1">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'short' })}</span>
                               <span className="text-lg font-bold">{d.getDate()}</span>
                           </button>
@@ -1409,6 +1431,23 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               })}
           </div>
         </div>
+        
+        {dropPrompt && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setDropPrompt(null)}>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t('移动任务', 'Move Task')}</h3>
+                    <p className="text-sm text-slate-500 mb-6">{t('将任务移动到:', 'Moving task to:')} <span className="font-bold text-indigo-600 dark:text-indigo-400">{dropPrompt.date}</span></p>
+                    <div className="space-y-1.5 mb-6">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('选择时间', 'Select Time')}</label>
+                        <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" autoFocus />
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setDropPrompt(null)} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition-colors">{t('取消', 'Cancel')}</button>
+                        <button onClick={() => { onUpdateTask(dropPrompt.taskId, { date: dropPrompt.date, time: dropTime }); setDropPrompt(null); }} className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('确认', 'Confirm')}</button>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
     );
 };
