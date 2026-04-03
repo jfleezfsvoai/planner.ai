@@ -529,10 +529,12 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
 });
 
 // --- 3. HabitTrackerComponent ---
-const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
+const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabits, t }) => {
     const today = new Date();
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+
+    const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -549,6 +551,36 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
         }
     }, [isAddModalOpen, daysInMonth]);
 
+    const displayedHabits = habits.filter(h => {
+         if (h.targetMonth) return h.targetMonth === currentMonthKey;
+         const hasCompletionsThisMonth = (h.completedDays || []).some(d => d.startsWith(currentMonthKey));
+         if (hasCompletionsThisMonth) return true;
+         const realCurrentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+         return currentMonthKey === realCurrentMonthKey;
+    });
+
+    let prevMonth = selectedMonth - 1;
+    let prevYear = selectedYear;
+    if (prevMonth < 0) {
+        prevMonth = 11;
+        prevYear -= 1;
+    }
+    const prevMonthKey = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}`;
+    const prevHabits = habits.filter(h => h.targetMonth === prevMonthKey || (!h.targetMonth && (h.completedDays || []).some(d => d.startsWith(prevMonthKey))));
+
+    const handleClonePrevious = () => {
+        const habitsToClone = prevHabits.map(h => ({
+            name: h.name,
+            goal: h.goal,
+            frequency: h.frequency,
+            targetMonth: currentMonthKey,
+            completedDays: []
+        }));
+        if (habitsToClone.length > 0 && onCloneHabits) {
+            onCloneHabits(habitsToClone);
+        }
+    };
+
     const toggleDay = (habitId, day) => {
         const habit = habits.find(h => h.id === habitId); if (!habit) return;
         const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -564,19 +596,19 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
 
     const handleAddHabit = () => {
         if (newHabit.name) {
-            onAdd({ name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth, completedDays: [] });
+            onAdd({ name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth, targetMonth: currentMonthKey, completedDays: [] });
             handleCloseModal();
         }
     };
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 flex flex-col gap-6 w-full transition-colors relative">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 flex flex-col gap-6 w-full h-full transition-colors relative">
             <div className="flex justify-between items-center flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center"><Activity size={20}/></div>
-                    <div>
+                    <div className="flex flex-row items-center gap-3">
                         <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('习惯追踪', 'Habit Tracker')}</h4>
-                        <div className="flex items-center gap-1 mt-1 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 w-fit">
+                        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 w-fit">
                             <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} className="bg-transparent text-xs font-semibold text-slate-600 dark:text-slate-400 outline-none cursor-pointer dark:bg-slate-800">
                                 {years.map(y => <option key={y} value={y}>{y} {t('年', 'Year')}</option>)}
                             </select>
@@ -587,9 +619,16 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                         </div>
                     </div>
                 </div>
-                <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm"><Plus size={18}/> {t('添加习惯', 'Add Habit')}</button>
+                <div className="flex items-center gap-2">
+                    {displayedHabits.length === 0 && prevHabits.length > 0 && (
+                        <button onClick={handleClonePrevious} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm">
+                            <Copy size={18}/> {t('克隆上月习惯', 'Clone Prev Month')}
+                        </button>
+                    )}
+                    <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm"><Plus size={18}/> {t('添加习惯', 'Add Habit')}</button>
+                </div>
             </div>
-            <div className="overflow-x-auto custom-scrollbar pb-2">
+            <div className="overflow-x-auto overflow-y-auto custom-scrollbar pb-2 flex-1 max-h-[55vh]">
                 <table className="w-full border-collapse min-w-[800px]">
                     <thead>
                         <tr className="text-xs font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
@@ -605,7 +644,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, t }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {habits.map(habit => {
+                        {displayedHabits.map(habit => {
                             const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
                             const monthCompletions = (habit.completedDays || []).filter(d => d.startsWith(currentMonthKey)).length;
                             const freq = habit.frequency || 1;
@@ -1231,7 +1270,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 };
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
     const today = getLocalDateString(new Date());
     const todayTasks = tasks
         .filter(t => t.date === today)
@@ -1258,13 +1297,13 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch h-[calc(100vh-250px)] min-h-[500px]">
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm h-full">
               <div className="flex justify-between items-center mb-6">
                   <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
                   <button onClick={() => goToTimeline(today)} className="bg-indigo-600 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors"><Plus size={20}/></button>
               </div>
-              <div className="flex flex-col gap-3 max-h-[55vh] overflow-y-auto custom-scrollbar pr-2 pb-2">
+              <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-2 max-h-[60vh]">
                   {todayTasks.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
                   ) : (
@@ -1273,8 +1312,8 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
               </div>
             </div>
 
-            <div className="lg:col-span-8 flex flex-col min-w-0">
-                <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} t={t} />
+            <div className="lg:col-span-8 flex flex-col min-w-0 h-full">
+                <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} onCloneHabits={onCloneHabits} t={t} />
             </div>
         </div>
       </div>
@@ -1737,7 +1776,7 @@ export default function App() {
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
                 <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
