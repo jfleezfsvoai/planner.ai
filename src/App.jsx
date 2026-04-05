@@ -550,7 +550,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
             {task?.completed && <Check size={14} strokeWidth={3} />}
           </button>
           <div className="flex-1 min-w-0 overflow-hidden" onDoubleClick={() => setIsEditing(true)}>
-            <h4 className={`text-base font-medium truncate block w-full ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{task?.title}</h4>
+            <h4 className={`text-base font-medium truncate block w-full ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`} title={task?.title}>{task?.title}</h4>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded font-medium border whitespace-nowrap ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
               {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
@@ -666,7 +666,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                     </button>
                 </div>
             </div>
-            <div className="overflow-x-auto overflow-y-auto custom-scrollbar pb-2 flex-1 max-h-[55vh]">
+            <div className="overflow-x-auto overflow-y-auto custom-scrollbar pb-2 flex-1 max-h-[50vh] min-h-[300px]">
                 <table className="w-full border-collapse min-w-[800px]">
                     <thead>
                         <tr className="text-xs font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
@@ -1388,7 +1388,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
     const completedCount = todayTasks.filter(t => t.completed).length;
     const progressValue = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
     return (
-      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-20">
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
         <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
@@ -1402,13 +1402,13 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch h-[calc(100vh-310px)] min-h-[500px] mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-10">
             <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm h-full">
               <div className="flex justify-between items-center mb-6">
                   <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
                   <button onClick={() => goToTimeline(today)} className="bg-indigo-600 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors"><Plus size={20}/></button>
               </div>
-              <div className="flex flex-col gap-3 flex-1 min-w-0 overflow-y-auto custom-scrollbar pr-2 pb-2 max-h-[60vh]">
+              <div className="flex flex-col gap-3 flex-1 min-w-0 overflow-y-auto custom-scrollbar pr-2 pb-2 max-h-[50vh] min-h-[300px]">
                   {todayTasks.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
                   ) : (
@@ -1895,8 +1895,8 @@ export default function App() {
             )
         })}
       </nav></div></div>
-      <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8">
-        <div className="max-w-7xl mx-auto h-full">
+      <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
+        <div className="max-w-7xl mx-auto">
             {view === 'finance' && isFinanceLocked ? (
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
