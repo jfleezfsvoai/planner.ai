@@ -5,7 +5,7 @@ import {
   LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2, Users,
   Check, Edit, Edit3, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
   PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, 
-  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History, Palette
+  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History, Palette, GripVertical
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -436,12 +436,14 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
 
 
 // --- Shared TaskCard Component ---
-const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }) => {
+const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, categories, t }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(task?.title || '');
     const [editCategory, setEditCategory] = useState(task?.category || categories[0]?.name);
     const [editPriority, setEditPriority] = useState(task?.priority || '');
     const [editRecurring, setEditRecurring] = useState(task?.recurring === 'daily');
+    const [editComment, setEditComment] = useState(task?.comment || '');
+    const [dragOverPos, setDragOverPos] = useState(null);
 
     useEffect(() => {
         if (isEditing) {
@@ -449,6 +451,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
             setEditCategory(task?.category || categories[0]?.name);
             setEditPriority(task?.priority || '');
             setEditRecurring(task?.recurring === 'daily');
+            setEditComment(task?.comment || '');
         }
     }, [isEditing, task, categories]);
   
@@ -458,7 +461,13 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
   
     const handleSave = () => {
         if (!editTitle.trim()) return;
-        const updates = { title: editTitle, category: editCategory, priority: editPriority, recurring: editRecurring ? 'daily' : 'none' };
+        const updates = { 
+            title: editTitle, 
+            category: editCategory, 
+            priority: editPriority, 
+            recurring: editRecurring ? 'daily' : 'none',
+            comment: editComment.trim()
+        };
         
         if (task?.recurring === 'daily' && !editRecurring) {
             updates.cancelRecurring = true;
@@ -474,7 +483,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
         return (
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-indigo-500 p-4 shadow-md animate-in zoom-in-95 duration-200">
                 <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-base font-semibold mb-3 border-b border-indigo-200 dark:border-indigo-800 outline-none bg-transparent dark:text-white pb-1" autoFocus />
-                <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="grid grid-cols-2 gap-2 mb-3">
                     <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white">
                         {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                     </select>
@@ -483,6 +492,12 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
                         {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label[t('zh','en')]}</option>)}
                     </select>
                 </div>
+                <textarea 
+                    value={editComment} 
+                    onChange={e => setEditComment(e.target.value)} 
+                    placeholder={t('添加备注 (Optional)', 'Add comment (Optional)')} 
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-xs outline-none dark:text-white mb-3 resize-none h-16 custom-scrollbar"
+                />
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setEditRecurring(!editRecurring)} className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${editRecurring ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-transparent'}`}>
@@ -503,25 +518,57 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, categories, t }
     }
   
     return (
-      <div draggable onDragStart={e => e.dataTransfer.setData('taskId', task.id)} className={`bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm hover:shadow-md transition-all group relative cursor-move
-          ${task?.completed ? 'opacity-50 border-slate-200 dark:border-slate-700' : 
-            (isUrgentHighlight ? 'border-rose-400 bg-rose-50/50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-slate-700')}`}>
+      <div 
+          draggable 
+          onDragStart={e => e.dataTransfer.setData('taskId', task.id)}
+          onDragOver={e => {
+              if (!onReorderDrop) return;
+              e.preventDefault();
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              const y = e.clientY - rect.top;
+              setDragOverPos(y < rect.height / 2 ? 'top' : 'bottom');
+          }}
+          onDragLeave={() => setDragOverPos(null)}
+          onDrop={e => {
+              if (!onReorderDrop) return;
+              e.preventDefault();
+              e.stopPropagation();
+              setDragOverPos(null);
+              const draggedId = e.dataTransfer.getData('taskId');
+              if (draggedId && draggedId !== task.id) {
+                  onReorderDrop(draggedId, task.id, dragOverPos, task.date, task.time);
+              }
+          }}
+          className={`bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm hover:shadow-md transition-all group relative ${task?.completed ? 'opacity-50 border-slate-200 dark:border-slate-700' : (isUrgentHighlight ? 'border-rose-400 bg-rose-50/50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-slate-700')}`}
+      >
+        {dragOverPos === 'top' && <div className="absolute -top-1.5 left-0 right-0 h-1.5 bg-indigo-500 rounded-full z-50 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
+        {dragOverPos === 'bottom' && <div className="absolute -bottom-1.5 left-0 right-0 h-1.5 bg-indigo-500 rounded-full z-50 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
+
         <div className="flex items-start gap-4">
-          <button onClick={() => onToggle(task.id)} className={`mt-0.5 w-6 h-6 rounded border flex items-center justify-center transition-all ${task?.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
+          <button onClick={() => onToggle(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task?.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
             {task?.completed && <Check size={14} strokeWidth={3} />}
           </button>
           <div className="flex-1 min-w-0" onDoubleClick={() => setIsEditing(true)}>
             <h4 className={`text-base font-medium truncate ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{task?.title}</h4>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className={`text-xs px-2 py-0.5 rounded font-medium border ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
-              {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
-              {task?.time && <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1"><Clock size={12}/>{task.time}</span>}
+              <span className={`text-xs px-2 py-0.5 rounded font-medium border whitespace-nowrap ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
+              {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
+              {task?.time && <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap"><Clock size={12}/>{task.time}</span>}
               {task?.recurring === 'daily' && <span className="text-xs text-indigo-500 dark:text-indigo-400 flex items-center gap-1"><Repeat size={12}/></span>}
             </div>
+            {task?.comment && (
+                <div className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-md border border-slate-100 dark:border-slate-700/50 italic line-clamp-3">
+                    {task.comment}
+                </div>
+            )}
           </div>
-          <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-            <button onClick={() => setIsEditing(true)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit size={16}/></button>
-            <button onClick={() => onDelete(task.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+          <div className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+            <button onClick={() => setIsEditing(true)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Edit size={16}/></button>
+            <button onClick={() => onDelete(task.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={16}/></button>
+            <div className="p-1 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing">
+                <GripVertical size={16} />
+            </div>
           </div>
         </div>
       </div>
@@ -1307,7 +1354,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                   {todayTasks.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
                   ) : (
-                     todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)
+                     todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={undefined} categories={categories} t={t} />)
                   )}
               </div>
             </div>
@@ -1381,7 +1428,7 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
                   </div>
                   <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
                       {tasks.filter(t => t.date === viewingDate).length === 0 ? <div className="text-center py-10 text-slate-400 font-medium">{t('无安排', 'No tasks')}</div> :
-                        tasks.filter(t => t.date === viewingDate).map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)}
+                        tasks.filter(t => t.date === viewingDate).map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={undefined} categories={categories} t={t} />)}
                   </div>
                   <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
                       <button onClick={() => { goToTimeline(viewingDate); setViewingDate(null); }} className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-sm flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all"><Plus size={20} /> {t('添加计划', 'Add Plan')}</button>
@@ -1393,7 +1440,7 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
     );
 };
 
-const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, categories, t }) => {
+const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onReorderTask, categories, t }) => {
     const [dropPrompt, setDropPrompt] = useState(null);
     const [dropTime, setDropTime] = useState('09:00');
     const hours = Array.from({ length: 19 }, (_, i) => i + 6);
@@ -1461,7 +1508,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                                   <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
                                       <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
                                       <div className="space-y-3">
-                                          {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} categories={categories} t={t} />)}
+                                          {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
                                           
                                           <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
                                               <Plus size={16}/> {t('添加任务', 'Add Task')}
@@ -1704,6 +1751,26 @@ export default function App() {
       saveData('tasks', { list: n });
   };
 
+  const handleReorderTask = (draggedId, targetId, position, targetDate, targetTime) => {
+      let n = [...tasks];
+      const draggedIdx = n.findIndex(t => t.id === draggedId);
+      if (draggedIdx === -1) return;
+
+      // Ensure dragged task adopts target date/time
+      const draggedTask = { ...n[draggedIdx], date: targetDate, time: targetTime };
+      n.splice(draggedIdx, 1);
+
+      const targetIdx = n.findIndex(t => t.id === targetId);
+      if (targetIdx !== -1) {
+          n.splice(position === 'top' ? targetIdx : targetIdx + 1, 0, draggedTask);
+      } else {
+          n.push(draggedTask);
+      }
+
+      setTasks(n);
+      saveData('tasks', { list: n });
+  };
+
   const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
 
   if (authLoading) return <div className="flex h-screen w-full items-center justify-center dark:bg-slate-950"><RefreshCw className="animate-spin text-indigo-600" size={48} /></div>;
@@ -1778,7 +1845,7 @@ export default function App() {
                 <>
                     {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
-                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
+                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
                     {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
                 </>
