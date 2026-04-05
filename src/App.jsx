@@ -5,7 +5,7 @@ import {
   LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2, Users,
   Check, Edit, Edit3, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
   PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, 
-  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History, Palette, GripVertical
+  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History, Palette, GripVertical, Copy
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -62,11 +62,11 @@ const GRADIENT_BGS = [
     "bg-gradient-to-br from-blue-500 to-cyan-600"
 ];
 const METALLIC_BGS = [
-    "bg-gradient-to-br from-yellow-600 via-amber-700 to-yellow-900", // Dark Gold
-    "bg-gradient-to-br from-slate-400 via-slate-600 to-slate-800",   // Steel / Silver
-    "bg-gradient-to-br from-orange-600 via-orange-800 to-stone-900", // Bronze
-    "bg-gradient-to-br from-rose-500 via-rose-700 to-rose-950",      // Rose Gold
-    "bg-gradient-to-br from-zinc-600 via-zinc-800 to-zinc-950"       // Titanium
+    "bg-gradient-to-br from-yellow-600 via-amber-700 to-yellow-900", 
+    "bg-gradient-to-br from-slate-400 via-slate-600 to-slate-800",   
+    "bg-gradient-to-br from-orange-600 via-orange-800 to-stone-900", 
+    "bg-gradient-to-br from-rose-500 via-rose-700 to-rose-950",      
+    "bg-gradient-to-br from-zinc-600 via-zinc-800 to-zinc-950"       
 ];
 
 // --- Utils ---
@@ -550,7 +550,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
             {task?.completed && <Check size={14} strokeWidth={3} />}
           </button>
           <div className="flex-1 min-w-0 overflow-hidden" onDoubleClick={() => setIsEditing(true)}>
-            <h4 className={`text-base font-medium truncate block w-full ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`} title={task?.title}>{task?.title}</h4>
+            <h4 className={`text-base font-medium truncate block w-full ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{task?.title}</h4>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded font-medium border whitespace-nowrap ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
               {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
@@ -588,6 +588,11 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newHabit, setNewHabit] = useState({ name: '', goal: '', frequency: daysInMonth });
+    
+    // States for Clone History Modal
+    const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
+    const [cloneYear, setCloneYear] = useState(selectedYear);
+    const [cloneMonth, setCloneMonth] = useState(selectedMonth === 0 ? 11 : selectedMonth - 1);
 
     const years = Array.from({length: 10}, (_, i) => today.getFullYear() - 5 + i);
     const months = Array.from({length: 12}, (_, i) => i);
@@ -605,28 +610,6 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
          const realCurrentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
          return currentMonthKey === realCurrentMonthKey;
     });
-
-    let prevMonth = selectedMonth - 1;
-    let prevYear = selectedYear;
-    if (prevMonth < 0) {
-        prevMonth = 11;
-        prevYear -= 1;
-    }
-    const prevMonthKey = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}`;
-    const prevHabits = habits.filter(h => h.targetMonth === prevMonthKey || (!h.targetMonth && (h.completedDays || []).some(d => d.startsWith(prevMonthKey))));
-
-    const handleClonePrevious = () => {
-        const habitsToClone = prevHabits.map(h => ({
-            name: h.name,
-            goal: h.goal,
-            frequency: h.frequency,
-            targetMonth: currentMonthKey,
-            completedDays: []
-        }));
-        if (habitsToClone.length > 0 && onCloneHabits) {
-            onCloneHabits(habitsToClone);
-        }
-    };
 
     const toggleDay = (habitId, day) => {
         const habit = habits.find(h => h.id === habitId); if (!habit) return;
@@ -648,6 +631,10 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
         }
     };
 
+    // Calculate habits from the selected clone source month
+    const sourceMonthKey = `${cloneYear}-${String(cloneMonth + 1).padStart(2, '0')}`;
+    const sourceHabits = habits.filter(h => h.targetMonth === sourceMonthKey || (!h.targetMonth && (h.completedDays || []).some(d => d?.startsWith?.(sourceMonthKey))));
+
     return (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 flex flex-col gap-6 w-full h-full transition-colors relative">
             <div className="flex justify-between items-center flex-wrap gap-4">
@@ -667,12 +654,16 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {displayedHabits.length === 0 && prevHabits.length > 0 && (
-                        <button onClick={handleClonePrevious} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm">
-                            <Copy size={18}/> {t('克隆上月习惯', 'Clone Prev Month')}
-                        </button>
-                    )}
-                    <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm"><Plus size={18}/> {t('添加习惯', 'Add Habit')}</button>
+                    <button onClick={() => {
+                        setCloneYear(selectedMonth === 0 ? selectedYear - 1 : selectedYear);
+                        setCloneMonth(selectedMonth === 0 ? 11 : selectedMonth - 1);
+                        setIsCloneModalOpen(true);
+                    }} className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-2 rounded-lg font-medium text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm">
+                        <Copy size={16}/> {t('克隆习惯', 'Clone')}
+                    </button>
+                    <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm">
+                        <Plus size={18}/> {t('添加习惯', 'Add Habit')}
+                    </button>
                 </div>
             </div>
             <div className="overflow-x-auto overflow-y-auto custom-scrollbar pb-2 flex-1 max-h-[55vh]">
@@ -691,9 +682,11 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                         </tr>
                     </thead>
                     <tbody>
-                        {displayedHabits.map(habit => {
+                        {displayedHabits.length === 0 ? (
+                            <tr><td colSpan="5" className="text-center py-10 text-slate-400 font-medium">{t('本月没有任何习惯追踪', 'No habits tracked for this month.')}</td></tr>
+                        ) : displayedHabits.map(habit => {
                             const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
-                            const monthCompletions = (habit.completedDays || []).filter(d => d.startsWith(currentMonthKey)).length;
+                            const monthCompletions = (habit.completedDays || []).filter(d => d?.startsWith?.(currentMonthKey)).length;
                             const freq = habit.frequency || 1;
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
                             return (
@@ -734,6 +727,71 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                     </tbody>
                 </table>
             </div>
+
+            {/* Smart Clone Modal */}
+            {isCloneModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={() => setIsCloneModalOpen(false)}>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Copy size={18} className="text-indigo-500" /> {t('克隆历史习惯', 'Clone Habits')}</h3>
+                            <button onClick={() => setIsCloneModalOpen(false)} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('选择要复制的月份', 'Select Month to Clone')}</label>
+                                <div className="flex gap-2">
+                                    <select value={cloneYear} onChange={e => setCloneYear(Number(e.target.value))} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500">
+                                        {years.map(y => <option key={y} value={y}>{y} {t('年', 'Year')}</option>)}
+                                    </select>
+                                    <select value={cloneMonth} onChange={e => setCloneMonth(Number(e.target.value))} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white focus:border-indigo-500">
+                                        {months.map(m => <option key={m} value={m}>{String(m + 1).padStart(2, '0')} {t('月', 'Month')}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('将复制以下习惯', 'Habits to be cloned')}:</h4>
+                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                    {sourceHabits.length === 0 ? (
+                                        <p className="text-center text-sm text-slate-400 py-4">{t('该月份没有记录', 'No habits found.')}</p>
+                                    ) : (
+                                        <ul className="space-y-2">
+                                            {sourceHabits.map(h => (
+                                                <li key={h.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                                    <span className="truncate">{h.name}</span>
+                                                    {h.goal && <span className="text-xs text-slate-400 truncate border-l border-slate-300 dark:border-slate-600 pl-2 ml-1">{h.goal}</span>}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => {
+                                    if (sourceHabits.length === 0) return;
+                                    const habitsToClone = sourceHabits.map(h => ({
+                                        name: h.name,
+                                        goal: h.goal,
+                                        frequency: daysInMonth, // Match new month's day count
+                                        targetMonth: currentMonthKey,
+                                        completedDays: []
+                                    }));
+                                    if (onCloneHabits) onCloneHabits(habitsToClone);
+                                    setIsCloneModalOpen(false);
+                                }}
+                                disabled={sourceHabits.length === 0}
+                                className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                            >
+                                {t('确认克隆', 'Confirm Clone')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Habit Modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={handleCloseModal}>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
