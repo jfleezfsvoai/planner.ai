@@ -1388,7 +1388,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
     const completedCount = todayTasks.filter(t => t.completed).length;
     const progressValue = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
     return (
-      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-10">
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-20">
         <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
@@ -1402,7 +1402,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch h-[calc(100vh-250px)] min-h-[500px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch h-[calc(100vh-310px)] min-h-[500px] mb-8">
             <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm h-full">
               <div className="flex justify-between items-center mb-6">
                   <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
