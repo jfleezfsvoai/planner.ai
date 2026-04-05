@@ -481,7 +481,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
   
     if (isEditing) {
         return (
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-indigo-500 p-4 shadow-md animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-lg border border-indigo-500 p-4 shadow-md animate-in zoom-in-95 duration-200 w-full min-w-0">
                 <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-base font-semibold mb-3 border-b border-indigo-200 dark:border-indigo-800 outline-none bg-transparent dark:text-white pb-1" autoFocus />
                 <div className="grid grid-cols-2 gap-2 mb-3">
                     <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white">
@@ -496,7 +496,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
                     value={editComment} 
                     onChange={e => setEditComment(e.target.value)} 
                     placeholder={t('添加备注 (Optional)', 'Add comment (Optional)')} 
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-xs outline-none dark:text-white mb-3 resize-none h-16 custom-scrollbar"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-xs outline-none dark:text-white mb-3 resize-none h-16 custom-scrollbar break-words"
                 />
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -540,17 +540,17 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
                   onReorderDrop(draggedId, task.id, dragOverPos, task.date, task.time);
               }
           }}
-          className={`bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm hover:shadow-md transition-all group relative ${task?.completed ? 'opacity-50 border-slate-200 dark:border-slate-700' : (isUrgentHighlight ? 'border-rose-400 bg-rose-50/50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-slate-700')}`}
+          className={`w-full min-w-0 bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm hover:shadow-md transition-all group relative ${task?.completed ? 'opacity-50 border-slate-200 dark:border-slate-700' : (isUrgentHighlight ? 'border-rose-400 bg-rose-50/50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-slate-700')}`}
       >
         {dragOverPos === 'top' && <div className="absolute -top-1.5 left-0 right-0 h-1.5 bg-indigo-500 rounded-full z-50 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
         {dragOverPos === 'bottom' && <div className="absolute -bottom-1.5 left-0 right-0 h-1.5 bg-indigo-500 rounded-full z-50 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
 
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3 w-full">
           <button onClick={() => onToggle(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task?.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
             {task?.completed && <Check size={14} strokeWidth={3} />}
           </button>
-          <div className="flex-1 min-w-0" onDoubleClick={() => setIsEditing(true)}>
-            <h4 className={`text-base font-medium truncate ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{task?.title}</h4>
+          <div className="flex-1 min-w-0 overflow-hidden" onDoubleClick={() => setIsEditing(true)}>
+            <h4 className={`text-base font-medium truncate block w-full ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`} title={task?.title}>{task?.title}</h4>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded font-medium border whitespace-nowrap ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
               {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
@@ -558,12 +558,12 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
               {task?.recurring === 'daily' && <span className="text-xs text-indigo-500 dark:text-indigo-400 flex items-center gap-1"><Repeat size={12}/></span>}
             </div>
             {task?.comment && (
-                <div className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-md border border-slate-100 dark:border-slate-700/50 italic line-clamp-3">
+                <div className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-md border border-slate-100 dark:border-slate-700/50 italic break-words whitespace-pre-wrap">
                     {task.comment}
                 </div>
             )}
           </div>
-          <div className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+          <div className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity pl-1">
             <button onClick={() => setIsEditing(true)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Edit size={16}/></button>
             <button onClick={() => onDelete(task.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={16}/></button>
             <div className="p-1 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing">
@@ -1350,7 +1350,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                   <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
                   <button onClick={() => goToTimeline(today)} className="bg-indigo-600 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors"><Plus size={20}/></button>
               </div>
-              <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-2 max-h-[60vh]">
+              <div className="flex flex-col gap-3 flex-1 min-w-0 overflow-y-auto custom-scrollbar pr-2 pb-2 max-h-[60vh]">
                   {todayTasks.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
                   ) : (
@@ -1505,9 +1505,9 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                               const dateStr = getLocalDateString(d);
                               const hourTasks = tasks.filter(taskObj => taskObj.date === dateStr && taskObj.time && parseInt(taskObj.time.split(':')[0]) === matchHour);
                               return (
-                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
+                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="min-w-0 flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
                                       <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
-                                      <div className="space-y-3">
+                                      <div className="space-y-3 w-full min-w-0">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
                                           
                                           <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
