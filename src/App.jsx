@@ -1,17 +1,23 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { 
-  Calendar as CalIcon, Home, Trello, Plus, Clock, ChevronLeft, ChevronRight, X, 
-  Target, TrendingUp, ArrowRight, Trash2, Zap, Activity, DollarSign, PieChart, 
-  LogIn, LogOut, AlertTriangle, Briefcase, HeartPulse, Wallet, Rocket, Users2, Users,
-  Check, Edit, Edit3, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
-  PiggyBank, CreditCard, ListOrdered, Landmark, Moon, Sun, Eye, RefreshCw, Search, MapPin, 
-  CheckCircle2, ClipboardList, PlayCircle, StopCircle, Settings, GraduationCap, Image as ImageIcon, History, Palette, GripVertical, Copy
+  Calendar as CalIcon, Layout, Trello, CheckSquare, 
+  Plus, Clock, ChevronLeft, ChevronRight, X, Bell, 
+  Search, Target, TrendingUp, ArrowRight, Lock, Unlock, Trash2,
+  Menu, Home, Database, Zap, Download, Activity, 
+  Layers, Shield, BookOpen, DollarSign, PieChart, 
+  Square, LogIn, LogOut, User, AlertTriangle, Briefcase, Heart, Coffee, Book,
+  Bot, Settings, Edit3, MapPin, Sun, Navigation, Moon, RefreshCw, BarChart2, 
+  Save, GripVertical, Eye, Copy, ClipboardList, Flag, PlayCircle, StopCircle,
+  CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
+  CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
+  Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
+  Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff
 } from 'lucide-react';
 
 // --- Firebase Imports ---
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -28,10 +34,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Secondary App for Admin to create staff without logging out
+// 初始化双核 App：用于 Admin 注册员工而不被登出
 const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
 const secondaryAuth = getAuth(secondaryApp);
 
+// Critical Fix: Must use environmental appId for correct permissions
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main';
 
 // --- Constants ---
@@ -43,10 +50,10 @@ const PRIORITIES = {
 };
 
 const LABEL_COLORS = [
-    'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30',
-    'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
-    'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
-    'bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30'
+    'bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300',
+    'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300',
+    'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300',
+    'bg-cyan-100 text-cyan-600 border-cyan-200 dark:bg-cyan-500/20 dark:border-cyan-500/30 dark:text-cyan-300'
 ];
 
 const MALAYSIA_BANKS = ["Maybank", "CIMB Bank", "Public Bank", "RHB Bank", "Hong Leong", "AmBank", "UOB", "Bank Islam", "Standard Chartered", "OCBC", "HSBC", "Cash / 其他"];
@@ -74,10 +81,27 @@ const getLocalDateString = (date) => {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+const getDaysArray = (startStr, endStr) => {
+    if (!startStr || !endStr) return [];
+    const [sy, sm, sd] = startStr.split('-').map(Number);
+    const [ey, em, ed] = endStr.split('-').map(Number);
+    const start = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
+    const arr = [];
+    let curr = new Date(start);
+    let limit = 0;
+    while(curr <= end && limit < 32) {
+        arr.push(getLocalDateString(curr));
+        curr.setDate(curr.getDate() + 1);
+        limit++;
+    }
+    return arr;
+};
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- Components ---
-
+// --- 1. LoginPage Component ---
 const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) => {
     const [isLogin, setIsLogin] = useState(true); 
     const [email, setEmail] = useState(''); 
@@ -1604,14 +1628,101 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
 const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const [tab, setTab] = useState('daily');
     const [date, setDate] = useState(getLocalDateString(new Date()));
+    
+    // Cycle States
+    const [activeCycle, setActiveCycle] = useState(() => {
+        const d = new Date().getDate();
+        return d <= 10 ? 1 : d <= 20 ? 2 : 3;
+    });
+
+    useEffect(() => {
+        if (date) {
+           const d = parseInt(date.split('-')[2], 10);
+           setActiveCycle(d <= 10 ? 1 : d <= 20 ? 2 : 3);
+        }
+    }, [date]);
+
+    const cycleYear = parseInt(date.split('-')[0], 10);
+    const cycleMonth = parseInt(date.split('-')[1], 10);
+    const daysInMonth = new Date(cycleYear, cycleMonth, 0).getDate();
+    const cycleRanges = { 1: [1, 10], 2: [11, 20], 3: [21, daysInMonth] };
+    const cycleMinDate = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-${String(cycleRanges[activeCycle]?.[0] || 1).padStart(2, '0')}`;
+    const cycleMaxDate = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-${String(cycleRanges[activeCycle]?.[1] || 10).padStart(2, '0')}`;
+    
+    const cycleKey = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-C${activeCycle}`;
+    const cycleTasks = reviews.cycleTasks?.[cycleKey] || [];
+    
+    const [newCTaskName, setNewCTaskName] = useState('');
+    const [newCTaskDetails, setNewCTaskDetails] = useState('');
+    const [newCTaskStart, setNewCTaskStart] = useState('');
+    const [newCTaskEnd, setNewCTaskEnd] = useState('');
+
+    useEffect(() => {
+        setNewCTaskStart(cycleMinDate);
+        setNewCTaskEnd(cycleMinDate);
+    }, [cycleMinDate]);
+
+    const handleAddCycleTask = (e) => {
+        e.preventDefault();
+        if (!newCTaskName.trim()) return;
+        const newTask = {
+            id: generateId(),
+            name: newCTaskName,
+            details: newCTaskDetails,
+            startDate: newCTaskStart,
+            endDate: newCTaskEnd,
+            completed: false
+        };
+        const existing = reviews.cycleTasks?.[cycleKey] || [];
+        onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: [...existing, newTask] } });
+        setNewCTaskName('');
+        setNewCTaskDetails('');
+        setNewCTaskStart(cycleMinDate);
+        setNewCTaskEnd(cycleMinDate);
+    };
+
+    const toggleCycleTask = (taskId) => {
+        const updated = cycleTasks.map(t => t.id === taskId ? {...t, completed: !t.completed} : t);
+        onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: updated } });
+    };
+
+    const deleteCycleTask = (taskId) => {
+        const updated = cycleTasks.filter(t => t.id !== taskId);
+        onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: updated } });
+    };
+
+    const renderTaskDays = (startDate, endDate) => {
+        if (!startDate || !endDate) return null;
+        const daysArr = getDaysArray(startDate, endDate);
+        const todayStr = getLocalDateString(new Date());
+        return (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {daysArr.map(dStr => {
+                    const dayNum = parseInt(dStr.split('-')[2], 10);
+                    const isPassed = dStr < todayStr;
+                    return (
+                        <div 
+                            key={dStr} 
+                            title={dStr}
+                            className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border transition-all ${
+                                isPassed 
+                                ? 'bg-slate-100 border-slate-200 text-slate-400 line-through dark:bg-slate-800/50 dark:border-slate-700/50 dark:text-slate-500' 
+                                : 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm dark:bg-indigo-900/30 dark:border-indigo-700/50 dark:text-indigo-400'
+                            }`}
+                        >
+                            {dayNum}
+                        </div>
+                    )
+                })}
+            </div>
+        );
+    };
+
     const daily = { keep: ['', '', ''], improve: ['', '', ''], start: ['', '', ''], stop: ['', '', ''], ...(reviews?.daily?.[date] || {}) };
-    const cycle = { plan: '', execute: '', adjust: '', check: '', ...(reviews?.cycle || {}) };
     const yearly = { finance: ['', '', ''], health: ['', '', ''], family: ['', '', ''], business: ['', '', ''], investment: ['', '', ''], social: ['', '', ''], education: ['', '', ''], breakthrough: ['', '', ''], ...(reviews?.yearly || {}) };
     const updateDaily = (field, idx, val) => { const newList = Array.isArray(daily[field]) ? [...daily[field]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: newList } } }); };
-    const updateCycle = (field, val) => onUpdateReview({ ...reviews, cycle: { ...cycle, [field]: val } });
     const updateYearly = (cat, idx, val) => { const newList = Array.isArray(yearly[cat]) ? [...yearly[cat]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [cat]: newList } }); };
     const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle2}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
-    const cycleCategories = [{f:'plan', l: t('Plan (规划)', 'Plan'), c:'blue', i: MapPin}, {f:'execute', l: t('Execute (执行)', 'Execute'), c:'rose', i: PlayCircle}, {f:'adjust', l: t('Adjust (调整)', 'Adjust'), c:'amber', i: Settings}, {f:'check', l: t('Check (检查)', 'Check'), c:'emerald', i: Search}];
     const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users2, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
     
     return (
@@ -1627,51 +1738,131 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                 </div>
             </div>
           </header>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tab === 'daily' && dailyCategories.map(x => {
-                const Icon = x.i;
-                return (
-                    <div key={x.f} className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
-                        <h4 className={`text-base font-bold text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-3`}><div className={`p-2 bg-${x.c}-50 dark:bg-${x.c}-900/30 rounded-lg`}><Icon size={20} /></div> {x.l}</h4>
-                        <div className="space-y-3">
-                            {[0,1,2].map(i => (
-                            <div key={i} className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-slate-400">{i+1}.</span>
-                                <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" />
+
+          <div className="w-full">
+            {tab === 'daily' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {dailyCategories.map(x => {
+                        const Icon = x.i;
+                        return (
+                            <div key={x.f} className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
+                                <h4 className={`text-base font-bold text-${x.c}-600 dark:text-${x.c}-400 flex items-center gap-3`}><div className={`p-2 bg-${x.c}-50 dark:bg-${x.c}-900/30 rounded-lg`}><Icon size={20} /></div> {x.l}</h4>
+                                <div className="space-y-3">
+                                    {[0,1,2].map(i => (
+                                    <div key={i} className="flex items-center gap-3">
+                                        <span className="text-sm font-medium text-slate-400">{i+1}.</span>
+                                        <input value={String(daily[x.f]?.[i] || '')} onChange={e => updateDaily(x.f, i, e.target.value)} placeholder={t('添加记录...', 'Add record...')} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" />
+                                    </div>
+                                    ))}
+                                </div>
                             </div>
-                            ))}
+                        );
+                    })}
+                </div>
+            )}
+
+            {tab === 'cycle' && (
+                <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <Repeat size={20} className="text-indigo-500"/>
+                                {t('周期任务规划', 'Cycle Planning')}
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                {t('将每月分为三个周期，精细化执行长线任务。', 'Break down monthly goals into 3 execution cycles.')}
+                            </p>
                         </div>
+                        <select 
+                            value={activeCycle} 
+                            onChange={e => setActiveCycle(Number(e.target.value))}
+                            className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 rounded-lg px-4 py-2.5 font-bold outline-none text-indigo-700 dark:text-indigo-400 focus:border-indigo-500 transition-colors shadow-sm"
+                        >
+                            <option value={1}>Cycle 1 (1 - 10{t('号','th')})</option>
+                            <option value={2}>Cycle 2 (11 - 20{t('号','th')})</option>
+                            <option value={3}>Cycle 3 (21 - {daysInMonth}{t('号','th')})</option>
+                        </select>
                     </div>
-                );
-            })}
-            {tab === 'cycle' && cycleCategories.map(x => {
-                const Icon = x.i;
-                return (
-                    <div key={x.f} className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-                      <h4 className={`text-base font-bold text-${x.c}-600 dark:text-${x.c}-400 mb-4 flex items-center gap-3`}><div className={`p-2 bg-${x.c}-50 dark:bg-${x.c}-900/30 rounded-lg`}><Icon size={20} /></div> {x.l}</h4>
-                      <textarea value={String(cycle[x.f] || '')} onChange={e => updateCycle(x.f, e.target.value)} className="w-full flex-1 min-h-[160px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-base leading-relaxed outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors resize-none" placeholder={t(`记录心得...`, `Record plans...`)} />
+
+                    <form onSubmit={handleAddCycleTask} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div className="md:col-span-3 space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">{t('任务名称', 'Task Name')}</label>
+                                <input value={newCTaskName} onChange={e=>setNewCTaskName(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 开发核心模块', 'Task name...')} />
+                            </div>
+                            <div className="md:col-span-4 space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">{t('执行细节 / 备注', 'Details')}</label>
+                                <input value={newCTaskDetails} onChange={e=>setNewCTaskDetails(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 完成数据库设计与API接口', 'Details...')} />
+                            </div>
+                            <div className="md:col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">{t('开始日期', 'Start Date')}</label>
+                                <input type="date" min={cycleMinDate} max={cycleMaxDate} value={newCTaskStart} onChange={e=>setNewCTaskStart(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
+                            </div>
+                            <div className="md:col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">{t('结束日期', 'End Date')}</label>
+                                <input type="date" min={newCTaskStart || cycleMinDate} max={cycleMaxDate} value={newCTaskEnd} onChange={e=>setNewCTaskEnd(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
+                            </div>
+                            <div className="md:col-span-1 flex items-end">
+                                <button type="submit" className="w-full h-[42px] bg-indigo-600 text-white rounded-lg flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-md"><Plus size={20} strokeWidth={3} /></button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div className="space-y-4 flex-1">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 px-1">{t('本周期任务列表', 'Cycle Task List')}</h4>
+                        {cycleTasks.length === 0 ? (
+                            <div className="text-center py-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/30">
+                                <Target className="mx-auto text-slate-400 mb-3" size={32} />
+                                <p className="text-slate-500 font-medium text-sm">{t('此周期暂无任务，请在上方的表单中添加', 'No tasks for this cycle yet.')}</p>
+                            </div>
+                        ) : (
+                            cycleTasks.map(task => (
+                                <div key={task.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-5 flex gap-4 items-start shadow-sm transition-all hover:shadow-md ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
+                                    <button onClick={() => toggleCycleTask(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
+                                        {task.completed && <Check size={14} strokeWidth={3} />}
+                                    </button>
+                                    <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
+                                        <div className="min-w-0">
+                                            <h4 className={`text-base font-bold truncate ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.name}</h4>
+                                            {renderTaskDays(task.startDate, task.endDate)}
+                                        </div>
+                                        <div className="min-w-0 flex items-center">
+                                            <div className="w-full bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                                <p className={`text-sm ${task.completed ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'} whitespace-pre-wrap break-words`}>{task.details}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => deleteCycleTask(task.id)} className="p-2 mt-0.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors shrink-0"><Trash2 size={18}/></button>
+                                </div>
+                            ))
+                        )}
                     </div>
-                );
-            })}
-            {tab === 'yearly' && yearlyCategories.map(cat => {
-                const Icon = cat.i;
-                return (
-                    <div key={cat.k} className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-3 bg-${cat.c}-50 dark:bg-${cat.c}-900/30 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-lg`}><Icon size={24} /></div>
-                        <h4 className="text-base font-bold text-slate-800 dark:text-white">{cat.l}</h4>
-                      </div>
-                      <div className="space-y-3">
-                        {[0,1,2].map(i => (
-                          <div key={i} className="flex items-center gap-3">
-                            <span className="text-sm font-medium text-slate-400">{i+1}.</span>
-                            <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" placeholder={t("RM 核心目标...", "RM Set goal...")} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                );
-            })}
+                </div>
+            )}
+
+            {tab === 'yearly' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {yearlyCategories.map(cat => {
+                        const Icon = cat.i;
+                        return (
+                            <div key={cat.k} className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-3 bg-${cat.c}-50 dark:bg-${cat.c}-900/30 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-lg`}><Icon size={24} /></div>
+                                    <h4 className="text-base font-bold text-slate-800 dark:text-white">{cat.l}</h4>
+                                </div>
+                                <div className="space-y-3">
+                                    {[0,1,2].map(i => (
+                                    <div key={i} className="flex items-center gap-3">
+                                        <span className="text-sm font-medium text-slate-400">{i+1}.</span>
+                                        <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" placeholder={t("RM 核心目标...", "RM Set goal...")} />
+                                    </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
           </div>
         </div>
       );
@@ -1698,7 +1889,7 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([{ name: '工作', color: 'bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300' },{ name: '生活', color: 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300' },{ name: '学习', color: 'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300' }]);
   const [habits, setHabits] = useState([]);
-  const [reviews, setReviews] = useState({ daily: {}, cycle: {}, yearly: {} });
+  const [reviews, setReviews] = useState({ daily: {}, cycleTasks: {}, yearly: {} });
 
   useEffect(() => {
     if (isDarkMode) { document.documentElement.classList.add('dark'); } 
@@ -1814,7 +2005,6 @@ export default function App() {
       const draggedIdx = n.findIndex(t => t.id === draggedId);
       if (draggedIdx === -1) return;
 
-      // Ensure dragged task adopts target date/time
       const draggedTask = { ...n[draggedIdx], date: targetDate, time: targetTime };
       n.splice(draggedIdx, 1);
 
