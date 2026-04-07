@@ -11,7 +11,8 @@ import {
   CalendarDays, ChevronDown, GraduationCap, Users, TrendingDown, Award, Globe,
   CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
   Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
-  Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff
+  Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
+  PiggyBank, CreditCard, ListOrdered, Landmark, Image as ImageIcon, History
 } from 'lucide-react';
 
 // --- Firebase Imports ---
