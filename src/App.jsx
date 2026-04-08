@@ -694,16 +694,19 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
             <div className="overflow-x-auto overflow-y-auto custom-scrollbar pb-2 flex-1 max-h-[50vh] min-h-[300px]">
                 <table className="w-full border-collapse min-w-[800px]">
                     <thead>
-                        <tr className="text-xs font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                            <th className="text-left py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 z-10 whitespace-nowrap min-w-[120px]">{t('习惯', 'Habit')}</th>
-                            <th className="text-left py-3 px-4 w-32 whitespace-nowrap">{t('目标', 'Goal')}</th>
-                            <th className="text-left py-3 px-4 w-48 whitespace-nowrap">{t('当月进度', 'Progress')}</th>
-                            <th className="py-3 px-4">
+                        {/* 将表头的 border-b 移除，改用各 th 内建阴影 (inset shadow) 以确保吸顶时边框不消失 */}
+                        <tr className="text-xs font-semibold text-slate-500">
+                            {/* 加入 sticky top-0, z-30 (比下面高), 以及右侧和底部的内阴影 */}
+                            <th className="text-left py-3 px-4 sticky left-0 top-0 bg-white dark:bg-slate-900 z-30 whitespace-nowrap min-w-[120px] shadow-[inset_-1px_-1px_0_0_#e2e8f0] dark:shadow-[inset_-1px_-1px_0_0_#1e293b]">{t('习惯', 'Habit')}</th>
+                            <th className="text-left py-3 px-4 min-w-[120px] whitespace-nowrap sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]">{t('目标', 'Goal')}</th>
+                            {/* 加入 min-w-[150px] 防止 progress bar 所在的列被右侧格子过度挤压 */}
+                            <th className="text-left py-3 px-4 min-w-[150px] whitespace-nowrap sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]">{t('当月进度', 'Progress')}</th>
+                            <th className="py-3 px-4 sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]">
                                 <div className="flex gap-1">
                                     {daysArray.map(d => <div key={d} className="w-8 h-8 flex items-center justify-center shrink-0 font-medium">{d}</div>)}
                                 </div>
                             </th>
-                            <th></th>
+                            <th className="sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -716,18 +719,20 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
                             return (
                                 <tr key={habit.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors last:border-0">
-                                    <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 whitespace-nowrap">
+                                    {/* 为第一列悬浮加一个右侧内阴影边界，方便向右滑动时有边界感 */}
+                                    <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 whitespace-nowrap shadow-[inset_-1px_0_0_0_#f1f5f9] dark:shadow-[inset_-1px_0_0_0_#1e293b]">
                                         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{habit.name}</span>
                                     </td>
                                     <td className="py-3 px-4">
                                         <span className="inline-block text-sm text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{habit.goal || '-'}</span>
                                     </td>
+                                    {/* 给进度条外框加入最小宽度保护 min-w-[100px] */}
                                     <td className="py-3 px-4">
-                                        <div className="flex items-center gap-3 w-full">
+                                        <div className="flex items-center gap-3 w-full min-w-[100px]">
                                             <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                 <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} />
                                             </div>
-                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 w-8 text-right">{Math.round(progressPercentage)}%</span>
+                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 w-8 text-right shrink-0">{Math.round(progressPercentage)}%</span>
                                         </div>
                                     </td>
                                     <td className="py-3 px-4">
@@ -2124,7 +2129,7 @@ export default function App() {
           myStaffRegistry={myStaffRegistry}
           currentUser={user}
       />
-
+ 
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
