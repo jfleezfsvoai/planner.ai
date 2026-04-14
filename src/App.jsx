@@ -375,6 +375,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
+  const [taskType, setTaskType] = useState('allday');
 
   useEffect(() => { 
       if (isOpen) { 
@@ -384,6 +385,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
           setIsRecurring(false); 
           setNewCatName('');
           setShowNewCatInput(false);
+          setTaskType(prefilledTime ? 'scheduled' : 'allday');
       } 
   }, [isOpen, prefilledTime]);
 
@@ -396,7 +398,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   const handleSubmit = (e) => {
     e.preventDefault(); 
     if (!title.trim()) return;
-    onAdd({ title, category, priority, time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
+    onAdd({ title, category, priority, time: taskType === 'allday' ? '' : time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
     handleCloseModal();
   };
 
@@ -408,11 +410,16 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
           <button onClick={handleCloseModal} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+            <button type="button" onClick={() => setTaskType('allday')} className={`flex-1 py-1.5 text-sm font-semibold rounded-md transition-colors ${taskType === 'allday' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>{t('全天任务 (Calendar)', 'All-Day')}</button>
+            <button type="button" onClick={() => { setTaskType('scheduled'); if(!time) setTime('09:00'); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-md transition-colors ${taskType === 'scheduled' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>{t('时间轴任务 (Timeline)', 'Scheduled')}</button>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('任务描述', 'Description')}</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('需要完成什么？', 'Task details...')} autoFocus />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid ${taskType === 'scheduled' ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('分类', 'Category')}</label>
               <div className="flex gap-2">
@@ -422,183 +429,75 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
                 <button type="button" onClick={() => setShowNewCatInput(!showNewCatInput)} className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"><Plus size={18}/></button>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" />
-            </div>
+            {taskType === 'scheduled' && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
+                  <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" required />
+                </div>
+            )}
           </div>
-
-          {showNewCatInput && (
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex gap-2 animate-in slide-in-from-top-2">
-              <input value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 text-sm outline-none dark:text-white" placeholder={t('新分类名称', 'New Category Name')} />
-              <button type="button" onClick={() => { if(newCatName) { onAddCategory(newCatName); setNewCatName(''); setShowNewCatInput(false); setCategory(newCatName); } }} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium">{t('添加', 'Add')}</button>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('优先级', 'Priority')}</label>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(PRIORITIES).map(([key, val]) => (
-                <button key={key} type="button" onClick={() => setPriority(priority === key ? '' : key)} className={`p-3 rounded-lg text-sm font-medium border transition-all ${priority === key ? val.color + ' border-transparent shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>{val.label[t('zh', 'en')]}</button>
-              ))}
-            </div>
+          <div className="flex gap-3 mt-6">
+            <button type="button" onClick={handleCloseModal} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
+            <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
           </div>
-          
-          <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-              <button type="button" onClick={() => setIsRecurring(!isRecurring)} className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${isRecurring ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'}`}>{isRecurring && <Check size={14} strokeWidth={3} />}</button>
-              <div>
-                  <h4 className="text-sm font-medium text-slate-800 dark:text-white flex items-center gap-2"><Repeat size={14}/> {t('每日循环', 'Daily Recurring')}</h4>
-                  <p className="text-xs text-slate-500">{t('将此任务自动排期到未来30天', 'Copy to next 30 days')}</p>
-              </div>
-          </div>
-
-          <button type="submit" className="w-full bg-indigo-600 text-white font-semibold py-3.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-all text-base mt-4">{t('保存', 'Save Task')}</button>
         </form>
       </div>
     </div>
   );
 };
 
-
-// --- Shared TaskCard Component ---
-const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, categories, t }) => {
+const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, categories, t }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [editTitle, setEditTitle] = useState(task?.title || '');
-    const [editCategory, setEditCategory] = useState(task?.category || categories[0]?.name);
-    const [editPriority, setEditPriority] = useState(task?.priority || '');
-    const [editRecurring, setEditRecurring] = useState(task?.recurring === 'daily');
-    const [editComment, setEditComment] = useState(task?.comment || '');
-    const [dragOverPos, setDragOverPos] = useState(null);
+    const [editTitle, setEditTitle] = useState(task.title);
 
-    useEffect(() => {
-        if (isEditing) {
-            setEditTitle(task?.title || '');
-            setEditCategory(task?.category || categories[0]?.name);
-            setEditPriority(task?.priority || '');
-            setEditRecurring(task?.recurring === 'daily');
-            setEditComment(task?.comment || '');
-        }
-    }, [isEditing, task, categories]);
-  
-    const priorityInfo = PRIORITIES[task?.priority];
-    const catObj = categories.find(c => c.name === task?.category) || { color: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400' };
-    const isUrgentHighlight = task?.priority === 'urgent_important' && !task?.completed;
-  
     const handleSave = () => {
-        if (!editTitle.trim()) return;
-        const updates = { 
-            title: editTitle, 
-            category: editCategory, 
-            priority: editPriority, 
-            recurring: editRecurring ? 'daily' : 'none',
-            comment: editComment.trim()
-        };
-        
-        if (task?.recurring === 'daily' && !editRecurring) {
-            updates.cancelRecurring = true;
-        } else if (task?.recurring !== 'daily' && editRecurring) {
-            updates.makeRecurring = true;
-        }
-        
-        onUpdateTask(task.id, updates);
+        if(editTitle.trim()) onUpdateTask(task.id, { title: editTitle });
         setIsEditing(false);
     };
-  
-    if (isEditing) {
-        return (
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-indigo-500 p-4 shadow-md animate-in zoom-in-95 duration-200 w-full min-w-0">
-                <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-base font-semibold mb-3 border-b border-indigo-200 dark:border-indigo-800 outline-none bg-transparent dark:text-white pb-1" autoFocus />
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                    <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white">
-                        {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
-                    <select value={editPriority} onChange={e => setEditPriority(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white">
-                        <option value="">{t('无优先级', 'No Priority')}</option>
-                        {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label[t('zh','en')]}</option>)}
-                    </select>
-                </div>
-                <textarea 
-                    value={editComment} 
-                    onChange={e => setEditComment(e.target.value)} 
-                    placeholder={t('添加备注 (Optional)', 'Add comment (Optional)')} 
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-xs outline-none dark:text-white mb-3 resize-none h-16 custom-scrollbar break-words"
-                />
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => setEditRecurring(!editRecurring)} className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${editRecurring ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-transparent'}`}>
-                            {editRecurring && <Check size={12} strokeWidth={3} />}
-                        </button>
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('每日循环', 'Daily Recurring')}</span>
-                    </div>
-                    {task?.recurring === 'daily' && !editRecurring && (
-                        <span className="text-xs font-semibold text-rose-500 animate-pulse">{t('将取消未来重复', 'Will cancel future tasks')}</span>
-                    )}
-                </div>
-                <div className="flex justify-end gap-2">
-                    <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-md transition-colors">{t('取消', 'Cancel')}</button>
-                    <button onClick={handleSave} className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-all">{t('保存', 'Save')}</button>
-                </div>
-            </div>
-        );
-    }
-  
-    return (
-      <div 
-          draggable 
-          onDragStart={e => e.dataTransfer.setData('taskId', task.id)}
-          onDragOver={e => {
-              if (!onReorderDrop) return;
-              e.preventDefault();
-              e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              const y = e.clientY - rect.top;
-              setDragOverPos(y < rect.height / 2 ? 'top' : 'bottom');
-          }}
-          onDragLeave={() => setDragOverPos(null)}
-          onDrop={e => {
-              if (!onReorderDrop) return;
-              e.preventDefault();
-              e.stopPropagation();
-              setDragOverPos(null);
-              const draggedId = e.dataTransfer.getData('taskId');
-              if (draggedId && draggedId !== task.id) {
-                  onReorderDrop(draggedId, task.id, dragOverPos, task.date, task.time);
-              }
-          }}
-          className={`w-full min-w-0 bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm hover:shadow-md transition-all group relative ${task?.completed ? 'opacity-50 border-slate-200 dark:border-slate-700' : (isUrgentHighlight ? 'border-rose-400 bg-rose-50/50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-slate-700')}`}
-      >
-        {dragOverPos === 'top' && <div className="absolute -top-1.5 left-0 right-0 h-1.5 bg-indigo-500 rounded-full z-50 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
-        {dragOverPos === 'bottom' && <div className="absolute -bottom-1.5 left-0 right-0 h-1.5 bg-indigo-500 rounded-full z-50 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
 
-        <div className="flex items-start gap-3 w-full">
-          <button onClick={() => onToggle(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task?.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
-            {task?.completed && <Check size={14} strokeWidth={3} />}
-          </button>
-          <div className="flex-1 min-w-0 overflow-hidden" onDoubleClick={() => setIsEditing(true)}>
-            <h4 className={`text-base font-medium truncate block w-full ${task?.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`} title={task?.title}>{task?.title}</h4>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className={`text-xs px-2 py-0.5 rounded font-medium border whitespace-nowrap ${catObj.color}`}>{task?.category || t('未分类', 'Draft')}</span>
-              {priorityInfo && <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${priorityInfo.color}`}>{priorityInfo.label[t('zh', 'en')]}</span>}
-              {task?.time && <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap"><Clock size={12}/>{task.time}</span>}
-              {task?.recurring === 'daily' && <span className="text-xs text-indigo-500 dark:text-indigo-400 flex items-center gap-1"><Repeat size={12}/></span>}
-            </div>
-            {task?.comment && (
-                <div className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-md border border-slate-100 dark:border-slate-700/50 italic break-words whitespace-pre-wrap">
-                    {task.comment}
+    const catInfo = categories.find(c => c.name === task.category) || categories[0];
+
+    return (
+        <div 
+            draggable 
+            onDragStart={e => { e.dataTransfer.setData('taskId', task.id); }}
+            onDragOver={e => { e.preventDefault(); }}
+            onDrop={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                const draggedId = e.dataTransfer.getData('taskId');
+                if (draggedId && draggedId !== task.id && onReorderDrop) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const dropY = e.clientY - rect.top;
+                    const position = dropY < rect.height / 2 ? 'top' : 'bottom';
+                    onReorderDrop(draggedId, task.id, position, task.date, task.time);
+                }
+            }}
+            className={`group flex items-center gap-3 p-3 sm:p-4 rounded-xl border transition-all cursor-default ${task.completed ? 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 opacity-70' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md'}`}
+        >
+            <button onClick={() => onToggle(task.id)} className={`shrink-0 w-6 h-6 rounded-md border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
+                {task.completed && <Check size={14} strokeWidth={3} />}
+            </button>
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <div className="flex items-center gap-2 mb-1">
+                    {task.time && <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1"><Clock size={12}/>{task.time}</span>}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${catInfo?.color || LABEL_COLORS[0]}`}>{task.category}</span>
+                    {task.recurring === 'daily' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 dark:bg-indigo-900/30 flex items-center" title={t('每日重复', 'Daily Recurring')}><Repeat size={10}/></span>}
                 </div>
-            )}
-          </div>
-          <div className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity pl-1">
-            <button onClick={() => setIsEditing(true)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Edit size={16}/></button>
-            <button onClick={() => onDelete(task.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={16}/></button>
-            <div className="p-1 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing">
-                <GripVertical size={16} />
+                {isEditing ? (
+                    <input autoFocus type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={handleSave} onKeyDown={e => e.key === 'Enter' && handleSave()} className="text-sm font-semibold text-slate-800 dark:text-white bg-transparent outline-none border-b border-indigo-500 w-full" />
+                ) : (
+                    <span className={`text-sm font-semibold truncate ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.title}</span>
+                )}
             </div>
-          </div>
+            <div className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity pl-1">
+                <button onClick={() => setIsEditing(true)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Edit size={16}/></button>
+                <button onClick={() => onDelete(task.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={16}/></button>
+                <div className="p-1 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing"><GripVertical size={16} /></div>
+            </div>
         </div>
-      </div>
     );
-});
+};
 
 // --- 3. HabitTrackerComponent ---
 const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabits, t }) => {
@@ -1454,10 +1353,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
       </div>
     );
 };
-
-const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categories, onUpdateTask }) => {
+const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, deleteTask, categories, onUpdateTask }) => {
     const [curr, setCurr] = useState(new Date());
     const [viewingDate, setViewingDate] = useState(null);
+    const [showAddMenu, setShowAddMenu] = useState(false);
     const year = curr.getFullYear(); const month = curr.getMonth();
     const days = new Date(year, month + 1, 0).getDate();
     const startDay = new Date(year, month, 1).getDay();
@@ -1492,7 +1391,7 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
                   {day && <>
                       <div className="flex justify-between items-start mb-2">
                           <span className={`text-base font-semibold w-8 h-8 flex items-center justify-center rounded-md transition-all ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300'}`}>{day}</span>
-                          <button onClick={(e) => { e.stopPropagation(); goToTimeline(dateStr); }} className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"><Plus size={18} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); openAddModal(dateStr, ''); }} className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"><Plus size={18} /></button>
                       </div>
                       <div className="space-y-1.5">
                           {dayTasks.slice(0, 4).map(tData => <div key={tData.id} className={`text-xs font-medium p-1.5 px-2 rounded bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 truncate ${tData.completed ? 'line-through opacity-50' : ''}`}>{tData.title}</div>)}
@@ -1518,8 +1417,27 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
                       {tasks.filter(t => t.date === viewingDate).length === 0 ? <div className="text-center py-10 text-slate-400 font-medium">{t('无安排', 'No tasks')}</div> :
                         tasks.filter(t => t.date === viewingDate).map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={undefined} categories={categories} t={t} />)}
                   </div>
-                  <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-                      <button onClick={() => { goToTimeline(viewingDate); setViewingDate(null); }} className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-sm flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all"><Plus size={20} /> {t('添加计划', 'Add Plan')}</button>
+                  <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative">
+                      <button onClick={() => setShowAddMenu(!showAddMenu)} className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-sm flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all"><Plus size={20} /> {t('添加计划', 'Add Plan')} <ChevronDown size={18}/></button>
+                      
+                      {showAddMenu && (
+                          <div className="absolute bottom-full left-6 right-6 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2 z-[210]">
+                              <button onClick={() => { openAddModal(viewingDate, ''); setViewingDate(null); setShowAddMenu(false); }} className="w-full px-4 py-3 text-left text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 border-b border-slate-100 dark:border-slate-700/50 transition-colors">
+                                  <div className="w-8 h-8 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0"><CalendarDays size={16}/></div>
+                                  <div>
+                                      <div className="text-slate-800 dark:text-white">{t('添加全天任务', 'Add All-Day Task')}</div>
+                                      <div className="text-xs text-slate-500 font-normal">{t('直接显示在日历中，无需指定时间', 'Shows in calendar directly without time')}</div>
+                                  </div>
+                              </button>
+                              <button onClick={() => { openAddModal(viewingDate, '09:00'); setViewingDate(null); setShowAddMenu(false); }} className="w-full px-4 py-3 text-left text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 transition-colors">
+                                  <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0"><Clock size={16}/></div>
+                                  <div>
+                                      <div className="text-slate-800 dark:text-white">{t('添加时间轴任务', 'Add to Timeline')}</div>
+                                      <div className="text-xs text-slate-500 font-normal">{t('指定具体时间，显示在时间轴', 'Specify time for timeline view')}</div>
+                                  </div>
+                              </button>
+                          </div>
+                      )}
                   </div>
               </div>
           </div>
@@ -2098,7 +2016,7 @@ export default function App() {
             ) : (
                 <>
                     {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
-                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
+                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
                     {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
