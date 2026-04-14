@@ -39,7 +39,6 @@ const db = getFirestore(app);
 const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
 const secondaryAuth = getAuth(secondaryApp);
 
-// Critical Fix: Must use environmental appId for correct permissions
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main';
 
 // --- Constants ---
@@ -367,25 +366,27 @@ const StaffManagerModal = ({ isOpen, onClose, globalStaffRegistry, myStaffRegist
     );
 };
 
-const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCategory, prefilledTime = "", t }) => {
+const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCategory, prefilledTime = "", mode = 'default', t }) => {
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState(categories[0]?.name || t('工作', 'Work'));
+  const [category, setCategory] = useState(categories[0]?.name || t('工作', 'Work') || '');
   const [priority, setPriority] = useState('');
   const [time, setTime] = useState(prefilledTime);
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
+  
+  const isAllDay = mode === 'allday';
 
   useEffect(() => { 
       if (isOpen) { 
           setTitle(''); 
-          setTime(prefilledTime); 
+          setTime(isAllDay ? '' : prefilledTime); 
           setPriority(''); 
           setIsRecurring(false); 
           setNewCatName('');
           setShowNewCatInput(false);
       } 
-  }, [isOpen, prefilledTime]);
+  }, [isOpen, prefilledTime, isAllDay]);
 
   if (!isOpen) return null;
 
@@ -396,15 +397,15 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   const handleSubmit = (e) => {
     e.preventDefault(); 
     if (!title.trim()) return;
-    onAdd({ title, category, priority, time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
+    onAdd({ title, category, priority, time: isAllDay ? '' : time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
     handleCloseModal();
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={handleCloseModal}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4" onClick={handleCloseModal}>
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建计划', 'New Plan')}</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('新建计划', 'New Plan')} {isAllDay && <span className="text-xs font-semibold bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400 px-2 py-1 rounded ml-2">{t('全天任务', 'All-Day')}</span>}</h3>
           <button onClick={handleCloseModal} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -412,7 +413,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('任务描述', 'Description')}</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('需要完成什么？', 'Task details...')} autoFocus />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid gap-4 ${isAllDay ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('分类', 'Category')}</label>
               <div className="flex gap-2">
@@ -422,10 +423,12 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
                 <button type="button" onClick={() => setShowNewCatInput(!showNewCatInput)} className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"><Plus size={18}/></button>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" />
-            </div>
+            {!isAllDay && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
+                  <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" />
+                </div>
+            )}
           </div>
 
           {showNewCatInput && (
@@ -464,7 +467,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
 const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, categories, t }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(task?.title || '');
-    const [editCategory, setEditCategory] = useState(task?.category || categories[0]?.name);
+    const [editCategory, setEditCategory] = useState(task?.category || categories[0]?.name || '');
     const [editPriority, setEditPriority] = useState(task?.priority || '');
     const [editRecurring, setEditRecurring] = useState(task?.recurring === 'daily');
     const [editComment, setEditComment] = useState(task?.comment || '');
@@ -473,7 +476,7 @@ const TaskCard = memo(({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, 
     useEffect(() => {
         if (isEditing) {
             setEditTitle(task?.title || '');
-            setEditCategory(task?.category || categories[0]?.name);
+            setEditCategory(task?.category || categories[0]?.name || '');
             setEditPriority(task?.priority || '');
             setEditRecurring(task?.recurring === 'daily');
             setEditComment(task?.comment || '');
@@ -630,7 +633,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
 
     const displayedHabits = habits.filter(h => {
          if (h.targetMonth) return h.targetMonth === currentMonthKey;
-         const hasCompletionsThisMonth = (h.completedDays || []).some(d => d.startsWith(currentMonthKey));
+         const hasCompletionsThisMonth = (h.completedDays || []).some(d => d?.startsWith?.(currentMonthKey));
          if (hasCompletionsThisMonth) return true;
          const realCurrentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
          return currentMonthKey === realCurrentMonthKey;
@@ -656,7 +659,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
         }
     };
 
-    // Calculate habits from the selected clone source month
+    // Calculate habits from the selected clone source month (Safely handle potentially malformed completedDays)
     const sourceMonthKey = `${cloneYear}-${String(cloneMonth + 1).padStart(2, '0')}`;
     const sourceHabits = habits.filter(h => h.targetMonth === sourceMonthKey || (!h.targetMonth && (h.completedDays || []).some(d => d?.startsWith?.(sourceMonthKey))));
 
@@ -694,12 +697,9 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
             <div className="overflow-x-auto overflow-y-auto custom-scrollbar pb-2 flex-1 max-h-[50vh] min-h-[300px]">
                 <table className="w-full border-collapse min-w-[800px]">
                     <thead>
-                        {/* 将表头的 border-b 移除，改用各 th 内建阴影 (inset shadow) 以确保吸顶时边框不消失 */}
                         <tr className="text-xs font-semibold text-slate-500">
-                            {/* 加入 sticky top-0, z-30 (比下面高), 以及右侧和底部的内阴影 */}
                             <th className="text-left py-3 px-4 sticky left-0 top-0 bg-white dark:bg-slate-900 z-30 whitespace-nowrap min-w-[120px] shadow-[inset_-1px_-1px_0_0_#e2e8f0] dark:shadow-[inset_-1px_-1px_0_0_#1e293b]">{t('习惯', 'Habit')}</th>
                             <th className="text-left py-3 px-4 min-w-[120px] whitespace-nowrap sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]">{t('目标', 'Goal')}</th>
-                            {/* 加入 min-w-[150px] 防止 progress bar 所在的列被右侧格子过度挤压 */}
                             <th className="text-left py-3 px-4 min-w-[150px] whitespace-nowrap sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]">{t('当月进度', 'Progress')}</th>
                             <th className="py-3 px-4 sticky top-0 bg-white dark:bg-slate-900 z-20 shadow-[inset_0_-1px_0_0_#e2e8f0] dark:shadow-[inset_0_-1px_0_0_#1e293b]">
                                 <div className="flex gap-1">
@@ -719,14 +719,12 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
                             return (
                                 <tr key={habit.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors last:border-0">
-                                    {/* 为第一列悬浮加一个右侧内阴影边界，方便向右滑动时有边界感 */}
                                     <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 whitespace-nowrap shadow-[inset_-1px_0_0_0_#f1f5f9] dark:shadow-[inset_-1px_0_0_0_#1e293b]">
                                         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{habit.name}</span>
                                     </td>
                                     <td className="py-3 px-4">
                                         <span className="inline-block text-sm text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{habit.goal || '-'}</span>
                                     </td>
-                                    {/* 给进度条外框加入最小宽度保护 min-w-[100px] */}
                                     <td className="py-3 px-4">
                                         <div className="flex items-center gap-3 w-full min-w-[100px]">
                                             <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -1039,7 +1037,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 
     // Calculations for the current month
     const currentMonthPrefix = getLocalDateString(new Date()).slice(0, 7);
-    const monthlyTxs = financeData.transactions.filter(t => t.date.startsWith(currentMonthPrefix));
+    const monthlyTxs = financeData.transactions.filter(t => t?.date?.startsWith?.(currentMonthPrefix));
     const monthlyIncome = monthlyTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const monthlyExpense = monthlyTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     const totalCommitments = financeData.commitments.reduce((s, c) => s + c.amount, 0);
@@ -1455,17 +1453,21 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
     );
 };
 
-const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categories, onUpdateTask }) => {
+const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categories, onUpdateTask, openAddModal }) => {
     const [curr, setCurr] = useState(new Date());
     const [viewingDate, setViewingDate] = useState(null);
-    const year = curr.getFullYear(); const month = curr.getMonth();
+    const [taskMode, setTaskMode] = useState('allday'); 
+    
+    const year = curr.getFullYear(); 
+    const month = curr.getMonth();
     const days = new Date(year, month + 1, 0).getDate();
     const startDay = new Date(year, month, 1).getDay();
     const slots = [...Array(startDay).fill(null), ...Array(days).fill(0).map((_, i) => i + 1)];
+    
     return (
       <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <header className="p-6 sm:p-8 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+          <header className="p-6 sm:p-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900 gap-4">
               <div className="flex items-center gap-4">
                   <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{curr.toLocaleString(t('zh-CN', 'en-US'), { month: 'long', year: 'numeric' })}</h2>
                   <div className="relative w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors overflow-hidden">
@@ -1473,10 +1475,20 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
                       <input type="month" value={`${year}-${String(month + 1).padStart(2, '0')}`} onChange={(e) => { if (e.target.value) { const [y, m] = e.target.value.split('-'); setCurr(new Date(y, m - 1, 1)); } }} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
               </div>
-              <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <button onClick={() => setCurr(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors text-slate-600 dark:text-slate-300"><ChevronLeft size={20}/></button>
-                  <button onClick={() => setCurr(new Date())} className="px-6 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{t('今天', 'Today')}</button>
-                  <button onClick={() => setCurr(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors text-slate-600 dark:text-slate-300"><ChevronRight size={20}/></button>
+              <div className="flex items-center gap-3">
+                  <select 
+                      value={taskMode} 
+                      onChange={e => setTaskMode(e.target.value)}
+                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm font-semibold outline-none text-slate-700 dark:text-slate-300 shadow-sm cursor-pointer"
+                  >
+                      <option value="allday">{t('全天日历模式', 'All-Day Mode')}</option>
+                      <option value="timeline">{t('时间轴模式', 'Timeline Mode')}</option>
+                  </select>
+                  <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <button onClick={() => setCurr(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors text-slate-600 dark:text-slate-300"><ChevronLeft size={20}/></button>
+                      <button onClick={() => setCurr(new Date())} className="px-6 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{t('今天', 'Today')}</button>
+                      <button onClick={() => setCurr(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors text-slate-600 dark:text-slate-300"><ChevronRight size={20}/></button>
+                  </div>
               </div>
           </header>
           <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -1492,7 +1504,11 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
                   {day && <>
                       <div className="flex justify-between items-start mb-2">
                           <span className={`text-base font-semibold w-8 h-8 flex items-center justify-center rounded-md transition-all ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300'}`}>{day}</span>
-                          <button onClick={(e) => { e.stopPropagation(); goToTimeline(dateStr); }} className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"><Plus size={18} /></button>
+                          <button onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (taskMode === 'timeline') goToTimeline(dateStr); 
+                              else openAddModal(dateStr, "", true);
+                          }} className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"><Plus size={18} /></button>
                       </div>
                       <div className="space-y-1.5">
                           {dayTasks.slice(0, 4).map(tData => <div key={tData.id} className={`text-xs font-medium p-1.5 px-2 rounded bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 truncate ${tData.completed ? 'line-through opacity-50' : ''}`}>{tData.title}</div>)}
@@ -1519,7 +1535,12 @@ const CalendarView = ({ tasks, t, goToTimeline, toggleTask, deleteTask, categori
                         tasks.filter(t => t.date === viewingDate).map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={undefined} categories={categories} t={t} />)}
                   </div>
                   <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-                      <button onClick={() => { goToTimeline(viewingDate); setViewingDate(null); }} className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-sm flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all"><Plus size={20} /> {t('添加计划', 'Add Plan')}</button>
+                      <button onClick={() => { 
+                          if (taskMode === 'timeline') { goToTimeline(viewingDate); setViewingDate(null); }
+                          else { openAddModal(viewingDate, "", true); }
+                      }} className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-sm flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all">
+                          <Plus size={20} /> {taskMode === 'timeline' ? t('前往时间轴添加', 'Add in Timeline') : t('直接添加全天任务', 'Add All-Day Task')}
+                      </button>
                   </div>
               </div>
           </div>
@@ -1598,7 +1619,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                                       <div className="space-y-3 w-full min-w-0">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
                                           
-                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
+                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
                                               <Plus size={16}/> {t('添加任务', 'Add Task')}
                                           </button>
                                       </div>
@@ -1648,9 +1669,9 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
         }
     }, [date]);
 
-    const cycleYear = parseInt(date.split('-')[0], 10);
-    const cycleMonth = parseInt(date.split('-')[1], 10);
-    const daysInMonth = new Date(cycleYear, cycleMonth, 0).getDate();
+    const cycleYear = parseInt(date.split('-')[0] || new Date().getFullYear(), 10);
+    const cycleMonth = parseInt(date.split('-')[1] || new Date().getMonth() + 1, 10);
+    const daysInMonth = new Date(cycleYear, cycleMonth, 0).getDate() || 30;
     const cycleRanges = { 1: [1, 10], 2: [11, 20], 3: [21, daysInMonth] };
     const cycleMinDate = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-${String(cycleRanges[activeCycle]?.[0] || 1).padStart(2, '0')}`;
     const cycleMaxDate = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-${String(cycleRanges[activeCycle]?.[1] || 10).padStart(2, '0')}`;
@@ -1704,7 +1725,9 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
         return (
             <div className="flex flex-wrap gap-1.5 mt-2.5">
                 {daysArr.map(dStr => {
-                    const dayNum = parseInt(dStr.split('-')[2], 10);
+                    const dayParts = dStr.split('-');
+                    if (dayParts.length < 3) return null;
+                    const dayNum = parseInt(dayParts[2], 10);
                     const isPassed = dStr < todayStr;
                     return (
                         <div 
@@ -1874,15 +1897,17 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
       );
 };
 
+// --- 5. Main App Logic ---
 export default function App() {
   const [view, setView] = useState('focus');
   const [user, setUser] = useState(null);
   const [viewedUserId, setViewedUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [globalStaffRegistry, setGlobalStaffRegistry] = useState([]);
+  const [staffRegistry, setStaffRegistry] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalMode, setAddModalMode] = useState('default');
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [prefilledTime, setPrefilledTime] = useState("");
   const [targetDate, setTargetDate] = useState(getLocalDateString(new Date()));
@@ -1902,10 +1927,9 @@ export default function App() {
     else { document.documentElement.classList.remove('dark'); }
   }, [isDarkMode]);
 
-  // Handle Authentication and Data Access Control
   useEffect(() => {
-    let unsubRegistry = () => {};
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
+        setUser(u);
         if (u) {
             const isAdm = ADMIN_EMAILS.includes(u.email?.toLowerCase());
             setIsAdmin(isAdm);
@@ -1915,41 +1939,26 @@ export default function App() {
                 setViewedUserId(savedViewedId || u.uid);
                 
                 const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-                unsubRegistry = onSnapshot(registryRef, (d) => {
+                onSnapshot(registryRef, (d) => {
                     if (d.exists()) {
-                        setGlobalStaffRegistry(d.data().list || []);
+                        setStaffRegistry(d.data().list || []);
                     }
                 });
-                setUser(u);
-                setAuthLoading(false);
             } else {
-                const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-                unsubRegistry = onSnapshot(registryRef, (d) => {
+                const userMappingRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
+                getDoc(userMappingRef).then(d => {
                     const currentList = d.exists() ? d.data().list || [] : [];
-                    if (!currentList.find(x => x.email === u.email)) {
-                        signOut(auth);
-                        setUser(null);
-                        setAuthError('unauthorized');
-                        setAuthLoading(false);
-                    } else {
-                        setViewedUserId(u.uid);
-                        setUser(u);
-                        setAuthLoading(false);
+                    if (!currentList.find(x => x.uid === u.uid)) {
+                        setDoc(userMappingRef, { list: [...currentList, { email: u.email, uid: u.uid }] }, { merge: true });
                     }
                 });
             }
-        } else {
-            setUser(null);
-            setAuthLoading(false);
         }
+        setAuthLoading(false);
     });
-    return () => {
-        unsubAuth();
-        unsubRegistry();
-    };
-  }, []); 
+    return () => unsubAuth();
+  }, []);
 
-  // Synchronize Firestore Data based on viewedUserId
   useEffect(() => {
     if (!user || !viewedUserId) return;
     const path = (c) => doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data');
@@ -2025,7 +2034,7 @@ export default function App() {
       saveData('tasks', { list: n });
   };
 
-  const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
+  const myStaffRegistry = isAdmin && user ? staffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
 
   if (authLoading) return <div className="flex h-screen w-full items-center justify-center dark:bg-slate-950"><RefreshCw className="animate-spin text-indigo-600" size={48} /></div>;
   if (!user) return <LoginPage t={t} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} lang={lang} setLang={setLang} authError={authError} />;
@@ -2047,17 +2056,9 @@ export default function App() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg shadow-sm">
                         <Eye size={16} className="text-indigo-600 ml-1" />
-                        <select 
-                            value={viewedUserId} 
-                            onChange={(e) => {
-                                const newId = e.target.value;
-                                setViewedUserId(newId);
-                                localStorage.setItem('planner_viewed_userId', newId);
-                            }} 
-                            className="bg-transparent text-sm font-semibold outline-none pr-2 cursor-pointer dark:text-slate-200"
-                        >
+                        <select value={viewedUserId} onChange={(e) => setViewedUserId(e.target.value)} className="bg-transparent text-sm font-semibold outline-none pr-2 cursor-pointer dark:text-slate-200">
                             <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
-                            {myStaffRegistry.map((s, i) => {
+                            {staffRegistry.map((s, i) => {
                                 if (!s || typeof s !== 'object' || !s.uid) return null;
                                 return <option key={s.uid || i} value={s.uid}>{s.email}</option>
                             })}
@@ -2072,13 +2073,7 @@ export default function App() {
                 <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="p-2 text-slate-500 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">{lang === 'zh' ? 'EN' : '中'}</button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
             </div>
-            <button 
-                onClick={() => {
-                    localStorage.removeItem('planner_viewed_userId');
-                    signOut(auth);
-                }} 
-                className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 px-4 py-2 rounded-lg border border-rose-100 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors font-semibold text-sm flex items-center gap-2"
-            >
+            <button onClick={() => signOut(auth)} className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 px-4 py-2 rounded-lg border border-rose-100 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors font-semibold text-sm flex items-center gap-2">
                 <LogOut size={16}/> <span className="hidden md:inline">{t('退出', 'Logout')}</span>
             </button>
           </div>
@@ -2098,8 +2093,8 @@ export default function App() {
             ) : (
                 <>
                     {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
-                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
-                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onReorderTask={handleReorderTask} />}
+                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} openAddModal={(d, timeStr, isAllDay) => { setTargetDate(d); setPrefilledTime(timeStr); setAddModalMode(isAllDay ? 'allday' : 'default'); setIsAddModalOpen(true); }} />}
+                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setAddModalMode('default'); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
                     {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
                 </>
@@ -2107,7 +2102,7 @@ export default function App() {
         </div>
       </main>
 
-      <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={(taskData) => {
+      <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} mode={addModalMode} onAdd={(taskData) => {
           let n = [...tasks];
           if (taskData.recurring === 'daily') {
               const newTasks = [];
@@ -2129,7 +2124,7 @@ export default function App() {
           myStaffRegistry={myStaffRegistry}
           currentUser={user}
       />
- 
+
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
