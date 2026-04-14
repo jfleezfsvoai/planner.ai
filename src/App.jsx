@@ -12,7 +12,8 @@ import {
   CheckCircle2, Circle, Gift, Palette, Aperture, MousePointer2, 
   Triangle, Box, Circle as CircleIcon, HeartPulse, Wallet, Rocket, Users2,
   Check, Edit, Repeat, UserPlus, ShieldCheck, EyeOff, ArrowUpRight, ArrowDownRight,
-  PiggyBank, CreditCard, ListOrdered, Landmark, Image as ImageIcon, History
+  PiggyBank, CreditCard, ListOrdered, Landmark, Image as ImageIcon, History,
+  MessageSquare
 } from 'lucide-react';
 
 // --- Firebase Imports ---
@@ -46,8 +47,8 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'lifechanger-pro-main
 const ADMIN_EMAILS = ["gohyuenwei@gmail.com", "jfleezfsvoai@gmail.com"];
 
 const PRIORITIES = {
-    'urgent_important': { label: {zh: '紧急重要', en: 'Urgent & Important'}, color: 'bg-rose-500 text-white' },
-    'important_not_urgent': { label: {zh: '重要不紧急', en: 'Important, Not Urgent'}, color: 'bg-amber-500 text-white' }
+    'urgent_important': { label: {zh: '紧急重要', en: 'Urgent & Important'}, color: 'bg-rose-500 text-white', dot: 'text-rose-500' },
+    'important_not_urgent': { label: {zh: '重要不紧急', en: 'Important, Not Urgent'}, color: 'bg-amber-500 text-white', dot: 'text-amber-500' }
 };
 
 const LABEL_COLORS = [
@@ -386,8 +387,9 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
           setNewCatName('');
           setShowNewCatInput(false);
           setTaskType(prefilledTime ? 'scheduled' : 'allday');
+          setCategory(categories[0]?.name || t('工作', 'Work'));
       } 
-  }, [isOpen, prefilledTime]);
+  }, [isOpen, prefilledTime, categories, t]);
 
   if (!isOpen) return null;
 
@@ -400,6 +402,15 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
     if (!title.trim()) return;
     onAdd({ title, category, priority, time: taskType === 'allday' ? '' : time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
     handleCloseModal();
+  };
+
+  const handleAddNewCategory = () => {
+      if (newCatName.trim()) {
+          onAddCategory(newCatName.trim());
+          setCategory(newCatName.trim());
+          setNewCatName('');
+          setShowNewCatInput(false);
+      }
   };
 
   return (
@@ -428,6 +439,12 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
                 </select>
                 <button type="button" onClick={() => setShowNewCatInput(!showNewCatInput)} className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"><Plus size={18}/></button>
               </div>
+              {showNewCatInput && (
+                  <div className="flex gap-2 mt-2 animate-in slide-in-from-top-1">
+                      <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder={t('新分类名称', 'New Category Name')} className="flex-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-2 text-sm outline-none dark:text-white" />
+                      <button type="button" onClick={handleAddNewCategory} className="px-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">{t('添加', 'Add')}</button>
+                  </div>
+              )}
             </div>
             {taskType === 'scheduled' && (
                 <div className="space-y-1.5">
@@ -446,54 +463,151 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   );
 };
 
-const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onReorderDrop, categories, t }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editTitle, setEditTitle] = useState(task.title);
-
-    const handleSave = () => {
-        if(editTitle.trim()) onUpdateTask(task.id, { title: editTitle });
-        setIsEditing(false);
+// --- New EditTaskModal ---
+const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
+    const [title, setTitle] = useState('');
+    const [category, setCategory] = useState('');
+    const [priority, setPriority] = useState('none');
+    const [time, setTime] = useState('');
+    const [comments, setComments] = useState('');
+  
+    useEffect(() => { 
+        if (isOpen && task) { 
+            setTitle(task.title || ''); 
+            setTime(task.time || ''); 
+            setPriority(task.priority || 'none'); 
+            setComments(task.comments || '');
+            setCategory(task.category || categories[0]?.name || '');
+        } 
+    }, [isOpen, task, categories]);
+  
+    if (!isOpen || !task) return null;
+  
+    const handleSubmit = (e) => {
+      e.preventDefault(); 
+      if (!title.trim()) return;
+      onSave(task.id, { title, category, priority, time, comments });
+      onClose();
     };
+  
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('编辑计划细节', 'Edit Task Details')}</h3>
+            <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+          </div>
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('任务描述', 'Description')}</label>
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" required />
+            </div>
 
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><MessageSquare size={16}/>{t('备注 / Comments', 'Comments')}</label>
+              <textarea value={comments} onChange={e => setComments(e.target.value)} rows={3} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm resize-none" placeholder={t('添加执行细节、总结或链接...', 'Add execution details, summary or links...')} />
+            </div>
+  
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('分类', 'Category')}</label>
+                <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                  {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><Flag size={16}/>{t('优先级', 'Priority')}</label>
+                <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                    <option value="none">{t('无', 'None')}</option>
+                    <option value="urgent_important">{PRIORITIES.urgent_important.label[t('zh', 'en')]}</option>
+                    <option value="important_not_urgent">{PRIORITIES.important_not_urgent.label[t('zh', 'en')]}</option>
+                </select>
+              </div>
+            </div>
+
+            {task.time !== '' && task.time !== undefined && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
+                  <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" required />
+                </div>
+            )}
+  
+            <div className="flex gap-3 mt-6 pt-2">
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
+              <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存修改', 'Save Changes')}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+};
+
+
+const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorderDrop, categories, t }) => {
+    const [dragPos, setDragPos] = useState(null); // 'top' | 'bottom' | null
     const catInfo = categories.find(c => c.name === task.category) || categories[0];
+    const priorityInfo = PRIORITIES[task.priority];
 
     return (
-        <div 
-            draggable 
-            onDragStart={e => { e.dataTransfer.setData('taskId', task.id); }}
-            onDragOver={e => { e.preventDefault(); }}
-            onDrop={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                const draggedId = e.dataTransfer.getData('taskId');
-                if (draggedId && draggedId !== task.id && onReorderDrop) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const dropY = e.clientY - rect.top;
-                    const position = dropY < rect.height / 2 ? 'top' : 'bottom';
-                    onReorderDrop(draggedId, task.id, position, task.date, task.time);
-                }
-            }}
-            className={`group flex items-center gap-3 p-3 sm:p-4 rounded-xl border transition-all cursor-default ${task.completed ? 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 opacity-70' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md'}`}
-        >
-            <button onClick={() => onToggle(task.id)} className={`shrink-0 w-6 h-6 rounded-md border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
-                {task.completed && <Check size={14} strokeWidth={3} />}
-            </button>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <div className="flex items-center gap-2 mb-1">
-                    {task.time && <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1"><Clock size={12}/>{task.time}</span>}
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${catInfo?.color || LABEL_COLORS[0]}`}>{task.category}</span>
-                    {task.recurring === 'daily' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 dark:bg-indigo-900/30 flex items-center" title={t('每日重复', 'Daily Recurring')}><Repeat size={10}/></span>}
-                </div>
-                {isEditing ? (
-                    <input autoFocus type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={handleSave} onKeyDown={e => e.key === 'Enter' && handleSave()} className="text-sm font-semibold text-slate-800 dark:text-white bg-transparent outline-none border-b border-indigo-500 w-full" />
-                ) : (
+        <div className="relative group min-w-0">
+            {/* Drag & Drop Visual Indicator lines */}
+            {dragPos === 'top' && <div className="absolute -top-1.5 left-0 right-0 h-[4px] bg-indigo-500 rounded-full z-20 shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-in fade-in" />}
+            {dragPos === 'bottom' && <div className="absolute -bottom-1.5 left-0 right-0 h-[4px] bg-indigo-500 rounded-full z-20 shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-in fade-in" />}
+            
+            <div 
+                draggable 
+                onDragStart={e => { e.dataTransfer.setData('taskId', task.id); }}
+                onDragOver={e => { 
+                    e.preventDefault(); 
+                    if(onReorderDrop) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const y = e.clientY - rect.top;
+                        setDragPos(y < rect.height / 2 ? 'top' : 'bottom');
+                    }
+                }}
+                onDragLeave={() => setDragPos(null)}
+                onDrop={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragPos(null);
+                    const draggedId = e.dataTransfer.getData('taskId');
+                    if (draggedId && draggedId !== task.id && onReorderDrop) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const dropY = e.clientY - rect.top;
+                        const position = dropY < rect.height / 2 ? 'top' : 'bottom';
+                        onReorderDrop(draggedId, task.id, position, task.date, task.time);
+                    }
+                }}
+                className={`flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border transition-all cursor-default ${task.completed ? 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 opacity-70' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md'}`}
+            >
+                <button onClick={() => onToggle(task.id)} className={`shrink-0 mt-0.5 sm:mt-0 w-6 h-6 rounded-md border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
+                    {task.completed && <Check size={14} strokeWidth={3} />}
+                </button>
+                
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {task.time && <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1"><Clock size={12}/>{task.time}</span>}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${catInfo?.color || LABEL_COLORS[0]}`}>{task.category}</span>
+                        {priorityInfo && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${priorityInfo.color}`}><Flag size={10}/>{priorityInfo.label[t('zh','en')]}</span>}
+                        {task.recurring === 'daily' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 dark:bg-indigo-900/30 flex items-center" title={t('每日重复', 'Daily Recurring')}><Repeat size={10}/></span>}
+                    </div>
+                    
                     <span className={`text-sm font-semibold truncate ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.title}</span>
-                )}
-            </div>
-            <div className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity pl-1">
-                <button onClick={() => setIsEditing(true)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Edit size={16}/></button>
-                <button onClick={() => onDelete(task.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={16}/></button>
-                <div className="p-1 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing"><GripVertical size={16} /></div>
+                    
+                    {task.comments && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 flex items-start gap-1.5 line-clamp-2 pr-2">
+                            <MessageSquare size={12} className="mt-0.5 shrink-0" />
+                            <span className="leading-snug">{task.comments}</span>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="shrink-0 flex items-center gap-0.5 transition-opacity pl-1 sm:opacity-0 sm:group-hover:opacity-100 mt-0.5 sm:mt-0">
+                    <button onClick={() => onEditTask(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700" title={t("编辑/备注", "Edit")}><Edit size={16}/></button>
+                    <button onClick={() => onDelete(task.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={16}/></button>
+                    <div className="p-1 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing hidden sm:block" title={t("按住拖动以重排或改期", "Drag to reorder")}><GripVertical size={16} /></div>
+                </div>
             </div>
         </div>
     );
@@ -1304,7 +1418,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 };
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, t }) => {
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, t }) => {
     const today = getLocalDateString(new Date());
     const todayTasks = tasks
         .filter(t => t.date === today)
@@ -1341,7 +1455,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                   {todayTasks.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
                   ) : (
-                     todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={undefined} categories={categories} t={t} />)
+                     todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={undefined} categories={categories} t={t} />)
                   )}
               </div>
             </div>
@@ -1353,7 +1467,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
       </div>
     );
 };
-const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, deleteTask, categories, onUpdateTask }) => {
+const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, deleteTask, onEditTask, categories, onUpdateTask }) => {
     const [curr, setCurr] = useState(new Date());
     const [viewingDate, setViewingDate] = useState(null);
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -1415,7 +1529,7 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
                   </div>
                   <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
                       {tasks.filter(t => t.date === viewingDate).length === 0 ? <div className="text-center py-10 text-slate-400 font-medium">{t('无安排', 'No tasks')}</div> :
-                        tasks.filter(t => t.date === viewingDate).map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={undefined} categories={categories} t={t} />)}
+                        tasks.filter(t => t.date === viewingDate).map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={undefined} categories={categories} t={t} />)}
                   </div>
                   <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative">
                       <button onClick={() => setShowAddMenu(!showAddMenu)} className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-sm flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all"><Plus size={20} /> {t('添加计划', 'Add Plan')} <ChevronDown size={18}/></button>
@@ -1446,7 +1560,7 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
     );
 };
 
-const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onReorderTask, categories, t }) => {
+const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onEditTask, onReorderTask, categories, t }) => {
     const [dropPrompt, setDropPrompt] = useState(null);
     const [dropTime, setDropTime] = useState('09:00');
     const hours = Array.from({ length: 19 }, (_, i) => i + 6);
@@ -1514,7 +1628,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                                   <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="min-w-0 flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
                                       <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
                                       <div className="space-y-3 w-full min-w-0">
-                                          {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
+                                          {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
                                           
                                           <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
                                               <Plus size={16}/> {t('添加任务', 'Add Task')}
@@ -1800,8 +1914,11 @@ export default function App() {
   const [globalStaffRegistry, setGlobalStaffRegistry] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null); // Used to control EditTaskModal
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  
   const [prefilledTime, setPrefilledTime] = useState("");
   const [targetDate, setTargetDate] = useState(getLocalDateString(new Date()));
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -2015,9 +2132,9 @@ export default function App() {
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
                 <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
-                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} />}
-                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onReorderTask={handleReorderTask} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
+                    {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
+                    {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
                     {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
                 </>
@@ -2038,6 +2155,15 @@ export default function App() {
           } else { n.push({ id: generateId(), completed: false, ...taskData }); }
           setTasks(n); saveData('tasks', { list: n });
       }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
+
+      <EditTaskModal
+          isOpen={!!editingTask}
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onSave={handleUpdateTask}
+          categories={categories}
+          t={t}
+      />
 
       <StaffManagerModal 
           t={t} 
