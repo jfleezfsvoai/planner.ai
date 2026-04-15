@@ -371,18 +371,20 @@ const StaffManagerModal = ({ isOpen, onClose, globalStaffRegistry, myStaffRegist
 const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCategory, prefilledTime = "", t }) => {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(categories[0]?.name || t('工作', 'Work'));
-  const [priority, setPriority] = useState('');
+  const [priority, setPriority] = useState('none');
   const [time, setTime] = useState(prefilledTime);
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [taskType, setTaskType] = useState('allday');
+  const [comments, setComments] = useState('');
 
   useEffect(() => { 
       if (isOpen) { 
           setTitle(''); 
           setTime(prefilledTime); 
-          setPriority(''); 
+          setPriority('none'); 
+          setComments('');
           setIsRecurring(false); 
           setNewCatName('');
           setShowNewCatInput(false);
@@ -400,7 +402,7 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   const handleSubmit = (e) => {
     e.preventDefault(); 
     if (!title.trim()) return;
-    onAdd({ title, category, priority, time: taskType === 'allday' ? '' : time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
+    onAdd({ title, category, priority, comments, time: taskType === 'allday' ? '' : time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
     handleCloseModal();
   };
 
@@ -430,7 +432,13 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('任务描述', 'Description')}</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('需要完成什么？', 'Task details...')} autoFocus />
           </div>
-          <div className={`grid ${taskType === 'scheduled' ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><MessageSquare size={16}/>{t('备注 / Comments', 'Comments')}</label>
+            <textarea value={comments} onChange={e => setComments(e.target.value)} rows={2} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm resize-none" placeholder={t('添加执行细节、总结或链接... (支持换行)', 'Add execution details, summary or links...')} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('分类', 'Category')}</label>
               <div className="flex gap-2">
@@ -446,13 +454,23 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
                   </div>
               )}
             </div>
-            {taskType === 'scheduled' && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" required />
-                </div>
-            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><Flag size={16}/>{t('优先级', 'Priority')}</label>
+              <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                  <option value="none">{t('无', 'None')}</option>
+                  <option value="urgent_important">{PRIORITIES.urgent_important.label[t('zh', 'en')]}</option>
+                  <option value="important_not_urgent">{PRIORITIES.important_not_urgent.label[t('zh', 'en')]}</option>
+              </select>
+            </div>
           </div>
+
+          {taskType === 'scheduled' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('时间', 'Time')}</label>
+                <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white" required />
+              </div>
+          )}
+          
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={handleCloseModal} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
             <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
@@ -596,9 +614,9 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorde
                     <span className={`text-sm font-semibold truncate ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.title}</span>
                     
                     {task.comments && (
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 flex items-start gap-1.5 line-clamp-2 pr-2">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 flex items-start gap-1.5 pr-2">
                             <MessageSquare size={12} className="mt-0.5 shrink-0" />
-                            <span className="leading-snug">{task.comments}</span>
+                            <span className="leading-snug whitespace-pre-wrap break-words w-full">{task.comments}</span>
                         </div>
                     )}
                 </div>
@@ -2164,7 +2182,7 @@ export default function App() {
           categories={categories}
           t={t}
       />
-
+ 
       <StaffManagerModal 
           t={t} 
           isOpen={isStaffModalOpen} 
