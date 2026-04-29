@@ -471,6 +471,22 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
               </div>
           )}
           
+          <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mt-2">
+              <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0">
+                      <Repeat size={16} />
+                  </div>
+                  <div>
+                      <div className="text-sm font-bold text-slate-800 dark:text-white">{t('每日重复', 'Daily Recurring')}</div>
+                      <div className="text-xs text-slate-500">{t('自动创建未来30天的循环任务', 'Auto-create for next 30 days')}</div>
+                  </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+              </label>
+          </div>
+
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={handleCloseModal} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
             <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
@@ -488,6 +504,7 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
     const [priority, setPriority] = useState('none');
     const [time, setTime] = useState('');
     const [comments, setComments] = useState('');
+    const [isRecurring, setIsRecurring] = useState(false);
   
     useEffect(() => { 
         if (isOpen && task) { 
@@ -496,6 +513,7 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
             setPriority(task.priority || 'none'); 
             setComments(task.comments || '');
             setCategory(task.category || categories[0]?.name || '');
+            setIsRecurring(task.recurring === 'daily');
         } 
     }, [isOpen, task, categories]);
   
@@ -504,7 +522,17 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
     const handleSubmit = (e) => {
       e.preventDefault(); 
       if (!title.trim()) return;
-      onSave(task.id, { title, category, priority, time, comments });
+      
+      const updates = { title, category, priority, time, comments };
+      if (isRecurring && task.recurring !== 'daily') {
+          updates.recurring = 'daily';
+          updates.makeRecurring = true;
+      } else if (!isRecurring && task.recurring === 'daily') {
+          updates.recurring = 'none';
+          updates.cancelRecurring = true;
+      }
+      
+      onSave(task.id, updates);
       onClose();
     };
   
@@ -551,6 +579,22 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
                 </div>
             )}
   
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mt-2">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0">
+                        <Repeat size={16} />
+                    </div>
+                    <div>
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">{t('每日重复', 'Daily Recurring')}</div>
+                        <div className="text-[10px] text-slate-500">{isRecurring ? t('取消将删除未来未完成的此任务', 'Disable to remove future tasks') : t('自动创建未来30天的循环任务', 'Auto-create for next 30 days')}</div>
+                    </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+
             <div className="flex gap-3 mt-6 pt-2">
               <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
               <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存修改', 'Save Changes')}</button>
@@ -2182,7 +2226,7 @@ export default function App() {
           categories={categories}
           t={t}
       />
- 
+
       <StaffManagerModal 
           t={t} 
           isOpen={isStaffModalOpen} 
