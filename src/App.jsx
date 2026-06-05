@@ -1581,7 +1581,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                     className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'urgent_important' && t.completed).length}/{displayTasks.filter(t => t.priority === 'urgent_important').length}</span>
+                        </div>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('立即执行', 'DO')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
@@ -1599,7 +1602,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                     className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'important_not_urgent' && t.completed).length}/{displayTasks.filter(t => t.priority === 'important_not_urgent').length}</span>
+                        </div>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('计划执行', 'SCHEDULE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
@@ -1617,7 +1623,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                     className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'urgent_not_important' && t.completed).length}/{displayTasks.filter(t => t.priority === 'urgent_not_important').length}</span>
+                        </div>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('授权他人', 'DELEGATE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
@@ -1635,7 +1644,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                     className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'not_urgent_not_important' && t.completed).length}/{displayTasks.filter(t => t.priority === 'not_urgent_not_important').length}</span>
+                        </div>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('减少或消除', 'ELIMINATE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
@@ -1654,7 +1666,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 className="mt-4 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10 min-h-[80px]"
             >
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex justify-between items-center">
-                    <span>{t('未分类的任务收集箱 (Inbox)', 'Uncategorized Tasks Inbox')}</span>
+                    <div className="flex items-center gap-2">
+                        <span>{t('未分类的任务收集箱 (Inbox)', 'Uncategorized Tasks Inbox')}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm normal-case">{displayTasks.filter(t => (!t.priority || t.priority === 'none') && t.completed).length}/{displayTasks.filter(t => !t.priority || t.priority === 'none').length}</span>
+                    </div>
                     <span className="text-[10px] font-normal lowercase bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">{t('从此拖拽进上方图表', 'Drag from here to graph')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
