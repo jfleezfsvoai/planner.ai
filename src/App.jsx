@@ -1496,17 +1496,19 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
 const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, t }) => {
-    const today = getLocalDateString(new Date());
-    const todayTasks = tasks
-        .filter(t => t.date === today)
+    const [dashboardDate, setDashboardDate] = useState(getLocalDateString(new Date()));
+    const isToday = dashboardDate === getLocalDateString(new Date());
+
+    const displayTasks = tasks
+        .filter(t => t.date === dashboardDate)
         .sort((a, b) => {
             if (!a.time && !b.time) return 0;
             if (!a.time) return 1;
             if (!b.time) return -1;
             return a.time.localeCompare(b.time);
         });
-    const completedCount = todayTasks.filter(t => t.completed).length;
-    const progressValue = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
+    const completedCount = displayTasks.filter(t => t.completed).length;
+    const progressValue = displayTasks.length > 0 ? (completedCount / displayTasks.length) * 100 : 0;
     
     const handleQuadrantDrop = (e, targetPriority) => {
         e.preventDefault();
@@ -1535,11 +1537,26 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
 
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+                {isToday ? t('今日工作台', 'Today Workspace') : t('工作台概览', 'Workspace Overview')}
+            </h2>
+            <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-500">{t('日期 / Date:', 'Date:')}</span>
+                <input
+                    type="date"
+                    value={dashboardDate}
+                    onChange={e => setDashboardDate(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 font-medium outline-none text-slate-700 dark:text-white focus:border-indigo-500 transition-colors shadow-sm"
+                />
+            </div>
+        </div>
+
         <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/10 text-indigo-400 rounded-lg flex items-center justify-center"><Target size={20}/></div>
-                  <h3 className="text-xl font-semibold text-white">{t('今日进度', "Today's Progress")}</h3>
+                  <h3 className="text-xl font-semibold text-white">{isToday ? t('今日进度', "Today's Progress") : t('该日进度', "Date's Progress")}</h3>
               </div>
               <span className="text-3xl font-bold text-white">{Math.round(progressValue)}%</span>
           </div>
@@ -1548,7 +1565,6 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
-        {}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex flex-col">
@@ -1562,16 +1578,16 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'urgent_important')}
-                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
-                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('立即执行', 'DO')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {todayTasks.filter(t => t.priority === 'urgent_important').length === 0 ? 
+                        {displayTasks.filter(t => t.priority === 'urgent_important').length === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            todayTasks.filter(t => t.priority === 'urgent_important').map(renderQuadrantTask)
+                            displayTasks.filter(t => t.priority === 'urgent_important').map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1580,16 +1596,16 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'important_not_urgent')}
-                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
-                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('计划执行', 'SCHEDULE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {todayTasks.filter(t => t.priority === 'important_not_urgent').length === 0 ? 
+                        {displayTasks.filter(t => t.priority === 'important_not_urgent').length === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            todayTasks.filter(t => t.priority === 'important_not_urgent').map(renderQuadrantTask)
+                            displayTasks.filter(t => t.priority === 'important_not_urgent').map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1598,16 +1614,16 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'urgent_not_important')}
-                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
-                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('授权他人', 'DELEGATE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {todayTasks.filter(t => t.priority === 'urgent_not_important').length === 0 ? 
+                        {displayTasks.filter(t => t.priority === 'urgent_not_important').length === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            todayTasks.filter(t => t.priority === 'urgent_not_important').map(renderQuadrantTask)
+                            displayTasks.filter(t => t.priority === 'urgent_not_important').map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1616,16 +1632,16 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'not_urgent_not_important')}
-                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
-                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('减少或消除', 'ELIMINATE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {todayTasks.filter(t => t.priority === 'not_urgent_not_important').length === 0 ? 
+                        {displayTasks.filter(t => t.priority === 'not_urgent_not_important').length === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            todayTasks.filter(t => t.priority === 'not_urgent_not_important').map(renderQuadrantTask)
+                            displayTasks.filter(t => t.priority === 'not_urgent_not_important').map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1641,10 +1657,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                     <span>{t('未分类的任务收集箱 (Inbox)', 'Uncategorized Tasks Inbox')}</span>
                     <span className="text-[10px] font-normal lowercase bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">{t('从此拖拽进上方图表', 'Drag from here to graph')}</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    {todayTasks.filter(t => !t.priority || t.priority === 'none').length === 0 ? 
-                        <p className="text-xs text-slate-400 italic w-full">{t('所有今日任务都已规划优先级', 'All tasks have priorities assigned.')}</p> :
-                        todayTasks.filter(t => !t.priority || t.priority === 'none').map(task => (
+                <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
+                    {displayTasks.filter(t => !t.priority || t.priority === 'none').length === 0 ? 
+                        <p className="text-xs text-slate-400 italic w-full">{t('所有指定日期的任务都已规划优先级', 'All tasks have priorities assigned.')}</p> :
+                        displayTasks.filter(t => !t.priority || t.priority === 'none').map(task => (
                             <div 
                                 key={task.id} 
                                 draggable
@@ -1659,24 +1675,8 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-10">
-            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col shadow-sm h-full">
-              <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-lg font-bold text-slate-800 dark:text-white">{t('今日任务', "Today's Tasks")}</h4>
-                  <button onClick={() => goToTimeline(today)} className="bg-indigo-600 text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors"><Plus size={20}/></button>
-              </div>
-              <div className="flex flex-col gap-3 flex-1 min-w-0 overflow-y-auto custom-scrollbar pr-2 pb-2 max-h-[50vh] min-h-[300px]">
-                  {todayTasks.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400 font-medium">{t('暂时没有任务，去添加一个吧。', 'No tasks today. Add one!')}</div>
-                  ) : (
-                     todayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={undefined} categories={categories} t={t} />)
-                  )}
-              </div>
-            </div>
-
-            <div className="lg:col-span-8 flex flex-col min-w-0 h-full">
-                <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} onCloneHabits={onCloneHabits} t={t} />
-            </div>
+        <div className="w-full mb-10">
+            <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} onCloneHabits={onCloneHabits} t={t} />
         </div>
       </div>
     );
