@@ -1496,11 +1496,10 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
 const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, t }) => {
-    const [dashboardDate, setDashboardDate] = useState(getLocalDateString(new Date()));
-    const isToday = dashboardDate === getLocalDateString(new Date());
-
+    const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
+    
     const displayTasks = tasks
-        .filter(t => t.date === dashboardDate)
+        .filter(t => t.date === selectedDate)
         .sort((a, b) => {
             if (!a.time && !b.time) return 0;
             if (!a.time) return 1;
@@ -1535,28 +1534,31 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
         </div>
     );
 
+    const getQuadrantStats = (priority) => {
+        const quadTasks = priority === 'none' 
+            ? displayTasks.filter(t => !t.priority || t.priority === 'none')
+            : displayTasks.filter(t => t.priority === priority);
+        return {
+            tasks: quadTasks,
+            completed: quadTasks.filter(t => t.completed).length,
+            total: quadTasks.length
+        };
+    };
+
+    const uiStats = getQuadrantStats('urgent_important');
+    const inuStats = getQuadrantStats('important_not_urgent');
+    const uniStats = getQuadrantStats('urgent_not_important');
+    const nuniStats = getQuadrantStats('not_urgent_not_important');
+    const noneStats = getQuadrantStats('none');
+
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-                {isToday ? t('今日工作台', 'Today Workspace') : t('工作台概览', 'Workspace Overview')}
-            </h2>
-            <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-slate-500">{t('日期 / Date:', 'Date:')}</span>
-                <input
-                    type="date"
-                    value={dashboardDate}
-                    onChange={e => setDashboardDate(e.target.value)}
-                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 font-medium outline-none text-slate-700 dark:text-white focus:border-indigo-500 transition-colors shadow-sm"
-                />
-            </div>
-        </div>
-
         <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/10 text-indigo-400 rounded-lg flex items-center justify-center"><Target size={20}/></div>
-                  <h3 className="text-xl font-semibold text-white">{isToday ? t('今日进度', "Today's Progress") : t('该日进度', "Date's Progress")}</h3>
+                  <h3 className="text-xl font-semibold text-white">{t('进度', "Progress")}</h3>
+                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:border-indigo-500 transition-colors ml-2 cursor-pointer" />
               </div>
               <span className="text-3xl font-bold text-white">{Math.round(progressValue)}%</span>
           </div>
@@ -1565,6 +1567,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
+        {}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex flex-col">
@@ -1578,19 +1581,19 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'urgent_important')}
-                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'urgent_important' && t.completed).length}/{displayTasks.filter(t => t.priority === 'urgent_important').length}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">{uiStats.completed}/{uiStats.total}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('立即执行', 'DO')}</span>
                         </div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('立即执行', 'DO')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {displayTasks.filter(t => t.priority === 'urgent_important').length === 0 ? 
+                        {uiStats.total === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            displayTasks.filter(t => t.priority === 'urgent_important').map(renderQuadrantTask)
+                            uiStats.tasks.map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1599,19 +1602,19 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'important_not_urgent')}
-                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'important_not_urgent' && t.completed).length}/{displayTasks.filter(t => t.priority === 'important_not_urgent').length}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">{inuStats.completed}/{inuStats.total}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('计划执行', 'SCHEDULE')}</span>
                         </div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('计划执行', 'SCHEDULE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {displayTasks.filter(t => t.priority === 'important_not_urgent').length === 0 ? 
+                        {inuStats.total === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            displayTasks.filter(t => t.priority === 'important_not_urgent').map(renderQuadrantTask)
+                            inuStats.tasks.map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1620,19 +1623,19 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'urgent_not_important')}
-                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'urgent_not_important' && t.completed).length}/{displayTasks.filter(t => t.priority === 'urgent_not_important').length}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">{uniStats.completed}/{uniStats.total}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('授权他人', 'DELEGATE')}</span>
                         </div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('授权他人', 'DELEGATE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {displayTasks.filter(t => t.priority === 'urgent_not_important').length === 0 ? 
+                        {uniStats.total === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            displayTasks.filter(t => t.priority === 'urgent_not_important').map(renderQuadrantTask)
+                            uniStats.tasks.map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1641,19 +1644,19 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'not_urgent_not_important')}
-                    className="flex flex-col h-[240px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm">{displayTasks.filter(t => t.priority === 'not_urgent_not_important' && t.completed).length}/{displayTasks.filter(t => t.priority === 'not_urgent_not_important').length}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">{nuniStats.completed}/{nuniStats.total}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('减少或消除', 'ELIMINATE')}</span>
                         </div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('减少或消除', 'ELIMINATE')}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        {displayTasks.filter(t => t.priority === 'not_urgent_not_important').length === 0 ? 
+                        {nuniStats.total === 0 ? 
                             <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
-                            displayTasks.filter(t => t.priority === 'not_urgent_not_important').map(renderQuadrantTask)
+                            nuniStats.tasks.map(renderQuadrantTask)
                         }
                     </div>
                 </div>
@@ -1663,24 +1666,25 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
             <div 
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => handleQuadrantDrop(e, 'none')}
-                className="mt-4 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10 min-h-[80px]"
+                className="mt-4 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10 min-h-[80px] max-h-[160px] flex flex-col"
             >
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex justify-between items-center">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2">
                         <span>{t('未分类的任务收集箱 (Inbox)', 'Uncategorized Tasks Inbox')}</span>
-                        <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm normal-case">{displayTasks.filter(t => (!t.priority || t.priority === 'none') && t.completed).length}/{displayTasks.filter(t => !t.priority || t.priority === 'none').length}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">{noneStats.completed}/{noneStats.total}</span>
                     </div>
-                    <span className="text-[10px] font-normal lowercase bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">{t('从此拖拽进上方图表', 'Drag from here to graph')}</span>
+                    <span className="text-[10px] font-normal lowercase bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 hidden sm:inline-block">{t('从此拖拽进上方图表', 'Drag from here to graph')}</span>
                 </div>
-                <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
-                    {displayTasks.filter(t => !t.priority || t.priority === 'none').length === 0 ? 
-                        <p className="text-xs text-slate-400 italic w-full">{t('所有指定日期的任务都已规划优先级', 'All tasks have priorities assigned.')}</p> :
-                        displayTasks.filter(t => !t.priority || t.priority === 'none').map(task => (
+                <div className="flex flex-wrap gap-2 overflow-y-auto custom-scrollbar pr-1">
+                    {noneStats.total === 0 ? 
+                        <p className="text-xs text-slate-400 italic w-full">{t('所有任务都已规划优先级', 'All tasks have priorities assigned.')}</p> :
+                        noneStats.tasks.map(task => (
                             <div 
                                 key={task.id} 
                                 draggable
                                 onDragStart={e => e.dataTransfer.setData('taskId', task.id)}
-                                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg text-sm shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors"
+                                onClick={() => onEditTask(task)}
+                                className={`px-3 py-1.5 rounded-lg text-sm shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors border ${task.completed ? 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400 line-through' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}
                             >
                                 {task.title}
                             </div>
@@ -1690,7 +1694,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
             </div>
         </div>
 
-        <div className="w-full mb-10">
+        <div className="flex flex-col min-w-0 h-full mb-10 w-full">
             <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} onCloneHabits={onCloneHabits} t={t} />
         </div>
       </div>
@@ -1789,194 +1793,108 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
     );
 };
 
-const CycleTaskModal = ({ isOpen, onClose, onSave, task, defaultStart, defaultEnd, t }) => {
-    const [name, setName] = useState('');
-    const [step1, setStep1] = useState('');
-    const [step2, setStep2] = useState('');
-    const [step3, setStep3] = useState('');
-    const [comments, setComments] = useState('');
-    const [startDate, setStartDate] = useState(defaultStart);
-    const [endDate, setEndDate] = useState(defaultEnd);
-
-    useEffect(() => {
-        if (isOpen) {
-            setName(task?.name || '');
-            setStep1(task?.steps?.[0] || '');
-            setStep2(task?.steps?.[1] || '');
-            setStep3(task?.steps?.[2] || '');
-            setComments(task?.comments || '');
-            setStartDate(task?.startDate || defaultStart);
-            setEndDate(task?.endDate || defaultEnd);
-        }
-    }, [isOpen, task, defaultStart, defaultEnd]);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!name.trim()) return;
-        onSave({
-            id: task?.id || generateId(),
-            name,
-            steps: [step1, step2, step3],
-            comments,
-            startDate,
-            endDate,
-            completed: task?.completed || false
-        });
-    };
-
+const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onEditTask, onReorderTask, categories, t }) => {
+    const [dropPrompt, setDropPrompt] = useState(null);
+    const [dropTime, setDropTime] = useState('09:00');
+    const hours = Array.from({ length: 19 }, (_, i) => i + 6);
+    const daysToShow = [currentDate, new Date(currentDate.getTime() + 86400000)];
+    const navDays = Array.from({length: 7}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 3 + i); return d; });
+    const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
+    
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">{task ? t('编辑任务', 'Edit Task') : t('添加任务', 'Add Task')}</h3>
-                    <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('任务名称', 'Task Name')}</label>
-                        <input value={name} onChange={e=>setName(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 开发核心模块', 'Task name...')} autoFocus />
-                    </div>
-                    
-                    <div className="space-y-2 pt-2">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Target size={16}/> {t('执行细节 (工具/方法，限填三项)', 'Execution Details (Max 3)')}</label>
-                        <input value={step1} onChange={e=>setStep1(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('1. 比如：使用 Figma 设计草图', '1. e.g. Design with Figma')} />
-                        <input value={step2} onChange={e=>setStep2(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('2. 比如：配置数据库与 API', '2. e.g. Setup Database')} />
-                        <input value={step3} onChange={e=>setStep3(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('3. 比如：完成功能联调', '3. e.g. Final integration')} />
-                    </div>
+      <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-10 relative">
+          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
+              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
+                  {navDays.map((d, i) => {
+                      const isSelected = d.toDateString() === currentDate.toDateString();
+                      return (
+                          <button 
+                              key={i} 
+                              onClick={() => setCurrentDate(d)} 
+                              onDragOver={e => e.preventDefault()}
+                              onDrop={e => {
+                                  e.preventDefault();
+                                  const taskId = e.dataTransfer.getData('taskId');
+                                  if (taskId) {
+                                      setDropPrompt({ taskId, date: getLocalDateString(d) });
+                                      setDropTime('09:00');
+                                  }
+                              }}
+                              className={`flex flex-col items-center justify-center min-w-[60px] py-2 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                          >
+                              <span className="text-xs font-semibold uppercase mb-1">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'short' })}</span>
+                              <span className="text-lg font-bold">{d.getDate()}</span>
+                          </button>
+                      );
+                  })}
+              </div>
+              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={24}/></button>
+          </div>
+          
+          <div className="grid grid-cols-[80px_1fr_1fr] gap-6 mb-8">
+              <div></div>
+              {daysToShow.map((d, i) => (
+                  <div key={i} className="text-center">
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-white">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</h3>
+                      <p className="text-slate-500 text-sm mt-1">{d.toLocaleDateString(t('zh-CN', 'en-US'), { day: 'numeric', month: 'short' })}</p>
+                  </div>
+              ))}
+          </div>
 
-                    <div className="space-y-1.5 pt-2">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><MessageSquare size={16}/>{t('Comments / 备注', 'Comments')}</label>
-                        <textarea value={comments} onChange={e=>setComments(e.target.value)} rows={3} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm resize-none" placeholder={t('写下任何想法、心得或灵感...', 'Add any thoughts, notes or links...')} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('开始日期', 'Start Date')}</label>
-                            <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-rose-600 dark:text-rose-400"><AlertTriangle size={14}/>{t('Due Date', 'Due Date')}</label>
-                            <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} required className="w-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg p-3 text-sm outline-none focus:border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm" />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
-                        <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
-                    </div>
-                </form>
-            </div>
+          <div className="space-y-6">
+              {hours.map(hour => {
+                  let timeLabel; if (hour === 24 || hour === 0) timeLabel = '12:00 AM'; else if (hour === 12) timeLabel = '12:00 PM'; else if (hour > 12) timeLabel = `${hour - 12}:00 PM`; else timeLabel = `${hour}:00 AM`;
+                  const hourValue = hour === 24 ? '00:00' : `${hour.toString().padStart(2, '0')}:00`;
+                  const matchHour = hour === 24 ? 0 : hour;
+                  
+                  return (
+                      <div key={hour} className="grid grid-cols-[80px_1fr_1fr] gap-6 group items-start min-h-[100px]">
+                          <div className="pt-2 text-right shrink-0">
+                              <span className="text-xs font-semibold text-slate-400 group-hover:text-indigo-600 transition-colors">{timeLabel}</span>
+                          </div>
+                          {daysToShow.map((d, dayIndex) => {
+                              const dateStr = getLocalDateString(d);
+                              const hourTasks = tasks.filter(taskObj => taskObj.date === dateStr && taskObj.time && parseInt(taskObj.time.split(':')[0]) === matchHour);
+                              return (
+                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="min-w-0 flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
+                                      <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
+                                      <div className="space-y-3 w-full min-w-0">
+                                          {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
+                                          
+                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
+                                              <Plus size={16}/> {t('添加任务', 'Add Task')}
+                                          </button>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  );
+              })}
+          </div>
         </div>
+        
+        {dropPrompt && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setDropPrompt(null)}>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t('移动任务', 'Move Task')}</h3>
+                    <p className="text-sm text-slate-500 mb-6">{t('将任务移动到:', 'Moving task to:')} <span className="font-bold text-indigo-600 dark:text-indigo-400">{dropPrompt.date}</span></p>
+                    <div className="space-y-1.5 mb-6">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('选择时间', 'Select Time')}</label>
+                        <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" autoFocus />
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setDropPrompt(null)} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition-colors">{t('取消', 'Cancel')}</button>
+                        <button onClick={() => { onUpdateTask(dropPrompt.taskId, { date: dropPrompt.date, time: dropTime }); setDropPrompt(null); }} className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('确认', 'Confirm')}</button>
+                    </div>
+                </div>
+            </div>
+        )}
+      </div>
     );
 };
-
-// --- NEW: YearlyGoalModal ---
-const YearlyGoalModal = ({ isOpen, onClose, onSave, category, goal, t }) => {
-    const [title, setTitle] = useState('');
-    const [target, setTarget] = useState('');
-    const [current, setCurrent] = useState('');
-    const [unit, setUnit] = useState('');
-    const [action1, setAction1] = useState('');
-    const [action2, setAction2] = useState('');
-    const [action3, setAction3] = useState('');
-
-    const UNIT_SUGGESTIONS = {
-        health: ['kg', '%', '级'],
-        business: ['RM', '个', '%'],
-        finance: ['RM', 'USD'],
-        investment: ['RM', '%', '个'],
-        education: ['本', '门', '小时'],
-        family: ['次', '天', '小时'],
-        social: ['人', '次'],
-        breakthrough: ['次', '项']
-    };
-    const suggestedUnits = UNIT_SUGGESTIONS[category] || ['个', '次', 'RM', '%'];
-
-    useEffect(() => {
-        if (isOpen) {
-            setTitle(goal?.title || '');
-            setTarget(goal?.target || '');
-            setCurrent(goal?.current || '');
-            setUnit(goal?.unit || '');
-            setAction1(goal?.actions?.[0] || '');
-            setAction2(goal?.actions?.[1] || '');
-            setAction3(goal?.actions?.[2] || '');
-        }
-    }, [isOpen, goal]);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!title.trim() || !unit.trim()) return;
-        onSave(category, {
-            id: goal?.id,
-            title,
-            target: Number(target) || 0,
-            current: Number(current) || 0,
-            unit: unit.trim(),
-            actions: [action1, action2, action3],
-            completed: goal?.completed || false
-        });
-    };
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">{goal ? t('编辑核心目标', 'Edit Goal') : t('添加核心目标', 'Add Goal')}</h3>
-                    <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('目标名称', 'Goal Name')}</label>
-                        <input value={title} onChange={e=>setTitle(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 存下首付 / 降低体脂', 'e.g. Save for deposit')} autoFocus />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('目标数值', 'Target Value')}</label>
-                            <input type="number" value={target} onChange={e=>setTarget(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="100000" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('当前进度', 'Current Value')}</label>
-                            <input type="number" value={current} onChange={e=>setCurrent(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="50000" />
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5 pt-1">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('衡量参数/单位 (Unit)', 'Measurement Unit')}</label>
-                        <div className="flex flex-col gap-2">
-                            <input value={unit} onChange={e=>setUnit(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('点击下方快捷选项，或自行输入', 'Select below or type custom unit')} />
-                            <div className="flex flex-wrap gap-2">
-                                {suggestedUnits.map(u => (
-                                    <button type="button" key={u} onClick={() => setUnit(u)} className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors ${unit === u ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900/50 dark:border-indigo-600 dark:text-indigo-300 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700'}`}>
-                                        {u}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2 pt-2">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Target size={16}/> {t('三个核心行动 (如何达到)', '3 Key Actions')}</label>
-                        <input value={action1} onChange={e=>setAction1(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('行动 1', 'Action 1')} />
-                        <input value={action2} onChange={e=>setAction2(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('行动 2', 'Action 2')} />
-                        <input value={action3} onChange={e=>setAction3(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('行动 3', 'Action 3')} />
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
-                        <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-// --- END NEW ---
 
 const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const [tab, setTab] = useState('daily');
@@ -2005,19 +1923,52 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const cycleKey = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-C${activeCycle}`;
     const cycleTasks = reviews.cycleTasks?.[cycleKey] || [];
     
+    // Cycle Modal States
     const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
-    const [editingCycleTask, setEditingCycleTask] = useState(null);
+    const [cycleForm, setCycleForm] = useState({ id: null, name: '', detail1: '', detail2: '', detail3: '', comments: '', startDate: '', endDate: '' });
 
-    const handleSaveCycleTask = (taskData) => {
+    const openCycleModal = (task = null) => {
+        if (task) {
+            setCycleForm({
+                id: task.id,
+                name: task.name || '',
+                detail1: task.detail1 || '',
+                detail2: task.detail2 || '',
+                detail3: task.detail3 || '',
+                comments: task.comments || '',
+                startDate: task.startDate || cycleMinDate,
+                endDate: task.endDate || cycleMaxDate
+            });
+        } else {
+            setCycleForm({ id: null, name: '', detail1: '', detail2: '', detail3: '', comments: '', startDate: cycleMinDate, endDate: cycleMaxDate });
+        }
+        setIsCycleModalOpen(true);
+    };
+
+    const handleSaveCycleTask = (e) => {
+        e.preventDefault();
+        if (!cycleForm.name.trim()) return;
+        
+        const taskData = {
+            id: cycleForm.id || generateId(),
+            name: cycleForm.name,
+            detail1: cycleForm.detail1,
+            detail2: cycleForm.detail2,
+            detail3: cycleForm.detail3,
+            comments: cycleForm.comments,
+            startDate: cycleForm.startDate,
+            endDate: cycleForm.endDate,
+            completed: cycleForm.id ? cycleTasks.find(t => t.id === cycleForm.id)?.completed || false : false
+        };
+
         let updated;
-        if (editingCycleTask) {
-            updated = cycleTasks.map(t => t.id === taskData.id ? taskData : t);
+        if (cycleForm.id) {
+            updated = cycleTasks.map(t => t.id === cycleForm.id ? taskData : t);
         } else {
             updated = [...cycleTasks, taskData];
         }
         onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: updated } });
         setIsCycleModalOpen(false);
-        setEditingCycleTask(null);
     };
 
     const toggleCycleTask = (taskId) => {
@@ -2030,39 +1981,37 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
         onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: updated } });
     };
 
-    const renderTaskTimeline = (startDate, endDate) => {
+    const renderTaskDays = (startDate, endDate) => {
         if (!startDate || !endDate) return null;
         const daysArr = getDaysArray(startDate, endDate);
         const todayStr = getLocalDateString(new Date());
-
+        
         return (
-            <div className="flex flex-col gap-2 mt-3">
+            <div className="flex flex-col gap-1.5 mt-3">
                 {daysArr.map(dStr => {
-                    const dObj = new Date(dStr);
-                    // Updated Format: e.g., 5 June 2026 (Fri) - English only
-                    const formattedDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'long' })} ${dObj.getFullYear()} (${dObj.toLocaleString('en-US', { weekday: 'short' })})`;
+                    const d = new Date(dStr);
+                    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                    const dateFormatted = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ( ${days[d.getDay()]} )`;
+                    
+                    const isPassed = dStr < todayStr;
+                    const isToday = dStr === todayStr;
+                    const isDue = dStr === endDate;
 
-                    let styleClass = "";
-                    let icon = null;
-
-                    // Updated Colors: Standard, clear, non-pastel colors matching the site design
-                    if (dStr < todayStr) {
-                        styleClass = "text-slate-400 line-through bg-slate-50 border-slate-200 dark:bg-slate-800/30 dark:border-slate-700/50 dark:text-slate-500 opacity-70";
-                    } else if (dStr === endDate) {
-                        styleClass = "bg-white border-rose-300 text-rose-600 dark:bg-slate-900 dark:border-rose-800/80 dark:text-rose-400 font-bold shadow-sm";
-                        icon = <AlertTriangle size={14} className="ml-auto text-rose-500" />;
-                    } else if (dStr === todayStr) {
-                        styleClass = "bg-white border-amber-300 text-amber-600 dark:bg-slate-900 dark:border-amber-700/80 dark:text-amber-500 font-bold shadow-sm";
-                        icon = <Clock size={14} className="ml-auto text-amber-500" />;
+                    let colorClass = "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700";
+                    if (isPassed) {
+                        colorClass = "text-slate-400 bg-slate-100 border-slate-200 line-through dark:bg-slate-800/50 dark:border-slate-700/50 dark:text-slate-500";
+                    } else if (isDue) {
+                        colorClass = "text-rose-600 bg-rose-50 border-rose-300 font-bold dark:bg-rose-900/40 dark:border-rose-600/50 dark:text-rose-400 shadow-sm";
+                    } else if (isToday) {
+                        colorClass = "text-amber-600 bg-amber-50 border-amber-300 font-bold dark:bg-amber-900/40 dark:border-amber-600/50 dark:text-amber-400 shadow-sm";
                     } else {
-                        styleClass = "bg-white border-slate-200 text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300";
+                        colorClass = "text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-700/50 dark:text-indigo-400";
                     }
 
                     return (
-                        <div key={dStr} className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 transition-all ${styleClass}`}>
-                            <CalendarDays size={14} className="shrink-0 opacity-70" />
-                            <span>{formattedDate}</span>
-                            {icon}
+                        <div key={dStr} className={`px-3 py-1.5 text-xs rounded-md border transition-all w-fit ${colorClass}`}>
+                            {dateFormatted}
                         </div>
                     )
                 })}
@@ -2070,63 +2019,78 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
         );
     };
 
-    const daily = { keep: ['', '', ''], improve: ['', '', ''], start: ['', '', ''], stop: ['', '', ''], ...(reviews?.daily?.[date] || {}) };
-    
-    // Yearly States & Logic Update
+    // Sorted by shortest remaining time
+    const sortedCycleTasks = [...cycleTasks].sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+
+    // Yearly Modals & States
     const [isYearlyModalOpen, setIsYearlyModalOpen] = useState(false);
-    const [yearlyModalData, setYearlyModalData] = useState({ category: '', goal: null });
+    const [yearlyForm, setYearlyForm] = useState({ id: null, catKey: '', name: '', target: '', current: '', unit: '', action1: '', action2: '', action3: '' });
 
-    const getYearlyGoals = (cat) => {
-        const raw = reviews?.yearly?.[cat];
-        if (Array.isArray(raw)) {
-            // Guard against legacy data (array of strings)
-            if (raw.length > 0 && typeof raw[0] === 'string') return [];
-            return raw;
+    const openYearlyModal = (catKey, goal = null) => {
+        if (goal) {
+            setYearlyForm({
+                id: goal.id, catKey, name: goal.name || '', target: goal.target || '', current: goal.current || '', unit: goal.unit || '',
+                action1: goal.action1 || '', action2: goal.action2 || '', action3: goal.action3 || ''
+            });
+        } else {
+            setYearlyForm({ id: null, catKey, name: '', target: '', current: '', unit: '', action1: '', action2: '', action3: '' });
         }
-        return [];
-    };
-
-    const openYearlyModal = (category, goal = null) => {
-        setYearlyModalData({ category, goal });
         setIsYearlyModalOpen(true);
     };
 
-    const handleSaveYearlyGoal = (category, newGoal) => {
-        const currentGoals = getYearlyGoals(category);
+    const handleSaveYearlyGoal = (e) => {
+        e.preventDefault();
+        const { id, catKey, name, target, current, unit, action1, action2, action3 } = yearlyForm;
+        if (!name.trim()) return;
+
+        const goalData = {
+            id: id || generateId(), name, target: parseFloat(target) || 0, current: parseFloat(current) || 0, unit,
+            action1, action2, action3, completed: id ? (reviews.yearly?.[catKey] || []).find(g => g.id === id)?.completed || false : false
+        };
+
+        const existing = Array.isArray(reviews.yearly?.[catKey]) ? reviews.yearly[catKey].filter(g => typeof g === 'object') : [];
         let updated;
-        if (newGoal.id) {
-            updated = currentGoals.map(g => g.id === newGoal.id ? newGoal : g);
+        if (id) {
+            updated = existing.map(g => g.id === id ? goalData : g);
         } else {
-            updated = [...currentGoals, { ...newGoal, id: generateId(), completed: false }];
+            updated = [...existing, goalData];
         }
-        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [category]: updated } });
+
+        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [catKey]: updated } });
         setIsYearlyModalOpen(false);
     };
 
-    const toggleYearlyGoal = (category, goalId) => {
-        const currentGoals = getYearlyGoals(category);
-        const updated = currentGoals.map(g => g.id === goalId ? { ...g, completed: !g.completed } : g);
-        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [category]: updated } });
+    const toggleYearlyGoal = (catKey, goalId) => {
+        const existing = Array.isArray(reviews.yearly?.[catKey]) ? reviews.yearly[catKey].filter(g => typeof g === 'object') : [];
+        const updated = existing.map(g => g.id === goalId ? { ...g, completed: !g.completed } : g);
+        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [catKey]: updated } });
     };
 
-    const deleteYearlyGoal = (category, goalId) => {
-        const currentGoals = getYearlyGoals(category);
-        const updated = currentGoals.filter(g => g.id !== goalId);
-        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [category]: updated } });
+    const deleteYearlyGoal = (catKey, goalId) => {
+        const existing = Array.isArray(reviews.yearly?.[catKey]) ? reviews.yearly[catKey].filter(g => typeof g === 'object') : [];
+        const updated = existing.filter(g => g.id !== goalId);
+        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [catKey]: updated } });
     };
 
+    const daily = { keep: ['', '', ''], improve: ['', '', ''], start: ['', '', ''], stop: ['', '', ''], ...(reviews?.daily?.[date] || {}) };
     const updateDaily = (field, idx, val) => { const newList = Array.isArray(daily[field]) ? [...daily[field]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: newList } } }); };
     
     const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle2}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
     const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users2, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
     
-    const sortedCycleTasks = [...cycleTasks].sort((a, b) => {
-        if (a.completed !== b.completed) return a.completed ? 1 : -1;
-        return new Date(a.endDate) - new Date(b.endDate);
-    });
+    const unitSuggestions = {
+        finance: ['RM', 'USD', '%'],
+        health: ['kg', '% (体脂率)', '% (内脏脂肪)', '次'],
+        family: ['次', '天', '个'],
+        business: ['RM (业绩)', '个 (新市场/客户)', '单', '%'],
+        investment: ['%', 'RM'],
+        social: ['个', '次'],
+        education: ['本 (书)', '门 (课)', '小时'],
+        breakthrough: ['个', '次', '%']
+    };
 
     return (
-        <div className="max-w-6xl mx-auto pb-20 space-y-8 animate-in fade-in">
+        <div className="max-w-6xl mx-auto pb-20 space-y-8 animate-in fade-in relative">
           <header className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('复盘', 'Review')}</h2>
             <div className="flex items-center gap-4 flex-wrap justify-center">
@@ -2163,7 +2127,7 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
 
             {tab === 'cycle' && (
                 <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6 animate-in fade-in">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                                 <Repeat size={20} className="text-indigo-500"/>
@@ -2174,8 +2138,8 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button onClick={() => { setEditingCycleTask(null); setIsCycleModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2 font-semibold text-sm whitespace-nowrap">
-                                <Plus size={18} strokeWidth={3} /> {t('添加任务', 'Add Task')}
+                            <button onClick={() => openCycleModal()} className="bg-indigo-600 text-white font-semibold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors text-sm">
+                                <Plus size={16} /> {t('添加任务', 'Add Task')}
                             </button>
                             <select 
                                 value={activeCycle} 
@@ -2190,55 +2154,42 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                     </div>
 
                     <div className="space-y-4 flex-1">
-                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 px-1">{t('本周期任务列表', 'Cycle Task List')}</h4>
                         {sortedCycleTasks.length === 0 ? (
                             <div className="text-center py-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/30">
                                 <Target className="mx-auto text-slate-400 mb-3" size={32} />
-                                <p className="text-slate-500 font-medium text-sm">{t('此周期暂无任务，请点击上方按钮添加', 'No tasks for this cycle yet.')}</p>
+                                <p className="text-slate-500 font-medium text-sm">{t('此周期暂无任务，请点击右上方按钮添加', 'No tasks for this cycle yet.')}</p>
                             </div>
                         ) : (
                             sortedCycleTasks.map(task => (
-                                <div key={task.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-5 flex gap-4 items-stretch shadow-sm transition-all hover:shadow-md h-[420px] lg:h-[340px] ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
+                                <div key={task.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-5 flex gap-4 items-start shadow-sm transition-all hover:shadow-md ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
                                     <button onClick={() => toggleCycleTask(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
                                         {task.completed && <Check size={14} strokeWidth={3} />}
                                     </button>
                                     
-                                    {/* Responsive flex container to handle fixed height properly with scrolling */}
-                                    <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 min-w-0 h-full overflow-hidden">
-                                        
-                                        {/* Left Side: Title & Date Bar */}
-                                        <div className="w-full lg:w-1/2 flex flex-col min-h-0 h-[45%] lg:h-full">
-                                            <h4 className={`text-base font-bold truncate shrink-0 ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.name}</h4>
-                                            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-3">
-                                                {renderTaskTimeline(task.startDate, task.endDate)}
-                                            </div>
+                                    <div className="flex-1 flex flex-col lg:flex-row gap-6 min-w-0">
+                                        <div className="lg:w-1/4 flex flex-col justify-start shrink-0">
+                                            <h4 className={`text-base font-bold break-words ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.name}</h4>
+                                            {renderTaskDays(task.startDate, task.endDate)}
                                         </div>
-                                        
-                                        {/* Right Side: Execution Details & Comments */}
-                                        <div className="w-full lg:w-1/2 flex flex-col min-h-0 h-[55%] lg:h-full overflow-y-auto custom-scrollbar pr-2 pb-2">
-                                            <div className="w-full bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700/50 space-y-3 shrink-0">
-                                                <div className="space-y-1.5">
-                                                    <h5 className="text-xs font-bold text-slate-500 uppercase">{t('执行细节 / Tools', 'Execution Details')}</h5>
-                                                    <ul className="text-sm list-disc pl-4 space-y-1 text-slate-700 dark:text-slate-300">
-                                                        {task.steps?.filter(s => s?.trim()).map((step, idx) => (
-                                                            <li key={idx} className={task.completed ? 'opacity-60 line-through' : ''}>{step}</li>
-                                                        ))}
-                                                        {(!task.steps || task.steps.filter(s => s?.trim()).length === 0) && <li className="text-slate-400 italic list-none -ml-4">{t('无细节', 'No details')}</li>}
-                                                    </ul>
-                                                </div>
-                                                {task.comments && (
-                                                    <div className="space-y-1 pt-1 border-t border-slate-200 dark:border-slate-700">
-                                                        <h5 className="text-xs font-bold text-slate-500 uppercase pt-2">{t('备注 / Comments', 'Comments')}</h5>
-                                                        <p className={`text-sm mt-1 ${task.completed ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'} whitespace-pre-wrap break-words bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700`}>{task.comments}</p>
-                                                    </div>
-                                                )}
+                                        <div className="lg:w-3/4 flex flex-col gap-3 min-w-0">
+                                            <div className="w-full bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 space-y-2">
+                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('执行细节', 'Execution Details')}:</p>
+                                                {task.detail1 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2 break-words"><ChevronRight size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span className="leading-relaxed">{task.detail1}</span></p>}
+                                                {task.detail2 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2 break-words"><ChevronRight size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span className="leading-relaxed">{task.detail2}</span></p>}
+                                                {task.detail3 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2 break-words"><ChevronRight size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span className="leading-relaxed">{task.detail3}</span></p>}
                                             </div>
+                                            {task.comments && (
+                                                <div className="w-full bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                                                    <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1.5">{t('Comments', 'Comments')}:</p>
+                                                    <p className="text-sm text-indigo-900 dark:text-indigo-200 whitespace-pre-wrap break-words leading-relaxed">{task.comments}</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-2 shrink-0 border-l border-slate-100 dark:border-slate-700/50 pl-4 ml-2">
-                                        <button onClick={() => { setEditingCycleTask(task); setIsCycleModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors" title={t('编辑', 'Edit')}><Edit size={18}/></button>
-                                        <button onClick={() => deleteCycleTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-md transition-colors" title={t('删除', 'Delete')}><Trash2 size={18}/></button>
+                                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                                        <button onClick={() => openCycleModal(task)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-700 rounded-md transition-colors"><Edit size={16}/></button>
+                                        <button onClick={() => deleteCycleTask(task.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-md transition-colors"><Trash2 size={16}/></button>
                                     </div>
                                 </div>
                             ))
@@ -2251,70 +2202,79 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {yearlyCategories.map(cat => {
                         const Icon = cat.i;
-                        const goals = getYearlyGoals(cat.k);
-                        const activeGoal = goals.find(g => !g.completed);
+                        const validGoals = Array.isArray(reviews?.yearly?.[cat.k]) ? reviews.yearly[cat.k].filter(g => typeof g === 'object') : [];
+                        const activeGoal = validGoals.find(g => !g.completed);
+                        const completedGoals = validGoals.filter(g => g.completed);
 
                         return (
-                            <div key={cat.k} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-5">
-                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <div key={cat.k} className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
+                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2.5 bg-${cat.c}-50 dark:bg-${cat.c}-900/30 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-lg`}><Icon size={20} /></div>
+                                        <div className={`p-3 bg-${cat.c}-50 dark:bg-${cat.c}-900/30 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-lg`}><Icon size={24} /></div>
                                         <h4 className="text-base font-bold text-slate-800 dark:text-white">{cat.l}</h4>
                                     </div>
                                     {!activeGoal && (
-                                        <button onClick={() => openYearlyModal(cat.k)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors"><Plus size={16}/> {t('添加核心目标', 'Add Goal')}</button>
+                                        <button onClick={() => openYearlyModal(cat.k)} className="text-sm font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-md hover:bg-indigo-100 transition-colors flex items-center gap-1">
+                                            <Plus size={16} /> {t('添加核心目标', 'Add Core Goal')}
+                                        </button>
                                     )}
                                 </div>
-                                
-                                <div className="space-y-4">
-                                    {goals.map(goal => {
-                                        const pct = goal.target > 0 ? Math.min(100, (goal.current / goal.target) * 100) : 0;
-                                        return (
-                                            <div key={goal.id} className={`border rounded-xl p-4 transition-all ${goal.completed ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 shadow-sm'}`}>
-                                                <div className="flex justify-between items-start gap-4 mb-3">
-                                                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                                                        <button onClick={() => toggleYearlyGoal(cat.k, goal.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${goal.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-emerald-400 bg-white dark:bg-slate-800'}`}>
-                                                            {goal.completed && <Check size={12} strokeWidth={3} />}
-                                                        </button>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h5 className={`font-bold text-sm truncate ${goal.completed ? 'text-slate-500 line-through opacity-80' : 'text-slate-800 dark:text-white'}`}>{goal.title}</h5>
-                                                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('当前:', 'Cur:')} {goal.current.toLocaleString()} {goal.unit || ''}</span>
-                                                                <span className="text-[11px] text-slate-300 dark:text-slate-600">/</span>
-                                                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('目标:', 'Tar:')} {goal.target.toLocaleString()} {goal.unit || ''}</span>
-                                                                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 ml-1">{Math.round(pct)}%</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-0.5 shrink-0">
-                                                        <button onClick={() => openYearlyModal(cat.k, goal)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md transition-colors"><Edit size={14}/></button>
-                                                        <button onClick={() => deleteYearlyGoal(cat.k, goal.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md transition-colors"><Trash2 size={14}/></button>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-1.5 mb-3 overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all ${goal.completed ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }}></div>
-                                                </div>
-                                                
-                                                {goal.actions && goal.actions.some(a => a) && (
-                                                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-800/50">
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><Target size={10} /> {t('核心行动', 'Key Actions')}</p>
-                                                        <ul className="text-xs space-y-1 pl-4 list-disc text-slate-600 dark:text-slate-400">
-                                                            {goal.actions.filter(a => a).map((act, i) => (
-                                                                <li key={i} className={goal.completed ? 'line-through opacity-60' : ''}>{act}</li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
+
+                                {activeGoal ? (
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => toggleYearlyGoal(cat.k, activeGoal.id)} className="shrink-0 w-6 h-6 rounded border border-slate-300 dark:border-slate-500 hover:border-indigo-400 flex items-center justify-center bg-white dark:bg-slate-800 transition-all">
+                                                    {activeGoal.completed && <Check size={14} strokeWidth={3} />}
+                                                </button>
+                                                <h5 className="font-bold text-slate-800 dark:text-white text-lg">{activeGoal.name}</h5>
                                             </div>
-                                        )
-                                    })}
-                                    {goals.length === 0 && (
-                                        <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/30">
-                                            <p className="text-sm text-slate-400 font-medium">{t('未设定目标，点击右上角添加', 'No core goal set.')}</p>
+                                            <div className="flex items-center gap-1">
+                                                <button onClick={() => openYearlyModal(cat.k, activeGoal)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded bg-white dark:bg-slate-900 shadow-sm"><Edit size={14}/></button>
+                                                <button onClick={() => deleteYearlyGoal(cat.k, activeGoal.id)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded bg-white dark:bg-slate-900 shadow-sm"><Trash2 size={14}/></button>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
+
+                                        <div className="space-y-2 mb-5">
+                                            <div className="flex justify-between text-sm font-bold">
+                                                <span className="text-slate-500">{t('当前', 'Current')}: {activeGoal.current} {activeGoal.unit}</span>
+                                                <span className="text-indigo-600 dark:text-indigo-400">{t('目标', 'Target')}: {activeGoal.target} {activeGoal.unit}</span>
+                                            </div>
+                                            <div className="h-3 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full rounded-full bg-${cat.c}-500 transition-all duration-500`} 
+                                                    style={{ width: `${activeGoal.target > 0 ? Math.min(100, (activeGoal.current / activeGoal.target) * 100) : 0}%` }} 
+                                                />
+                                            </div>
+                                            <p className="text-right text-xs font-bold text-slate-400">
+                                                {activeGoal.target > 0 ? Math.min(100, (activeGoal.current / activeGoal.target) * 100).toFixed(0) : 0}%
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-2 border-t border-slate-200 dark:border-slate-700 pt-4 mt-2">
+                                            <p className="text-xs font-bold text-slate-500 uppercase">{t('三大核心动作', '3 Core Actions')}:</p>
+                                            {activeGoal.action1 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"><Target size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span>{activeGoal.action1}</span></p>}
+                                            {activeGoal.action2 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"><Target size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span>{activeGoal.action2}</span></p>}
+                                            {activeGoal.action3 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"><Target size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span>{activeGoal.action3}</span></p>}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6">
+                                        <p className="text-sm text-slate-400">{t('该部分暂无正在进行的核心目标', 'No active core goal for this category.')}</p>
+                                    </div>
+                                )}
+
+                                {completedGoals.length > 0 && (
+                                    <div className="mt-2 space-y-2">
+                                        <p className="text-xs font-bold text-slate-400 uppercase px-1">{t('已完成目标', 'Completed Goals')}</p>
+                                        {completedGoals.map(g => (
+                                            <div key={g.id} className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 px-4 py-2 rounded-lg">
+                                                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 line-through">{g.name}</span>
+                                                <CheckCircle2 size={16} className="text-emerald-500"/>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -2322,24 +2282,117 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
             )}
           </div>
 
-          <YearlyGoalModal 
-              isOpen={isYearlyModalOpen} 
-              onClose={() => setIsYearlyModalOpen(false)} 
-              onSave={handleSaveYearlyGoal} 
-              category={yearlyModalData.category}
-              goal={yearlyModalData.goal}
-              t={t} 
-          />
+          {/* Cycle Modal */}
+          {isCycleModalOpen && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setIsCycleModalOpen(false)}>
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                              {cycleForm.id ? <Edit size={18} className="text-indigo-500" /> : <Plus size={18} className="text-indigo-500" />} 
+                              {cycleForm.id ? t('编辑任务', 'Edit Task') : t('添加任务', 'Add Task')}
+                          </h3>
+                          <button onClick={() => setIsCycleModalOpen(false)} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+                      </div>
+                      
+                      <form onSubmit={handleSaveCycleTask} className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+                          <div className="space-y-1.5">
+                              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('任务名称', 'Task Name')}</label>
+                              <input value={cycleForm.name} onChange={e=>setCycleForm({...cycleForm, name: e.target.value})} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 开发核心模块', 'e.g. Develop core module')} />
+                          </div>
+                          
+                          <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">{t('执行细节 (工具与方法)', 'Execution Details')}</label>
+                              <p className="text-xs text-slate-500 mb-2">{t('只允许填写三个最重要的动作或工具：', 'List the 3 most important tools or actions:')}</p>
+                              <input value={cycleForm.detail1} onChange={e=>setCycleForm({...cycleForm, detail1: e.target.value})} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('1. 第一关键动作', '1. Primary action')} />
+                              <input value={cycleForm.detail2} onChange={e=>setCycleForm({...cycleForm, detail2: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('2. 第二关键动作', '2. Secondary action')} />
+                              <input value={cycleForm.detail3} onChange={e=>setCycleForm({...cycleForm, detail3: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('3. 第三关键动作', '3. Tertiary action')} />
+                          </div>
 
-          <CycleTaskModal 
-              isOpen={isCycleModalOpen} 
-              onClose={() => { setIsCycleModalOpen(false); setEditingCycleTask(null); }} 
-              onSave={handleSaveCycleTask} 
-              task={editingCycleTask} 
-              defaultStart={cycleMinDate} 
-              defaultEnd={cycleMaxDate} 
-              t={t} 
-          />
+                          <div className="space-y-1.5">
+                              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('Comments (备注)', 'Comments')}</label>
+                              <textarea rows={3} value={cycleForm.comments} onChange={e=>setCycleForm({...cycleForm, comments: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm resize-none" placeholder={t('任何关于任务的灵感、提醒或想法...', 'Thoughts, reminders, or inspiration...')} />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('开始日期', 'Start Date')}</label>
+                                  <input type="date" min={cycleMinDate} max={cycleMaxDate} value={cycleForm.startDate} onChange={e=>setCycleForm({...cycleForm, startDate: e.target.value})} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
+                              </div>
+                              <div className="space-y-1.5">
+                                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('Due Date (结束日期)', 'Due Date')}</label>
+                                  <input type="date" min={cycleForm.startDate || cycleMinDate} max={cycleMaxDate} value={cycleForm.endDate} onChange={e=>setCycleForm({...cycleForm, endDate: e.target.value})} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
+                              </div>
+                          </div>
+
+                          <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-all mt-4">
+                              {cycleForm.id ? t('保存修改', 'Save Changes') : t('确认添加', 'Confirm')}
+                          </button>
+                      </form>
+                  </div>
+              </div>
+          )}
+
+          {/* Yearly Modal */}
+          {isYearlyModalOpen && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setIsYearlyModalOpen(false)}>
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                              {yearlyForm.id ? <Edit size={18} className="text-indigo-500" /> : <Target size={18} className="text-indigo-500" />} 
+                              {yearlyForm.id ? t('编辑核心目标', 'Edit Core Goal') : t('设立核心目标', 'Set Core Goal')}
+                          </h3>
+                          <button onClick={() => setIsYearlyModalOpen(false)} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+                      </div>
+                      
+                      <form onSubmit={handleSaveYearlyGoal} className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+                          <div className="space-y-1.5">
+                              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('目标名称', 'Goal Name')}</label>
+                              <input value={yearlyForm.name} onChange={e=>setYearlyForm({...yearlyForm, name: e.target.value})} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 存款达到 RM 100,000', 'e.g. Save RM 100,000')} />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('当前进度 (数字)', 'Current Progress')}</label>
+                                  <input type="number" value={yearlyForm.current} onChange={e=>setYearlyForm({...yearlyForm, current: e.target.value})} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="50000" />
+                              </div>
+                              <div className="space-y-1.5">
+                                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('终极目标 (数字)', 'Target Value')}</label>
+                                  <input type="number" value={yearlyForm.target} onChange={e=>setYearlyForm({...yearlyForm, target: e.target.value})} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="100000" />
+                              </div>
+                          </div>
+
+                          <div className="space-y-2">
+                              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('参数与单位 (Unit)', 'Measurement Unit')}</label>
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                  {(unitSuggestions[yearlyForm.catKey] || []).map(u => (
+                                      <button 
+                                          key={u} 
+                                          type="button" 
+                                          onClick={() => setYearlyForm({...yearlyForm, unit: u})} 
+                                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors ${yearlyForm.unit === u ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}
+                                      >
+                                          {u}
+                                      </button>
+                                  ))}
+                              </div>
+                              <input value={yearlyForm.unit} onChange={e=>setYearlyForm({...yearlyForm, unit: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('或自行输入 (如: kg, %, RM)', 'Or type custom unit (e.g. kg, %, RM)')} />
+                          </div>
+                          
+                          <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">{t('三大核心动作', '3 Core Actions')}</label>
+                              <p className="text-xs text-slate-500 mb-2">{t('填写三个主要的动作说明您可以怎样达到这个目标：', 'List 3 actions explaining how you will achieve this:')}</p>
+                              <input value={yearlyForm.action1} onChange={e=>setYearlyForm({...yearlyForm, action1: e.target.value})} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('1. 主要动作', '1. Main action')} />
+                              <input value={yearlyForm.action2} onChange={e=>setYearlyForm({...yearlyForm, action2: e.target.value})} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('2. 辅助动作', '2. Supporting action')} />
+                              <input value={yearlyForm.action3} onChange={e=>setYearlyForm({...yearlyForm, action3: e.target.value})} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('3. 保障动作', '3. Safety action')} />
+                          </div>
+
+                          <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-all mt-4">
+                              {yearlyForm.id ? t('保存修改', 'Save Changes') : t('确认添加', 'Confirm')}
+                          </button>
+                      </form>
+                  </div>
+              </div>
+          )}
         </div>
       );
 };
@@ -2615,4 +2668,4 @@ export default function App() {
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
-} 
+}
