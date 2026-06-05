@@ -50,6 +50,14 @@ const PRIORITIES = {
     'urgent_important': { label: {zh: '紧急重要', en: 'Urgent & Important'}, color: 'bg-rose-500 text-white', dot: 'text-rose-500' },
     'important_not_urgent': { label: {zh: '重要不紧急', en: 'Important, Not Urgent'}, color: 'bg-amber-500 text-white', dot: 'text-amber-500' }
 };
+// 我们需要扩展 PRIORITIES 常量以支持四象限，如果原数据没有这四种状态，拖拽时会用到
+const EXTENDED_PRIORITIES = {
+    'urgent_important': { id: 'urgent_important', label: {zh: '紧急 & 重要', en: 'Urgent & Important'}, color: 'border-rose-500 text-rose-700 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-900/10' },
+    'important_not_urgent': { id: 'important_not_urgent', label: {zh: '重要 & 不紧急', en: 'Important, Not Urgent'}, color: 'border-amber-500 text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10' },
+    'urgent_not_important': { id: 'urgent_not_important', label: {zh: '紧急 & 不重要', en: 'Urgent, Not Important'}, color: 'border-blue-500 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10' },
+    'not_urgent_not_important': { id: 'not_urgent_not_important', label: {zh: '不紧急 & 不重要', en: 'Neither'}, color: 'border-slate-400 text-slate-700 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/30' },
+    'none': { id: 'none', label: {zh: '未分类', en: 'Uncategorized'}, color: 'border-slate-200 text-slate-500 bg-slate-50 dark:bg-slate-800/50' }
+};
 
 const LABEL_COLORS = [
     'bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300',
@@ -457,9 +465,12 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><Flag size={16}/>{t('优先级', 'Priority')}</label>
               <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                  {}
                   <option value="none">{t('无', 'None')}</option>
-                  <option value="urgent_important">{PRIORITIES.urgent_important.label[t('zh', 'en')]}</option>
-                  <option value="important_not_urgent">{PRIORITIES.important_not_urgent.label[t('zh', 'en')]}</option>
+                  <option value="urgent_important">{EXTENDED_PRIORITIES.urgent_important.label[t('zh', 'en')]}</option>
+                  <option value="important_not_urgent">{EXTENDED_PRIORITIES.important_not_urgent.label[t('zh', 'en')]}</option>
+                  <option value="urgent_not_important">{EXTENDED_PRIORITIES.urgent_not_important.label[t('zh', 'en')]}</option>
+                  <option value="not_urgent_not_important">{EXTENDED_PRIORITIES.not_urgent_not_important.label[t('zh', 'en')]}</option>
               </select>
             </div>
           </div>
@@ -565,9 +576,12 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><Flag size={16}/>{t('优先级', 'Priority')}</label>
                 <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                    {}
                     <option value="none">{t('无', 'None')}</option>
-                    <option value="urgent_important">{PRIORITIES.urgent_important.label[t('zh', 'en')]}</option>
-                    <option value="important_not_urgent">{PRIORITIES.important_not_urgent.label[t('zh', 'en')]}</option>
+                    <option value="urgent_important">{EXTENDED_PRIORITIES.urgent_important.label[t('zh', 'en')]}</option>
+                    <option value="important_not_urgent">{EXTENDED_PRIORITIES.important_not_urgent.label[t('zh', 'en')]}</option>
+                    <option value="urgent_not_important">{EXTENDED_PRIORITIES.urgent_not_important.label[t('zh', 'en')]}</option>
+                    <option value="not_urgent_not_important">{EXTENDED_PRIORITIES.not_urgent_not_important.label[t('zh', 'en')]}</option>
                 </select>
               </div>
             </div>
@@ -609,7 +623,7 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
 const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorderDrop, categories, t }) => {
     const [dragPos, setDragPos] = useState(null); // 'top' | 'bottom' | null
     const catInfo = categories.find(c => c.name === task.category) || categories[0];
-    const priorityInfo = PRIORITIES[task.priority];
+    const priorityInfo = EXTENDED_PRIORITIES[task.priority] || (task.priority !== 'none' ? PRIORITIES[task.priority] : null);
 
     return (
         <div className="relative group min-w-0">
@@ -651,7 +665,8 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorde
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {task.time && <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1"><Clock size={12}/>{task.time}</span>}
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${catInfo?.color || LABEL_COLORS[0]}`}>{task.category}</span>
-                        {priorityInfo && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${priorityInfo.color}`}><Flag size={10}/>{priorityInfo.label[t('zh','en')]}</span>}
+                        {}
+                        {priorityInfo && task.priority !== 'none' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border ${priorityInfo.color.split(' ')[0]} ${priorityInfo.color.split(' ')[1]} ${priorityInfo.color.split(' ')[2]}`}><Flag size={10}/>{priorityInfo.label[t('zh','en')]}</span>}
                         {task.recurring === 'daily' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 dark:bg-indigo-900/30 flex items-center" title={t('每日重复', 'Daily Recurring')}><Repeat size={10}/></span>}
                     </div>
                     
@@ -1492,6 +1507,32 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
         });
     const completedCount = todayTasks.filter(t => t.completed).length;
     const progressValue = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
+    
+    const handleQuadrantDrop = (e, targetPriority) => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('taskId');
+        if (taskId) {
+            onUpdateTask(taskId, { priority: targetPriority });
+        }
+    };
+
+    const renderQuadrantTask = (task) => (
+        <div 
+            key={task.id} 
+            draggable
+            onDragStart={e => e.dataTransfer.setData('taskId', task.id)}
+            onClick={() => onEditTask(task)}
+            className={`p-2 mb-2 text-sm border rounded-lg cursor-pointer transition-all shadow-sm flex items-center justify-between group ${task.completed ? 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}
+        >
+            <div className="flex items-center gap-2 truncate">
+                <button onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500'}`}>
+                    {task.completed && <Check size={10} strokeWidth={3} />}
+                </button>
+                <span className={`truncate font-medium ${task.completed ? 'line-through text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>{task.title}</span>
+            </div>
+        </div>
+    );
+
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
         <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
@@ -1505,6 +1546,117 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-white rounded-full transition-all duration-1000" style={{ width: `${progressValue}%` }} />
           </div>
+        </div>
+
+        {}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Layout size={20} className="text-slate-500"/> {t('艾森豪威尔矩阵 (优先级规划)', 'Eisenhower Matrix (Priority Graph)')}</h3>
+                    <p className="text-xs text-slate-500 mt-1">{t('拖拽任务到相应象限即可自动更新优先级。高级感极简设计，专注核心事务。', 'Drag tasks to change priority. Minimalist design for deep focus.')}</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 紧急 & 重要 */}
+                <div 
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => handleQuadrantDrop(e, 'urgent_important')}
+                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                >
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('立即执行', 'DO')}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {todayTasks.filter(t => t.priority === 'urgent_important').length === 0 ? 
+                            <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
+                            todayTasks.filter(t => t.priority === 'urgent_important').map(renderQuadrantTask)
+                        }
+                    </div>
+                </div>
+
+                {/* 重要 & 不紧急 */}
+                <div 
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => handleQuadrantDrop(e, 'important_not_urgent')}
+                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                >
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('计划执行', 'SCHEDULE')}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {todayTasks.filter(t => t.priority === 'important_not_urgent').length === 0 ? 
+                            <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
+                            todayTasks.filter(t => t.priority === 'important_not_urgent').map(renderQuadrantTask)
+                        }
+                    </div>
+                </div>
+
+                {/* 紧急 & 不重要 */}
+                <div 
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => handleQuadrantDrop(e, 'urgent_not_important')}
+                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                >
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('授权他人', 'DELEGATE')}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {todayTasks.filter(t => t.priority === 'urgent_not_important').length === 0 ? 
+                            <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
+                            todayTasks.filter(t => t.priority === 'urgent_not_important').map(renderQuadrantTask)
+                        }
+                    </div>
+                </div>
+
+                {/* 不紧急 & 不重要 */}
+                <div 
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => handleQuadrantDrop(e, 'not_urgent_not_important')}
+                    className="flex flex-col min-h-[160px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                >
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t('减少或消除', 'ELIMINATE')}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {todayTasks.filter(t => t.priority === 'not_urgent_not_important').length === 0 ? 
+                            <p className="text-xs text-slate-400 italic mt-2">{t('拖拽任务至此', 'Drop tasks here')}</p> :
+                            todayTasks.filter(t => t.priority === 'not_urgent_not_important').map(renderQuadrantTask)
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            {/* 未分类的任务收集箱，方便拖入象限 */}
+            <div 
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => handleQuadrantDrop(e, 'none')}
+                className="mt-4 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10 min-h-[80px]"
+            >
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex justify-between items-center">
+                    <span>{t('未分类的任务收集箱 (Inbox)', 'Uncategorized Tasks Inbox')}</span>
+                    <span className="text-[10px] font-normal lowercase bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">{t('从此拖拽进上方图表', 'Drag from here to graph')}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {todayTasks.filter(t => !t.priority || t.priority === 'none').length === 0 ? 
+                        <p className="text-xs text-slate-400 italic w-full">{t('所有今日任务都已规划优先级', 'All tasks have priorities assigned.')}</p> :
+                        todayTasks.filter(t => !t.priority || t.priority === 'none').map(task => (
+                            <div 
+                                key={task.id} 
+                                draggable
+                                onDragStart={e => e.dataTransfer.setData('taskId', task.id)}
+                                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg text-sm shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors"
+                            >
+                                {task.title}
+                            </div>
+                        ))
+                    }
+                </div>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-10">
@@ -1622,108 +1774,194 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
     );
 };
 
-const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onEditTask, onReorderTask, categories, t }) => {
-    const [dropPrompt, setDropPrompt] = useState(null);
-    const [dropTime, setDropTime] = useState('09:00');
-    const hours = Array.from({ length: 19 }, (_, i) => i + 6);
-    const daysToShow = [currentDate, new Date(currentDate.getTime() + 86400000)];
-    const navDays = Array.from({length: 7}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 3 + i); return d; });
-    const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
-    
-    return (
-      <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-10 relative">
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
-              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
-                  {navDays.map((d, i) => {
-                      const isSelected = d.toDateString() === currentDate.toDateString();
-                      return (
-                          <button 
-                              key={i} 
-                              onClick={() => setCurrentDate(d)} 
-                              onDragOver={e => e.preventDefault()}
-                              onDrop={e => {
-                                  e.preventDefault();
-                                  const taskId = e.dataTransfer.getData('taskId');
-                                  if (taskId) {
-                                      setDropPrompt({ taskId, date: getLocalDateString(d) });
-                                      setDropTime('09:00');
-                                  }
-                              }}
-                              className={`flex flex-col items-center justify-center min-w-[60px] py-2 rounded-xl transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
-                          >
-                              <span className="text-xs font-semibold uppercase mb-1">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'short' })}</span>
-                              <span className="text-lg font-bold">{d.getDate()}</span>
-                          </button>
-                      );
-                  })}
-              </div>
-              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={24}/></button>
-          </div>
-          
-          <div className="grid grid-cols-[80px_1fr_1fr] gap-6 mb-8">
-              <div></div>
-              {daysToShow.map((d, i) => (
-                  <div key={i} className="text-center">
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-white">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</h3>
-                      <p className="text-slate-500 text-sm mt-1">{d.toLocaleDateString(t('zh-CN', 'en-US'), { day: 'numeric', month: 'short' })}</p>
-                  </div>
-              ))}
-          </div>
+const CycleTaskModal = ({ isOpen, onClose, onSave, task, defaultStart, defaultEnd, t }) => {
+    const [name, setName] = useState('');
+    const [step1, setStep1] = useState('');
+    const [step2, setStep2] = useState('');
+    const [step3, setStep3] = useState('');
+    const [comments, setComments] = useState('');
+    const [startDate, setStartDate] = useState(defaultStart);
+    const [endDate, setEndDate] = useState(defaultEnd);
 
-          <div className="space-y-6">
-              {hours.map(hour => {
-                  let timeLabel; if (hour === 24 || hour === 0) timeLabel = '12:00 AM'; else if (hour === 12) timeLabel = '12:00 PM'; else if (hour > 12) timeLabel = `${hour - 12}:00 PM`; else timeLabel = `${hour}:00 AM`;
-                  const hourValue = hour === 24 ? '00:00' : `${hour.toString().padStart(2, '0')}:00`;
-                  const matchHour = hour === 24 ? 0 : hour;
-                  
-                  return (
-                      <div key={hour} className="grid grid-cols-[80px_1fr_1fr] gap-6 group items-start min-h-[100px]">
-                          <div className="pt-2 text-right shrink-0">
-                              <span className="text-xs font-semibold text-slate-400 group-hover:text-indigo-600 transition-colors">{timeLabel}</span>
-                          </div>
-                          {daysToShow.map((d, dayIndex) => {
-                              const dateStr = getLocalDateString(d);
-                              const hourTasks = tasks.filter(taskObj => taskObj.date === dateStr && taskObj.time && parseInt(taskObj.time.split(':')[0]) === matchHour);
-                              return (
-                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="min-w-0 flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
-                                      <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
-                                      <div className="space-y-3 w-full min-w-0">
-                                          {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
-                                          
-                                          <button onClick={() => openAddModal(dateStr, hourValue)} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all opacity-40 hover:opacity-100 text-sm font-medium flex items-center justify-center gap-2">
-                                              <Plus size={16}/> {t('添加任务', 'Add Task')}
-                                          </button>
-                                      </div>
-                                  </div>
-                              );
-                          })}
-                      </div>
-                  );
-              })}
-          </div>
-        </div>
-        
-        {dropPrompt && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setDropPrompt(null)}>
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t('移动任务', 'Move Task')}</h3>
-                    <p className="text-sm text-slate-500 mb-6">{t('将任务移动到:', 'Moving task to:')} <span className="font-bold text-indigo-600 dark:text-indigo-400">{dropPrompt.date}</span></p>
-                    <div className="space-y-1.5 mb-6">
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('选择时间', 'Select Time')}</label>
-                        <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-base outline-none focus:border-indigo-500 dark:text-white shadow-sm" autoFocus />
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => setDropPrompt(null)} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition-colors">{t('取消', 'Cancel')}</button>
-                        <button onClick={() => { onUpdateTask(dropPrompt.taskId, { date: dropPrompt.date, time: dropTime }); setDropPrompt(null); }} className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('确认', 'Confirm')}</button>
-                    </div>
+    useEffect(() => {
+        if (isOpen) {
+            setName(task?.name || '');
+            setStep1(task?.steps?.[0] || '');
+            setStep2(task?.steps?.[1] || '');
+            setStep3(task?.steps?.[2] || '');
+            setComments(task?.comments || '');
+            setStartDate(task?.startDate || defaultStart);
+            setEndDate(task?.endDate || defaultEnd);
+        }
+    }, [isOpen, task, defaultStart, defaultEnd]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onSave({
+            id: task?.id || generateId(),
+            name,
+            steps: [step1, step2, step3],
+            comments,
+            startDate,
+            endDate,
+            completed: task?.completed || false
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">{task ? t('编辑任务', 'Edit Task') : t('添加任务', 'Add Task')}</h3>
+                    <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
                 </div>
+                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('任务名称', 'Task Name')}</label>
+                        <input value={name} onChange={e=>setName(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 开发核心模块', 'Task name...')} autoFocus />
+                    </div>
+                    
+                    <div className="space-y-2 pt-2">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Target size={16}/> {t('执行细节 (工具/方法，限填三项)', 'Execution Details (Max 3)')}</label>
+                        <input value={step1} onChange={e=>setStep1(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('1. 比如：使用 Figma 设计草图', '1. e.g. Design with Figma')} />
+                        <input value={step2} onChange={e=>setStep2(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('2. 比如：配置数据库与 API', '2. e.g. Setup Database')} />
+                        <input value={step3} onChange={e=>setStep3(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('3. 比如：完成功能联调', '3. e.g. Final integration')} />
+                    </div>
+
+                    <div className="space-y-1.5 pt-2">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><MessageSquare size={16}/>{t('Comments / 备注', 'Comments')}</label>
+                        <textarea value={comments} onChange={e=>setComments(e.target.value)} rows={3} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm resize-none" placeholder={t('写下任何想法、心得或灵感...', 'Add any thoughts, notes or links...')} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('开始日期', 'Start Date')}</label>
+                            <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-rose-600 dark:text-rose-400"><AlertTriangle size={14}/>{t('Due Date', 'Due Date')}</label>
+                            <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} required className="w-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg p-3 text-sm outline-none focus:border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm" />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
+                        <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
+                    </div>
+                </form>
             </div>
-        )}
-      </div>
+        </div>
     );
 };
+
+// --- NEW: YearlyGoalModal ---
+const YearlyGoalModal = ({ isOpen, onClose, onSave, category, goal, t }) => {
+    const [title, setTitle] = useState('');
+    const [target, setTarget] = useState('');
+    const [current, setCurrent] = useState('');
+    const [unit, setUnit] = useState('');
+    const [action1, setAction1] = useState('');
+    const [action2, setAction2] = useState('');
+    const [action3, setAction3] = useState('');
+
+    const UNIT_SUGGESTIONS = {
+        health: ['kg', '%', '级'],
+        business: ['RM', '个', '%'],
+        finance: ['RM', 'USD'],
+        investment: ['RM', '%', '个'],
+        education: ['本', '门', '小时'],
+        family: ['次', '天', '小时'],
+        social: ['人', '次'],
+        breakthrough: ['次', '项']
+    };
+    const suggestedUnits = UNIT_SUGGESTIONS[category] || ['个', '次', 'RM', '%'];
+
+    useEffect(() => {
+        if (isOpen) {
+            setTitle(goal?.title || '');
+            setTarget(goal?.target || '');
+            setCurrent(goal?.current || '');
+            setUnit(goal?.unit || '');
+            setAction1(goal?.actions?.[0] || '');
+            setAction2(goal?.actions?.[1] || '');
+            setAction3(goal?.actions?.[2] || '');
+        }
+    }, [isOpen, goal]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim() || !unit.trim()) return;
+        onSave(category, {
+            id: goal?.id,
+            title,
+            target: Number(target) || 0,
+            current: Number(current) || 0,
+            unit: unit.trim(),
+            actions: [action1, action2, action3],
+            completed: goal?.completed || false
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">{goal ? t('编辑核心目标', 'Edit Goal') : t('添加核心目标', 'Add Goal')}</h3>
+                    <button onClick={onClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"><X size={18}/></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('目标名称', 'Goal Name')}</label>
+                        <input value={title} onChange={e=>setTitle(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 存下首付 / 降低体脂', 'e.g. Save for deposit')} autoFocus />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('目标数值', 'Target Value')}</label>
+                            <input type="number" value={target} onChange={e=>setTarget(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="100000" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('当前进度', 'Current Value')}</label>
+                            <input type="number" value={current} onChange={e=>setCurrent(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder="50000" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('衡量参数/单位 (Unit)', 'Measurement Unit')}</label>
+                        <div className="flex flex-col gap-2">
+                            <input value={unit} onChange={e=>setUnit(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('点击下方快捷选项，或自行输入', 'Select below or type custom unit')} />
+                            <div className="flex flex-wrap gap-2">
+                                {suggestedUnits.map(u => (
+                                    <button type="button" key={u} onClick={() => setUnit(u)} className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors ${unit === u ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900/50 dark:border-indigo-600 dark:text-indigo-300 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700'}`}>
+                                        {u}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Target size={16}/> {t('三个核心行动 (如何达到)', '3 Key Actions')}</label>
+                        <input value={action1} onChange={e=>setAction1(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('行动 1', 'Action 1')} />
+                        <input value={action2} onChange={e=>setAction2(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('行动 2', 'Action 2')} />
+                        <input value={action3} onChange={e=>setAction3(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('行动 3', 'Action 3')} />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{t('取消', 'Cancel')}</button>
+                        <button type="submit" className="flex-1 py-3 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+// --- END NEW ---
 
 const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const [tab, setTab] = useState('daily');
@@ -1752,33 +1990,19 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const cycleKey = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}-C${activeCycle}`;
     const cycleTasks = reviews.cycleTasks?.[cycleKey] || [];
     
-    const [newCTaskName, setNewCTaskName] = useState('');
-    const [newCTaskDetails, setNewCTaskDetails] = useState('');
-    const [newCTaskStart, setNewCTaskStart] = useState('');
-    const [newCTaskEnd, setNewCTaskEnd] = useState('');
+    const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+    const [editingCycleTask, setEditingCycleTask] = useState(null);
 
-    useEffect(() => {
-        setNewCTaskStart(cycleMinDate);
-        setNewCTaskEnd(cycleMinDate);
-    }, [cycleMinDate]);
-
-    const handleAddCycleTask = (e) => {
-        e.preventDefault();
-        if (!newCTaskName.trim()) return;
-        const newTask = {
-            id: generateId(),
-            name: newCTaskName,
-            details: newCTaskDetails,
-            startDate: newCTaskStart,
-            endDate: newCTaskEnd,
-            completed: false
-        };
-        const existing = reviews.cycleTasks?.[cycleKey] || [];
-        onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: [...existing, newTask] } });
-        setNewCTaskName('');
-        setNewCTaskDetails('');
-        setNewCTaskStart(cycleMinDate);
-        setNewCTaskEnd(cycleMinDate);
+    const handleSaveCycleTask = (taskData) => {
+        let updated;
+        if (editingCycleTask) {
+            updated = cycleTasks.map(t => t.id === taskData.id ? taskData : t);
+        } else {
+            updated = [...cycleTasks, taskData];
+        }
+        onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: updated } });
+        setIsCycleModalOpen(false);
+        setEditingCycleTask(null);
     };
 
     const toggleCycleTask = (taskId) => {
@@ -1791,26 +2015,39 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
         onUpdateReview({ ...reviews, cycleTasks: { ...(reviews.cycleTasks || {}), [cycleKey]: updated } });
     };
 
-    const renderTaskDays = (startDate, endDate) => {
+    const renderTaskTimeline = (startDate, endDate) => {
         if (!startDate || !endDate) return null;
         const daysArr = getDaysArray(startDate, endDate);
         const todayStr = getLocalDateString(new Date());
+
         return (
-            <div className="flex flex-wrap gap-1.5 mt-2.5">
+            <div className="flex flex-col gap-2 mt-3">
                 {daysArr.map(dStr => {
-                    const dayNum = parseInt(dStr.split('-')[2], 10);
-                    const isPassed = dStr < todayStr;
+                    const dObj = new Date(dStr);
+                    // Updated Format: e.g., 5 June 2026 (Fri) - English only
+                    const formattedDate = `${dObj.getDate()} ${dObj.toLocaleString('en-US', { month: 'long' })} ${dObj.getFullYear()} (${dObj.toLocaleString('en-US', { weekday: 'short' })})`;
+
+                    let styleClass = "";
+                    let icon = null;
+
+                    // Updated Colors: Standard, clear, non-pastel colors matching the site design
+                    if (dStr < todayStr) {
+                        styleClass = "text-slate-400 line-through bg-slate-50 border-slate-200 dark:bg-slate-800/30 dark:border-slate-700/50 dark:text-slate-500 opacity-70";
+                    } else if (dStr === endDate) {
+                        styleClass = "bg-white border-rose-300 text-rose-600 dark:bg-slate-900 dark:border-rose-800/80 dark:text-rose-400 font-bold shadow-sm";
+                        icon = <AlertTriangle size={14} className="ml-auto text-rose-500" />;
+                    } else if (dStr === todayStr) {
+                        styleClass = "bg-white border-amber-300 text-amber-600 dark:bg-slate-900 dark:border-amber-700/80 dark:text-amber-500 font-bold shadow-sm";
+                        icon = <Clock size={14} className="ml-auto text-amber-500" />;
+                    } else {
+                        styleClass = "bg-white border-slate-200 text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300";
+                    }
+
                     return (
-                        <div 
-                            key={dStr} 
-                            title={dStr}
-                            className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border transition-all ${
-                                isPassed 
-                                ? 'bg-slate-100 border-slate-200 text-slate-400 line-through dark:bg-slate-800/50 dark:border-slate-700/50 dark:text-slate-500' 
-                                : 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm dark:bg-indigo-900/30 dark:border-indigo-700/50 dark:text-indigo-400'
-                            }`}
-                        >
-                            {dayNum}
+                        <div key={dStr} className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 transition-all ${styleClass}`}>
+                            <CalendarDays size={14} className="shrink-0 opacity-70" />
+                            <span>{formattedDate}</span>
+                            {icon}
                         </div>
                     )
                 })}
@@ -1819,12 +2056,60 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     };
 
     const daily = { keep: ['', '', ''], improve: ['', '', ''], start: ['', '', ''], stop: ['', '', ''], ...(reviews?.daily?.[date] || {}) };
-    const yearly = { finance: ['', '', ''], health: ['', '', ''], family: ['', '', ''], business: ['', '', ''], investment: ['', '', ''], social: ['', '', ''], education: ['', '', ''], breakthrough: ['', '', ''], ...(reviews?.yearly || {}) };
+    
+    // Yearly States & Logic Update
+    const [isYearlyModalOpen, setIsYearlyModalOpen] = useState(false);
+    const [yearlyModalData, setYearlyModalData] = useState({ category: '', goal: null });
+
+    const getYearlyGoals = (cat) => {
+        const raw = reviews?.yearly?.[cat];
+        if (Array.isArray(raw)) {
+            // Guard against legacy data (array of strings)
+            if (raw.length > 0 && typeof raw[0] === 'string') return [];
+            return raw;
+        }
+        return [];
+    };
+
+    const openYearlyModal = (category, goal = null) => {
+        setYearlyModalData({ category, goal });
+        setIsYearlyModalOpen(true);
+    };
+
+    const handleSaveYearlyGoal = (category, newGoal) => {
+        const currentGoals = getYearlyGoals(category);
+        let updated;
+        if (newGoal.id) {
+            updated = currentGoals.map(g => g.id === newGoal.id ? newGoal : g);
+        } else {
+            updated = [...currentGoals, { ...newGoal, id: generateId(), completed: false }];
+        }
+        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [category]: updated } });
+        setIsYearlyModalOpen(false);
+    };
+
+    const toggleYearlyGoal = (category, goalId) => {
+        const currentGoals = getYearlyGoals(category);
+        const updated = currentGoals.map(g => g.id === goalId ? { ...g, completed: !g.completed } : g);
+        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [category]: updated } });
+    };
+
+    const deleteYearlyGoal = (category, goalId) => {
+        const currentGoals = getYearlyGoals(category);
+        const updated = currentGoals.filter(g => g.id !== goalId);
+        onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [category]: updated } });
+    };
+
     const updateDaily = (field, idx, val) => { const newList = Array.isArray(daily[field]) ? [...daily[field]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: newList } } }); };
-    const updateYearly = (cat, idx, val) => { const newList = Array.isArray(yearly[cat]) ? [...yearly[cat]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [cat]: newList } }); };
+    
     const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle2}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
     const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users2, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
     
+    const sortedCycleTasks = [...cycleTasks].sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        return new Date(a.endDate) - new Date(b.endDate);
+    });
+
     return (
         <div className="max-w-6xl mx-auto pb-20 space-y-8 animate-in fade-in">
           <header className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
@@ -1863,7 +2148,7 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
 
             {tab === 'cycle' && (
                 <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6 animate-in fade-in">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                                 <Repeat size={20} className="text-indigo-500"/>
@@ -1873,66 +2158,73 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                                 {t('将每月分为三个周期，精细化执行长线任务。', 'Break down monthly goals into 3 execution cycles.')}
                             </p>
                         </div>
-                        <select 
-                            value={activeCycle} 
-                            onChange={e => setActiveCycle(Number(e.target.value))}
-                            className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 rounded-lg px-4 py-2.5 font-bold outline-none text-indigo-700 dark:text-indigo-400 focus:border-indigo-500 transition-colors shadow-sm"
-                        >
-                            <option value={1}>Cycle 1 (1 - 10{t('号','th')})</option>
-                            <option value={2}>Cycle 2 (11 - 20{t('号','th')})</option>
-                            <option value={3}>Cycle 3 (21 - {daysInMonth}{t('号','th')})</option>
-                        </select>
-                    </div>
-
-                    <form onSubmit={handleAddCycleTask} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <div className="md:col-span-3 space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">{t('任务名称', 'Task Name')}</label>
-                                <input value={newCTaskName} onChange={e=>setNewCTaskName(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 开发核心模块', 'Task name...')} />
-                            </div>
-                            <div className="md:col-span-4 space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">{t('执行细节 / 备注', 'Details')}</label>
-                                <input value={newCTaskDetails} onChange={e=>setNewCTaskDetails(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" placeholder={t('例: 完成数据库设计与API接口', 'Details...')} />
-                            </div>
-                            <div className="md:col-span-2 space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">{t('开始日期', 'Start Date')}</label>
-                                <input type="date" min={cycleMinDate} max={cycleMaxDate} value={newCTaskStart} onChange={e=>setNewCTaskStart(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
-                            </div>
-                            <div className="md:col-span-2 space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">{t('结束日期', 'End Date')}</label>
-                                <input type="date" min={newCTaskStart || cycleMinDate} max={cycleMaxDate} value={newCTaskEnd} onChange={e=>setNewCTaskEnd(e.target.value)} required className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm" />
-                            </div>
-                            <div className="md:col-span-1 flex items-end">
-                                <button type="submit" className="w-full h-[42px] bg-indigo-600 text-white rounded-lg flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-md"><Plus size={20} strokeWidth={3} /></button>
-                            </div>
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => { setEditingCycleTask(null); setIsCycleModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2 font-semibold text-sm whitespace-nowrap">
+                                <Plus size={18} strokeWidth={3} /> {t('添加任务', 'Add Task')}
+                            </button>
+                            <select 
+                                value={activeCycle} 
+                                onChange={e => setActiveCycle(Number(e.target.value))}
+                                className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 rounded-lg px-4 py-2.5 font-bold outline-none text-indigo-700 dark:text-indigo-400 focus:border-indigo-500 transition-colors shadow-sm"
+                            >
+                                <option value={1}>Cycle 1 (1 - 10{t('号','th')})</option>
+                                <option value={2}>Cycle 2 (11 - 20{t('号','th')})</option>
+                                <option value={3}>Cycle 3 (21 - {daysInMonth}{t('号','th')})</option>
+                            </select>
                         </div>
-                    </form>
+                    </div>
 
                     <div className="space-y-4 flex-1">
                         <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 px-1">{t('本周期任务列表', 'Cycle Task List')}</h4>
-                        {cycleTasks.length === 0 ? (
+                        {sortedCycleTasks.length === 0 ? (
                             <div className="text-center py-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/30">
                                 <Target className="mx-auto text-slate-400 mb-3" size={32} />
-                                <p className="text-slate-500 font-medium text-sm">{t('此周期暂无任务，请在上方的表单中添加', 'No tasks for this cycle yet.')}</p>
+                                <p className="text-slate-500 font-medium text-sm">{t('此周期暂无任务，请点击上方按钮添加', 'No tasks for this cycle yet.')}</p>
                             </div>
                         ) : (
-                            cycleTasks.map(task => (
-                                <div key={task.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-5 flex gap-4 items-start shadow-sm transition-all hover:shadow-md ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
+                            sortedCycleTasks.map(task => (
+                                <div key={task.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-5 flex gap-4 items-stretch shadow-sm transition-all hover:shadow-md h-[420px] lg:h-[340px] ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
                                     <button onClick={() => toggleCycleTask(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
                                         {task.completed && <Check size={14} strokeWidth={3} />}
                                     </button>
-                                    <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
-                                        <div className="min-w-0">
-                                            <h4 className={`text-base font-bold truncate ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.name}</h4>
-                                            {renderTaskDays(task.startDate, task.endDate)}
+                                    
+                                    {/* Responsive flex container to handle fixed height properly with scrolling */}
+                                    <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 min-w-0 h-full overflow-hidden">
+                                        
+                                        {/* Left Side: Title & Date Bar */}
+                                        <div className="w-full lg:w-1/2 flex flex-col min-h-0 h-[45%] lg:h-full">
+                                            <h4 className={`text-base font-bold truncate shrink-0 ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.name}</h4>
+                                            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-3">
+                                                {renderTaskTimeline(task.startDate, task.endDate)}
+                                            </div>
                                         </div>
-                                        <div className="min-w-0 flex items-center">
-                                            <div className="w-full bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                                                <p className={`text-sm ${task.completed ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'} whitespace-pre-wrap break-words`}>{task.details}</p>
+                                        
+                                        {/* Right Side: Execution Details & Comments */}
+                                        <div className="w-full lg:w-1/2 flex flex-col min-h-0 h-[55%] lg:h-full overflow-y-auto custom-scrollbar pr-2 pb-2">
+                                            <div className="w-full bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700/50 space-y-3 shrink-0">
+                                                <div className="space-y-1.5">
+                                                    <h5 className="text-xs font-bold text-slate-500 uppercase">{t('执行细节 / Tools', 'Execution Details')}</h5>
+                                                    <ul className="text-sm list-disc pl-4 space-y-1 text-slate-700 dark:text-slate-300">
+                                                        {task.steps?.filter(s => s?.trim()).map((step, idx) => (
+                                                            <li key={idx} className={task.completed ? 'opacity-60 line-through' : ''}>{step}</li>
+                                                        ))}
+                                                        {(!task.steps || task.steps.filter(s => s?.trim()).length === 0) && <li className="text-slate-400 italic list-none -ml-4">{t('无细节', 'No details')}</li>}
+                                                    </ul>
+                                                </div>
+                                                {task.comments && (
+                                                    <div className="space-y-1 pt-1 border-t border-slate-200 dark:border-slate-700">
+                                                        <h5 className="text-xs font-bold text-slate-500 uppercase pt-2">{t('备注 / Comments', 'Comments')}</h5>
+                                                        <p className={`text-sm mt-1 ${task.completed ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'} whitespace-pre-wrap break-words bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700`}>{task.comments}</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                    <button onClick={() => deleteCycleTask(task.id)} className="p-2 mt-0.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors shrink-0"><Trash2 size={18}/></button>
+
+                                    <div className="flex flex-col gap-2 shrink-0 border-l border-slate-100 dark:border-slate-700/50 pl-4 ml-2">
+                                        <button onClick={() => { setEditingCycleTask(task); setIsCycleModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors" title={t('编辑', 'Edit')}><Edit size={18}/></button>
+                                        <button onClick={() => deleteCycleTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-md transition-colors" title={t('删除', 'Delete')}><Trash2 size={18}/></button>
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -1944,19 +2236,69 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {yearlyCategories.map(cat => {
                         const Icon = cat.i;
+                        const goals = getYearlyGoals(cat.k);
+                        const activeGoal = goals.find(g => !g.completed);
+
                         return (
-                            <div key={cat.k} className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-3 bg-${cat.c}-50 dark:bg-${cat.c}-900/30 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-lg`}><Icon size={24} /></div>
-                                    <h4 className="text-base font-bold text-slate-800 dark:text-white">{cat.l}</h4>
-                                </div>
-                                <div className="space-y-3">
-                                    {[0,1,2].map(i => (
-                                    <div key={i} className="flex items-center gap-3">
-                                        <span className="text-sm font-medium text-slate-400">{i+1}.</span>
-                                        <input value={String(yearly[cat.k]?.[i] || '')} onChange={e => updateYearly(cat.k, i, e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:bg-white dark:focus:bg-slate-950 focus:border-indigo-500 dark:text-white transition-colors" placeholder={t("RM 核心目标...", "RM Set goal...")} />
+                            <div key={cat.k} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-5">
+                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2.5 bg-${cat.c}-50 dark:bg-${cat.c}-900/30 text-${cat.c}-600 dark:text-${cat.c}-400 rounded-lg`}><Icon size={20} /></div>
+                                        <h4 className="text-base font-bold text-slate-800 dark:text-white">{cat.l}</h4>
                                     </div>
-                                    ))}
+                                    {!activeGoal && (
+                                        <button onClick={() => openYearlyModal(cat.k)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors"><Plus size={16}/> {t('添加核心目标', 'Add Goal')}</button>
+                                    )}
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {goals.map(goal => {
+                                        const pct = goal.target > 0 ? Math.min(100, (goal.current / goal.target) * 100) : 0;
+                                        return (
+                                            <div key={goal.id} className={`border rounded-xl p-4 transition-all ${goal.completed ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 shadow-sm'}`}>
+                                                <div className="flex justify-between items-start gap-4 mb-3">
+                                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                        <button onClick={() => toggleYearlyGoal(cat.k, goal.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${goal.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-emerald-400 bg-white dark:bg-slate-800'}`}>
+                                                            {goal.completed && <Check size={12} strokeWidth={3} />}
+                                                        </button>
+                                                        <div className="flex-1 min-w-0">
+                                                            <h5 className={`font-bold text-sm truncate ${goal.completed ? 'text-slate-500 line-through opacity-80' : 'text-slate-800 dark:text-white'}`}>{goal.title}</h5>
+                                                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('当前:', 'Cur:')} {goal.current.toLocaleString()} {goal.unit || ''}</span>
+                                                                <span className="text-[11px] text-slate-300 dark:text-slate-600">/</span>
+                                                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('目标:', 'Tar:')} {goal.target.toLocaleString()} {goal.unit || ''}</span>
+                                                                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 ml-1">{Math.round(pct)}%</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-0.5 shrink-0">
+                                                        <button onClick={() => openYearlyModal(cat.k, goal)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-md transition-colors"><Edit size={14}/></button>
+                                                        <button onClick={() => deleteYearlyGoal(cat.k, goal.id)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md transition-colors"><Trash2 size={14}/></button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-1.5 mb-3 overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all ${goal.completed ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }}></div>
+                                                </div>
+                                                
+                                                {goal.actions && goal.actions.some(a => a) && (
+                                                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-800/50">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><Target size={10} /> {t('核心行动', 'Key Actions')}</p>
+                                                        <ul className="text-xs space-y-1 pl-4 list-disc text-slate-600 dark:text-slate-400">
+                                                            {goal.actions.filter(a => a).map((act, i) => (
+                                                                <li key={i} className={goal.completed ? 'line-through opacity-60' : ''}>{act}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                    {goals.length === 0 && (
+                                        <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/30">
+                                            <p className="text-sm text-slate-400 font-medium">{t('未设定目标，点击右上角添加', 'No core goal set.')}</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -1964,6 +2306,25 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                 </div>
             )}
           </div>
+
+          <YearlyGoalModal 
+              isOpen={isYearlyModalOpen} 
+              onClose={() => setIsYearlyModalOpen(false)} 
+              onSave={handleSaveYearlyGoal} 
+              category={yearlyModalData.category}
+              goal={yearlyModalData.goal}
+              t={t} 
+          />
+
+          <CycleTaskModal 
+              isOpen={isCycleModalOpen} 
+              onClose={() => { setIsCycleModalOpen(false); setEditingCycleTask(null); }} 
+              onSave={handleSaveCycleTask} 
+              task={editingCycleTask} 
+              defaultStart={cycleMinDate} 
+              defaultEnd={cycleMaxDate} 
+              t={t} 
+          />
         </div>
       );
 };
