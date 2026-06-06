@@ -384,6 +384,9 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringEndType, setRecurringEndType] = useState('days');
+  const [recurringDays, setRecurringDays] = useState(30);
+  const [recurringEndDate, setRecurringEndDate] = useState('');
   const [taskType, setTaskType] = useState('allday');
   const [comments, setComments] = useState('');
 
@@ -394,6 +397,9 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
           setPriority('none'); 
           setComments('');
           setIsRecurring(false); 
+          setRecurringEndType('days');
+          setRecurringDays(30);
+          setRecurringEndDate('');
           setNewCatName('');
           setShowNewCatInput(false);
           setTaskType(prefilledTime ? 'scheduled' : 'allday');
@@ -410,7 +416,16 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
   const handleSubmit = (e) => {
     e.preventDefault(); 
     if (!title.trim()) return;
-    onAdd({ title, category, priority, comments, time: taskType === 'allday' ? '' : time, date: defaultDate, recurring: isRecurring ? 'daily' : 'none' });
+    onAdd({ 
+        title, 
+        category, 
+        priority, 
+        comments, 
+        time: taskType === 'allday' ? '' : time, 
+        date: defaultDate, 
+        recurring: isRecurring ? 'daily' : 'none',
+        recurringConfig: { enabled: isRecurring, endType: recurringEndType, days: recurringDays, endDate: recurringEndDate }
+    });
     handleCloseModal();
   };
 
@@ -482,20 +497,49 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
               </div>
           )}
           
-          <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mt-2">
-              <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0">
-                      <Repeat size={16} />
+          <div className="flex flex-col bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mt-2 transition-all">
+              <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0">
+                          <Repeat size={16} />
+                      </div>
+                      <div>
+                          <div className="text-sm font-bold text-slate-800 dark:text-white">{t('循环重复', 'Recurring')}</div>
+                          <div className="text-xs text-slate-500">{t('自动创建未来的重复任务', 'Auto-create future tasks')}</div>
+                      </div>
                   </div>
-                  <div>
-                      <div className="text-sm font-bold text-slate-800 dark:text-white">{t('每日重复', 'Daily Recurring')}</div>
-                      <div className="text-xs text-slate-500">{t('自动创建未来30天的循环任务', 'Auto-create for next 30 days')}</div>
-                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} className="sr-only peer" />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                  </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-              </label>
+              
+              {isRecurring && (
+                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3 animate-in slide-in-from-top-2">
+                      <div className="flex gap-2">
+                          <div className="space-y-1.5 flex-1">
+                              <label className="text-xs font-semibold text-slate-500">{t('结束条件', 'End Condition')}</label>
+                              <select value={recurringEndType} onChange={e => setRecurringEndType(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white focus:border-indigo-500">
+                                  <option value="days">{t('按天数 (Days)', 'By Days')}</option>
+                                  <option value="date">{t('特定日期 (Date)', 'Specific Date')}</option>
+                                  <option value="forever">{t('永久 (Forever)', 'Forever (365 days)')}</option>
+                              </select>
+                          </div>
+                          {recurringEndType === 'days' && (
+                              <div className="space-y-1.5 flex-1">
+                                  <label className="text-xs font-semibold text-slate-500">{t('重复天数', 'Days Count')}</label>
+                                  <input type="number" min="1" max="365" value={recurringDays} onChange={e => setRecurringDays(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white focus:border-indigo-500" />
+                              </div>
+                          )}
+                          {recurringEndType === 'date' && (
+                              <div className="space-y-1.5 flex-1">
+                                  <label className="text-xs font-semibold text-slate-500">{t('结束于', 'End On')}</label>
+                                  <input type="date" value={recurringEndDate} onChange={e => setRecurringEndDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white focus:border-indigo-500" required />
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              )}
           </div>
 
           <div className="flex gap-3 mt-6">
@@ -516,6 +560,9 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
     const [time, setTime] = useState('');
     const [comments, setComments] = useState('');
     const [isRecurring, setIsRecurring] = useState(false);
+    const [recurringEndType, setRecurringEndType] = useState('days');
+    const [recurringDays, setRecurringDays] = useState(30);
+    const [recurringEndDate, setRecurringEndDate] = useState('');
   
     useEffect(() => { 
         if (isOpen && task) { 
@@ -525,6 +572,17 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
             setComments(task.comments || '');
             setCategory(task.category || categories[0]?.name || '');
             setIsRecurring(task.recurring === 'daily');
+            
+            // Populating recurring configs
+            if (task.recurringConfig) {
+                setRecurringEndType(task.recurringConfig.endType || 'days');
+                setRecurringDays(task.recurringConfig.days || 30);
+                setRecurringEndDate(task.recurringConfig.endDate || '');
+            } else {
+                setRecurringEndType('days');
+                setRecurringDays(30);
+                setRecurringEndDate('');
+            }
         } 
     }, [isOpen, task, categories]);
   
@@ -534,7 +592,15 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
       e.preventDefault(); 
       if (!title.trim()) return;
       
-      const updates = { title, category, priority, time, comments };
+      const updates = { 
+          title, 
+          category, 
+          priority, 
+          time, 
+          comments,
+          recurringConfig: { endType: recurringEndType, days: recurringDays, endDate: recurringEndDate }
+      };
+      
       if (isRecurring && task.recurring !== 'daily') {
           updates.recurring = 'daily';
           updates.makeRecurring = true;
@@ -593,20 +659,49 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
                 </div>
             )}
   
-            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mt-2">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0">
-                        <Repeat size={16} />
+            <div className="flex flex-col bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mt-2 transition-all">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0">
+                            <Repeat size={16} />
+                        </div>
+                        <div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-white">{t('每日重复', 'Daily Recurring')}</div>
+                            <div className="text-[10px] text-slate-500">{isRecurring ? t('取消将删除未来未完成的此任务', 'Disable to remove future tasks') : t('自动创建未来重复任务', 'Auto-create future tasks')}</div>
+                        </div>
                     </div>
-                    <div>
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">{t('每日重复', 'Daily Recurring')}</div>
-                        <div className="text-[10px] text-slate-500">{isRecurring ? t('取消将删除未来未完成的此任务', 'Disable to remove future tasks') : t('自动创建未来30天的循环任务', 'Auto-create for next 30 days')}</div>
-                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                    </label>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-                </label>
+                
+                {isRecurring && task.recurring !== 'daily' && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3 animate-in slide-in-from-top-2">
+                        <div className="flex gap-2">
+                            <div className="space-y-1.5 flex-1">
+                                <label className="text-xs font-semibold text-slate-500">{t('结束条件', 'End Condition')}</label>
+                                <select value={recurringEndType} onChange={e => setRecurringEndType(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white focus:border-indigo-500">
+                                    <option value="days">{t('按天数 (Days)', 'By Days')}</option>
+                                    <option value="date">{t('特定日期 (Date)', 'Specific Date')}</option>
+                                    <option value="forever">{t('永久 (Forever)', 'Forever (365 days)')}</option>
+                                </select>
+                            </div>
+                            {recurringEndType === 'days' && (
+                                <div className="space-y-1.5 flex-1">
+                                    <label className="text-xs font-semibold text-slate-500">{t('重复天数', 'Days Count')}</label>
+                                    <input type="number" min="1" max="365" value={recurringDays} onChange={e => setRecurringDays(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white focus:border-indigo-500" />
+                                </div>
+                            )}
+                            {recurringEndType === 'date' && (
+                                <div className="space-y-1.5 flex-1">
+                                    <label className="text-xs font-semibold text-slate-500">{t('结束于', 'End On')}</label>
+                                    <input type="date" value={recurringEndDate} onChange={e => setRecurringEndDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-2 text-sm outline-none dark:text-white focus:border-indigo-500" required />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="flex gap-3 mt-6 pt-2">
@@ -691,7 +786,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorde
 };
 
 // --- 3. HabitTrackerComponent ---
-const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabits, t }) => {
+const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabits, onReorderHabits, t }) => {
     const today = new Date();
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
@@ -702,7 +797,11 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newHabit, setNewHabit] = useState({ name: '', goal: '', frequency: daysInMonth });
+    const [newHabit, setNewHabit] = useState({ id: null, name: '', goal: '', frequency: daysInMonth });
+    
+    // Drag and Drop States
+    const [draggedHabitId, setDraggedHabitId] = useState(null);
+    const [dragOverHabitId, setDragOverHabitId] = useState(null);
     
     // States for Clone History Modal
     const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
@@ -713,8 +812,8 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
     const months = Array.from({length: 12}, (_, i) => i);
 
     useEffect(() => {
-        if (isAddModalOpen) {
-            setNewHabit({ name: '', goal: '', frequency: daysInMonth });
+        if (!isAddModalOpen) {
+            setNewHabit({ id: null, name: '', goal: '', frequency: daysInMonth });
         }
     }, [isAddModalOpen, daysInMonth]);
 
@@ -734,14 +833,28 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
         onUpdate(habitId, { completedDays: newDone });
     };
 
+    const openHabitModal = (habit = null) => {
+        if (habit) {
+            setNewHabit({ id: habit.id, name: habit.name, goal: habit.goal || '', frequency: habit.frequency || daysInMonth });
+        } else {
+            setNewHabit({ id: null, name: '', goal: '', frequency: daysInMonth });
+        }
+        setIsAddModalOpen(true);
+    };
+
     const handleCloseModal = () => {
         setIsAddModalOpen(false);
-        setNewHabit({ name: '', goal: '', frequency: daysInMonth });
     };
 
     const handleAddHabit = () => {
         if (newHabit.name) {
-            onAdd({ name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth, targetMonth: currentMonthKey, completedDays: [] });
+            if (newHabit.id) {
+                // Update existing
+                onUpdate(newHabit.id, { name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth });
+            } else {
+                // Add new
+                onAdd({ name: newHabit.name, goal: newHabit.goal, frequency: Number(newHabit.frequency) || daysInMonth, targetMonth: currentMonthKey, completedDays: [] });
+            }
             handleCloseModal();
         }
     };
@@ -776,7 +889,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                     }} className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-2 rounded-lg font-medium text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm">
                         <Copy size={16}/> {t('克隆习惯', 'Clone')}
                     </button>
-                    <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm">
+                    <button onClick={() => openHabitModal()} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm">
                         <Plus size={18}/> {t('添加习惯', 'Add Habit')}
                     </button>
                 </div>
@@ -808,10 +921,33 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                             const freq = habit.frequency || 1;
                             const progressPercentage = Math.min(100, (monthCompletions / freq) * 100);
                             return (
-                                <tr key={habit.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 transition-colors last:border-0">
+                                <tr key={habit.id} 
+                                    draggable
+                                    onDragStart={() => setDraggedHabitId(habit.id)}
+                                    onDragOver={(e) => { e.preventDefault(); setDragOverHabitId(habit.id); }}
+                                    onDragLeave={() => setDragOverHabitId(null)}
+                                    onDrop={() => {
+                                        if (draggedHabitId && draggedHabitId !== habit.id && onReorderHabits) {
+                                            const newHabits = [...habits];
+                                            const dragIdx = newHabits.findIndex(h => h.id === draggedHabitId);
+                                            const dropIdx = newHabits.findIndex(h => h.id === habit.id);
+                                            if (dragIdx !== -1 && dropIdx !== -1) {
+                                                const [draggedItem] = newHabits.splice(dragIdx, 1);
+                                                newHabits.splice(dropIdx, 0, draggedItem);
+                                                onReorderHabits(newHabits);
+                                            }
+                                        }
+                                        setDraggedHabitId(null);
+                                        setDragOverHabitId(null);
+                                    }}
+                                    className={`group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${dragOverHabitId === habit.id ? 'border-t-2 border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-b border-slate-100 dark:border-slate-800'} last:border-0`}
+                                >
                                     {/* 为第一列悬浮加一个右侧内阴影边界，方便向右滑动时有边界感 */}
                                     <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 whitespace-nowrap shadow-[inset_-1px_0_0_0_#f1f5f9] dark:shadow-[inset_-1px_0_0_0_#1e293b]">
-                                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{habit.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"><GripVertical size={14} /></div>
+                                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{habit.name}</span>
+                                        </div>
                                     </td>
                                     <td className="py-3 px-4">
                                         <span className="inline-block text-sm text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{habit.goal || '-'}</span>
@@ -839,7 +975,10 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                                         </div>
                                     </td>
                                     <td className="py-3 pr-4 text-right">
-                                        <button onClick={() => onDelete(habit.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => openHabitModal(habit)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title={t('编辑', 'Edit')}><Edit size={16}/></button>
+                                            <button onClick={() => onDelete(habit.id)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded hover:bg-rose-50 dark:hover:bg-slate-700 transition-colors" title={t('删除', 'Delete')}><Trash2 size={16}/></button>
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -915,7 +1054,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
             {isAddModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={handleCloseModal}>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">{t('添加新习惯', 'New Habit')}</h3>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">{newHabit.id ? t('编辑习惯细节', 'Edit Habit') : t('添加新习惯', 'New Habit')}</h3>
                         <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('习惯名称', 'Habit Name')}</label>
@@ -931,7 +1070,7 @@ const HabitTrackerComponent = ({ habits, onUpdate, onAdd, onDelete, onCloneHabit
                             </div>
                             <div className="flex gap-3 mt-6">
                                 <button onClick={handleCloseModal} className="flex-1 py-3 rounded-lg font-medium text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition-colors">{t('取消', 'Cancel')}</button>
-                                <button onClick={handleAddHabit} className="flex-1 py-3 rounded-lg font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all">{t('保存', 'Save')}</button>
+                                <button onClick={handleAddHabit} className="flex-1 py-3 rounded-lg font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all">{newHabit.id ? t('保存修改', 'Save Changes') : t('保存', 'Save')}</button>
                             </div>
                         </div>
                     </div>
@@ -1495,7 +1634,7 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 };
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, t }) => {
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, t }) => {
     const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
     
     const displayTasks = tasks
@@ -1695,7 +1834,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
         </div>
 
         <div className="flex flex-col min-w-0 h-full mb-10 w-full">
-            <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} onCloneHabits={onCloneHabits} t={t} />
+            <HabitTrackerComponent habits={habits} onUpdate={onUpdateHabit} onAdd={onAddHabit} onDelete={onDeleteHabit} onCloneHabits={onCloneHabits} onReorderHabits={onReorderHabits} t={t} />
         </div>
       </div>
     );
@@ -2518,8 +2657,22 @@ export default function App() {
           if (taskToMake) {
               const groupId = generateId();
               up.groupId = groupId;
+              const rec = up.recurringConfig;
+              delete up.recurringConfig;
+              
+              let iterations = 30;
+              if (rec && rec.endType === 'days') iterations = parseInt(rec.days) || 30;
+              else if (rec && rec.endType === 'forever') iterations = 365;
+              else if (rec && rec.endType === 'date' && rec.endDate) {
+                  const start = new Date(taskToMake.date);
+                  const end = new Date(rec.endDate);
+                  iterations = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                  if (iterations < 1) iterations = 1;
+                  if (iterations > 365) iterations = 365;
+              }
+              
               const newTasks = [];
-              for(let i=1; i<=30; i++) {
+              for(let i=1; i<iterations; i++) {
                   const d = new Date(taskToMake.date); d.setDate(d.getDate() + i);
                   newTasks.push({ ...taskToMake, ...up, id: generateId(), date: getLocalDateString(d), completed: false });
               }
@@ -2549,6 +2702,11 @@ export default function App() {
 
       setTasks(n);
       saveData('tasks', { list: n });
+  };
+
+  const handleReorderHabits = (reorderedHabits) => {
+      setHabits(reorderedHabits);
+      saveData('habits', { list: reorderedHabits });
   };
 
   const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
@@ -2623,7 +2781,7 @@ export default function App() {
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
                 <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
@@ -2635,10 +2793,22 @@ export default function App() {
 
       <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={(taskData) => {
           let n = [...tasks];
-          if (taskData.recurring === 'daily') {
+          const rec = taskData.recurringConfig;
+          delete taskData.recurringConfig;
+          if (taskData.recurring === 'daily' && rec) {
               const newTasks = [];
               const groupId = generateId();
-              for(let i=0; i<30; i++) {
+              let iterations = 30;
+              if (rec.endType === 'days') iterations = parseInt(rec.days) || 30;
+              else if (rec.endType === 'forever') iterations = 365;
+              else if (rec.endType === 'date' && rec.endDate) {
+                  const start = new Date(taskData.date);
+                  const end = new Date(rec.endDate);
+                  iterations = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                  if (iterations < 1) iterations = 1;
+                  if (iterations > 365) iterations = 365;
+              }
+              for(let i=0; i<iterations; i++) {
                   const d = new Date(taskData.date); d.setDate(d.getDate() + i);
                   newTasks.push({ id: generateId(), groupId, completed: false, ...taskData, date: getLocalDateString(d) });
               }
