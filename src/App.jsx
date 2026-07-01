@@ -112,35 +112,48 @@ const getDaysArray = (startStr, endStr) => {
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // --- 1. LoginPage Component ---
+// --- 1. LoginPage Component (Self Sign-Up + Login) ---
 const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) => {
+    const [isLogin, setIsLogin] = useState(true); 
     const [email, setEmail] = useState(''); 
     const [password, setPassword] = useState(''); 
     const [error, setError] = useState(''); 
     const [loading, setLoading] = useState(false);
     
     useEffect(() => {
-        if (authError === 'unauthorized') {
-            setError(t('此账号尚未被授权，请联系管理员为您开通。', 'This account is not authorized. Please contact your admin.'));
-        } else if (authError) {
-            setError(authError);
-        }
-    }, [authError, t]);
+        if (authError) setError(authError);
+    }, [authError]);
 
     const handleAuth = async (e) => {
         e.preventDefault(); 
         setError(''); 
         setLoading(true);
         try { 
-            await signInWithEmailAndPassword(auth, email.trim(), password); 
+            if (isLogin) {
+                await signInWithEmailAndPassword(auth, email.trim(), password); 
+            } else {
+                await createUserWithEmailAndPassword(auth, email.trim(), password);
+            }
         } catch (err) { 
             if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
                 setError(t('查无此人或密码错误，请确认账号', 'Invalid credentials or user not found.'));
+            } else if (err.code === 'auth/email-already-in-use') {
+                setError(t('该邮箱已被注册，请直接登录', 'Email already registered. Please login instead.'));
+            } else if (err.code === 'auth/weak-password') {
+                setError(t('密码太弱，至少需要6位字符', 'Password too weak, minimum 6 characters.'));
             } else {
                 setError(err.message);
             }
         } finally { 
             setLoading(false); 
         }
+    };
+
+    const handleToggleMode = () => {
+        setIsLogin(!isLogin);
+        setEmail('');
+        setPassword('');
+        setError('');
     };
 
     return (
@@ -196,7 +209,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
                                 placeholder="••••••••" 
                                 value={password} 
                                 onChange={e => setPassword(e.target.value)} 
-                                autoComplete="current-password"
+                                autoComplete={isLogin ? "current-password" : "new-password"}
                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" 
                                 required 
                             />
@@ -206,14 +219,14 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
                             disabled={loading} 
                             className="w-full bg-indigo-600 text-white font-semibold py-4 rounded-lg shadow-md hover:bg-indigo-700 transition-all flex justify-center items-center gap-3 text-lg mt-4"
                         >
-                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{t('进入系统', 'LOGIN NOW')}<ArrowRight size={20} /></>}
+                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{isLogin ? t('进入系统', 'LOGIN NOW') : t('注册账号', 'CREATE ACCESS')}<ArrowRight size={20} /></>}
                         </button>
                     </form>
 
                     <div className="mt-8 flex justify-center">
-                        <p className="text-sm text-slate-400 text-center">
-                            {t('没有账号？请联系管理员为您开通。', 'No account? Please contact your admin for access.')}
-                        </p>
+                        <button type="button" onClick={handleToggleMode} className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline transition-colors">
+                            {isLogin ? t('注册新账号', 'Create new account') : t('返回登录', 'Back to login')}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2568,46 +2581,23 @@ export default function App() {
         if (u) {
             const isAdm = ADMIN_EMAILS.includes(u.email?.toLowerCase());
             setIsAdmin(isAdm);
-            
+
             if (isAdm) {
                 const savedViewedId = localStorage.getItem('planner_viewed_userId');
                 setViewedUserId(savedViewedId || u.uid);
-                
-                const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-                unsubRegistry = onSnapshot(registryRef, (d) => {
-                    if (d.exists()) {
-                        setGlobalStaffRegistry(d.data().list || []);
-                    }
-                });
-                setUser(u);
-                setAuthLoading(false);
-            } else {
+
                 const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
                 unsubRegistry = onSnapshot(
                     registryRef,
-                    (d) => {
-                        const currentList = d.exists() ? d.data().list || [] : [];
-                        if (!currentList.find(x => x.email === u.email)) {
-                            signOut(auth);
-                            setUser(null);
-                            setAuthError('unauthorized');
-                            setAuthLoading(false);
-                        } else {
-                            setViewedUserId(u.uid);
-                            setUser(u);
-                            setAuthLoading(false);
-                        }
-                    },
-                    (err) => {
-                        // 新增：读取失败时不再卡死，直接提示并登出
-                        console.error('Registry read failed:', err);
-                        signOut(auth);
-                        setUser(null);
-                        setAuthError(t('系统权限设置有误，请联系管理员检查 Firestore 规则。', 'Permission error. Please contact admin.'));
-                        setAuthLoading(false);
-                    }
+                    (d) => { if (d.exists()) setGlobalStaffRegistry(d.data().list || []); },
+                    (err) => { console.error('Registry read failed:', err); setGlobalStaffRegistry([]); }
                 );
+            } else {
+                setViewedUserId(u.uid);
             }
+
+            setUser(u);
+            setAuthLoading(false);
         } else {
             setUser(null);
             setAuthLoading(false);
