@@ -2583,19 +2583,30 @@ export default function App() {
                 setAuthLoading(false);
             } else {
                 const registryRef = doc(db, 'artifacts', appId, 'public', 'staff_registry');
-                unsubRegistry = onSnapshot(registryRef, (d) => {
-                    const currentList = d.exists() ? d.data().list || [] : [];
-                    if (!currentList.find(x => x.email === u.email)) {
+                unsubRegistry = onSnapshot(
+                    registryRef,
+                    (d) => {
+                        const currentList = d.exists() ? d.data().list || [] : [];
+                        if (!currentList.find(x => x.email === u.email)) {
+                            signOut(auth);
+                            setUser(null);
+                            setAuthError('unauthorized');
+                            setAuthLoading(false);
+                        } else {
+                            setViewedUserId(u.uid);
+                            setUser(u);
+                            setAuthLoading(false);
+                        }
+                    },
+                    (err) => {
+                        // 新增：读取失败时不再卡死，直接提示并登出
+                        console.error('Registry read failed:', err);
                         signOut(auth);
                         setUser(null);
-                        setAuthError('unauthorized');
-                        setAuthLoading(false);
-                    } else {
-                        setViewedUserId(u.uid);
-                        setUser(u);
+                        setAuthError(t('系统权限设置有误，请联系管理员检查 Firestore 规则。', 'Permission error. Please contact admin.'));
                         setAuthLoading(false);
                     }
-                });
+                );
             }
         } else {
             setUser(null);
