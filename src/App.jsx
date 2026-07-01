@@ -113,26 +113,25 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // --- 1. LoginPage Component ---
 const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) => {
-    const [isLogin, setIsLogin] = useState(true); 
     const [email, setEmail] = useState(''); 
     const [password, setPassword] = useState(''); 
     const [error, setError] = useState(''); 
     const [loading, setLoading] = useState(false);
     
     useEffect(() => {
-        if (authError) setError(authError);
-    }, [authError]);
+        if (authError === 'unauthorized') {
+            setError(t('此账号尚未被授权，请联系管理员为您开通。', 'This account is not authorized. Please contact your admin.'));
+        } else if (authError) {
+            setError(authError);
+        }
+    }, [authError, t]);
 
     const handleAuth = async (e) => {
         e.preventDefault(); 
         setError(''); 
         setLoading(true);
         try { 
-            if (isLogin) {
-                await signInWithEmailAndPassword(auth, email.trim(), password); 
-            } else {
-                await createUserWithEmailAndPassword(auth, email.trim(), password);
-            }
+            await signInWithEmailAndPassword(auth, email.trim(), password); 
         } catch (err) { 
             if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
                 setError(t('查无此人或密码错误，请确认账号', 'Invalid credentials or user not found.'));
@@ -142,13 +141,6 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
         } finally { 
             setLoading(false); 
         }
-    };
-
-    const handleToggleMode = () => {
-        setIsLogin(!isLogin);
-        setEmail('');
-        setPassword('');
-        setError('');
     };
 
     return (
@@ -192,6 +184,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
                                 placeholder="name@company.com" 
                                 value={email} 
                                 onChange={e => setEmail(e.target.value)} 
+                                autoComplete="username"
                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" 
                                 required 
                             />
@@ -203,6 +196,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
                                 placeholder="••••••••" 
                                 value={password} 
                                 onChange={e => setPassword(e.target.value)} 
+                                autoComplete="current-password"
                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-base outline-none focus:border-indigo-500 dark:text-white transition-all shadow-sm" 
                                 required 
                             />
@@ -212,14 +206,14 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
                             disabled={loading} 
                             className="w-full bg-indigo-600 text-white font-semibold py-4 rounded-lg shadow-md hover:bg-indigo-700 transition-all flex justify-center items-center gap-3 text-lg mt-4"
                         >
-                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{isLogin ? t('进入系统', 'LOGIN NOW') : t('注册账号', 'CREATE ACCESS')}<ArrowRight size={20} /></>}
+                            {loading ? <RefreshCw className="animate-spin" size={24}/> : <>{t('进入系统', 'LOGIN NOW')}<ArrowRight size={20} /></>}
                         </button>
                     </form>
 
                     <div className="mt-8 flex justify-center">
-                        <button type="button" onClick={handleToggleMode} className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline transition-colors">
-                            {isLogin ? t('注册新账号', 'Create new account') : t('返回登录', 'Back to login')}
-                        </button>
+                        <p className="text-sm text-slate-400 text-center">
+                            {t('没有账号？请联系管理员为您开通。', 'No account? Please contact your admin for access.')}
+                        </p>
                     </div>
                 </div>
             </div>
