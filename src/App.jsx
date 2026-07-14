@@ -2833,4 +2833,4 @@ export default function App() {
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }.no-scrollbar::-webkit-scrollbar { display: none; }.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
-} 
+}
