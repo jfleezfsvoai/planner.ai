@@ -157,7 +157,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
     };
 
     return (
-        <div className={`flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+        <div className={`planner-login-screen flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
             <div className="absolute top-6 right-8 flex items-center gap-2 z-50">
                 <button 
                     onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} 
@@ -174,7 +174,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
             </div>
             
             <div className="flex-1 flex items-center justify-center p-6">
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-10 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-300">
+                <div className="planner-login-card bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-10 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-300">
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-indigo-600 rounded-xl mx-auto flex items-center justify-center text-white mb-6 shadow-md">
                             <Zap size={32} />
@@ -1698,8 +1698,8 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
     const noneStats = getQuadrantStats('none');
 
     return (
-      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
-        <div className="bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
+      <div className="planner-dashboard max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
+        <div className="planner-progress-hero bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/10 text-indigo-400 rounded-lg flex items-center justify-center"><Target size={20}/></div>
@@ -1714,7 +1714,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
         </div>
 
         {}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
+        <div className="planner-matrix bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Layout size={20} className="text-slate-500"/> {t('艾森豪威尔矩阵 (优先级规划)', 'Eisenhower Matrix (Priority Graph)')}</h3>
@@ -1727,7 +1727,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'urgent_important')}
-                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="planner-quadrant quadrant-do flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 重要', 'Urgent & Important')}</span>
@@ -1748,7 +1748,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'important_not_urgent')}
-                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="planner-quadrant quadrant-schedule flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('重要 & 不紧急', 'Important, Not Urgent')}</span>
@@ -1769,7 +1769,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'urgent_not_important')}
-                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="planner-quadrant quadrant-delegate flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('紧急 & 不重要', 'Urgent, Not Important')}</span>
@@ -1790,7 +1790,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
                 <div 
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleQuadrantDrop(e, 'not_urgent_not_important')}
-                    className="flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    className="planner-quadrant quadrant-eliminate flex flex-col h-[260px] rounded-xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/30 dark:bg-slate-800/20 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                     <div className="flex items-center justify-between mb-4 border-b border-slate-200/50 dark:border-slate-700/50 pb-2 shrink-0">
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wide">{t('不紧急 & 不重要', 'Neither Urgent/Important')}</span>
@@ -1855,7 +1855,7 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
     const startDay = new Date(year, month, 1).getDay();
     const slots = [...Array(startDay).fill(null), ...Array(days).fill(0).map((_, i) => i + 1)];
     return (
-      <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
+      <div className="planner-calendar max-w-6xl mx-auto animate-in fade-in pb-10">
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <header className="p-6 sm:p-8 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
               <div className="flex items-center gap-4">
@@ -1948,7 +1948,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
     const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
     
     return (
-      <div className="max-w-6xl mx-auto animate-in fade-in pb-10">
+      <div className="planner-timeline max-w-6xl mx-auto animate-in fade-in pb-10">
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-10 relative">
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
               <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
@@ -2236,8 +2236,8 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto pb-20 space-y-8 animate-in fade-in relative">
-          <header className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
+        <div className="planner-review max-w-6xl mx-auto pb-20 space-y-8 animate-in fade-in relative">
+          <header className="planner-review-header flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('复盘', 'Review')}</h2>
             <div className="flex items-center gap-4 flex-wrap justify-center">
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 font-medium outline-none text-slate-700 dark:text-white focus:border-indigo-500 transition-colors" />
@@ -2718,9 +2718,9 @@ export default function App() {
   ];
 
   return (
-    <div className={`flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
-      <div className="px-6 md:px-10 pt-6 pb-4 flex justify-between items-center max-w-7xl mx-auto w-full shrink-0">
-          <div className="flex items-center gap-3 text-slate-900 dark:text-white font-bold text-2xl"><div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md"><Zap size={20}/></div>Planner.AI</div>
+    <div className={`planner-app-shell flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
+      <div className="planner-topbar px-6 md:px-10 pt-6 pb-4 flex justify-between items-center max-w-7xl mx-auto w-full shrink-0">
+          <div className="planner-page-heading"><span>PLANNER AI PRO</span><strong>{menuItems.find(item => item.id === view)?.label}</strong></div>
           <div className="flex items-center gap-4">
             {isAdmin && (
                 <div className="flex items-center gap-3">
@@ -2762,15 +2762,21 @@ export default function App() {
             </button>
           </div>
       </div>
-      <div className="px-4 pb-2 shrink-0 w-full"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm px-4 py-3 flex justify-center mx-auto max-w-5xl transition-colors"><nav className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full justify-start md:justify-center">
+      <div className="planner-side-rail px-4 pb-2 shrink-0 w-full">
+        <div className="planner-rail-inner bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm px-4 py-3 flex justify-center mx-auto max-w-5xl transition-colors">
+          <div className="planner-rail-brand"><div><Zap size={20}/></div><span><strong>Planner</strong><small>AI PRO</small></span></div>
+          <button className="planner-capture" onClick={() => { setTargetDate(getLocalDateString(new Date())); setPrefilledTime(''); setIsAddModalOpen(true); }}><Plus size={18}/><span>{t('快速添加任务', 'Quick add task')}</span></button>
+          <nav className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full justify-start md:justify-center">
         {menuItems.map(m => {
             const Icon = m.icon;
             return (
                 <button key={m.id} onClick={() => setView(m.id)} className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${view === m.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-400'}`}><Icon size={16}/> {m.label}</button>
             )
         })}
-      </nav></div></div>
-      <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
+          </nav>
+        </div>
+      </div>
+      <main className="planner-content flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
         <div className="max-w-7xl mx-auto">
             {view === 'finance' && isFinanceLocked ? (
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
