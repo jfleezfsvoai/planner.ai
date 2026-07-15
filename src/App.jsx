@@ -1641,7 +1641,102 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 };
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, t }) => {
+const STICKY_COLORS = {
+    butter: { label: 'Butter', className: 'sticky-butter' },
+    lilac: { label: 'Lilac', className: 'sticky-lilac' },
+    mint: { label: 'Mint', className: 'sticky-mint' },
+    peach: { label: 'Peach', className: 'sticky-peach' }
+};
+
+const StickyNotesBoard = ({ notes, isAdmin, assignees, viewedUserId, onAdd, onToggle, onDelete, t }) => {
+    const [isAdding, setIsAdding] = useState(false);
+    const [filter, setFilter] = useState('active');
+    const [form, setForm] = useState({ title: '', detail: '', dueDate: '', color: 'butter', assigneeId: viewedUserId || '' });
+
+    useEffect(() => {
+        setForm(prev => ({ ...prev, assigneeId: viewedUserId || assignees?.[0]?.uid || '' }));
+    }, [viewedUserId, assignees]);
+
+    const visibleNotes = [...(notes || [])]
+        .filter(note => filter === 'all' || (filter === 'done' ? note.completed : !note.completed))
+        .sort((a, b) => Number(a.completed) - Number(b.completed) || String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
+    const completedCount = (notes || []).filter(note => note.completed).length;
+
+    const submit = async (e) => {
+        e.preventDefault();
+        if (!form.title.trim() || !form.assigneeId) return;
+        await onAdd({ ...form, title: form.title.trim(), detail: form.detail.trim() });
+        setForm(prev => ({ title: '', detail: '', dueDate: '', color: 'butter', assigneeId: prev.assigneeId }));
+        setIsAdding(false);
+    };
+
+    return (
+        <section className="sticky-board">
+            <header className="sticky-board-header">
+                <div>
+                    <span className="sticky-kicker">TEAM PRIORITIES</span>
+                    <h2>{t('协作便利贴', 'Shared Sticky Notes')}</h2>
+                    <p>{t('日历是你的个人计划；这里放置 Admin 指派、需要第一眼看到的团队任务。', 'Calendar holds personal plans. This board keeps assigned team priorities in sight.')}</p>
+                </div>
+                <div className="sticky-board-actions">
+                    <div className="sticky-summary"><strong>{completedCount}</strong><span>/ {(notes || []).length} {t('已完成', 'done')}</span></div>
+                    {isAdmin && <button onClick={() => setIsAdding(true)} className="sticky-add-button"><Plus size={17}/>{t('指派便利贴', 'Assign note')}</button>}
+                </div>
+            </header>
+
+            <div className="sticky-filter-row">
+                {[['active', t('进行中', 'Active')], ['done', t('已完成', 'Done')], ['all', t('全部', 'All')]].map(([id, label]) => (
+                    <button key={id} onClick={() => setFilter(id)} className={filter === id ? 'active' : ''}>{label}</button>
+                ))}
+            </div>
+
+            {visibleNotes.length === 0 ? (
+                <div className="sticky-empty">
+                    <MessageSquare size={26}/>
+                    <h3>{filter === 'done' ? t('还没有完成记录', 'No completed notes yet') : t('目前没有待办便利贴', 'No active sticky notes')}</h3>
+                    <p>{isAdmin ? t('点击「指派便利贴」给自己或员工安排任务。', 'Assign a note to yourself or any staff member.') : t('Admin 指派的重点任务会显示在这里。', 'Tasks assigned by admin will appear here.')}</p>
+                </div>
+            ) : (
+                <div className="sticky-grid">
+                    {visibleNotes.map((note, index) => {
+                        const assignee = assignees.find(item => item.uid === note.assigneeId);
+                        const colorClass = STICKY_COLORS[note.color]?.className || STICKY_COLORS.butter.className;
+                        return (
+                            <article key={note.id} className={`sticky-note ${colorClass} ${note.completed ? 'is-done' : ''}`} style={{ '--note-tilt': `${index % 2 === 0 ? '-0.35deg' : '0.35deg'}` }}>
+                                <div className="sticky-note-topline"><span>{note.completed ? t('完成', 'DONE') : t('待办', 'TO DO')}</span>{isAdmin && <button onClick={() => onDelete(note.id, note._ownerId)} title={t('删除', 'Delete')}><X size={15}/></button>}</div>
+                                <button className="sticky-check" onClick={() => onToggle(note.id, note._ownerId)} aria-label={note.completed ? t('取消完成', 'Mark active') : t('标记完成', 'Mark done')}>{note.completed ? <Check size={16} strokeWidth={3}/> : <Circle size={17}/>}</button>
+                                <div className="sticky-note-copy"><h3>{note.title}</h3>{note.detail && <p>{note.detail}</p>}</div>
+                                <footer>
+                                    <span className="sticky-assignee"><i>{(assignee?.email || note.assigneeEmail || '?').slice(0,1).toUpperCase()}</i>{assignee?.email || note.assigneeEmail || t('员工', 'Staff')}</span>
+                                    {note.dueDate && <time><CalendarDays size={13}/>{note.dueDate.slice(5).replace('-', '/')}</time>}
+                                </footer>
+                                {note.completed && note.completedAt && <div className="sticky-completed-stamp">{t('已完成', 'COMPLETED')}</div>}
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+
+            {isAdding && (
+                <div className="fixed inset-0 bg-slate-950/60 z-[220] flex items-center justify-center p-4" onClick={() => setIsAdding(false)}>
+                    <form className="sticky-form-modal" onSubmit={submit} onClick={e => e.stopPropagation()}>
+                        <header><div><span className="sticky-kicker">NEW ASSIGNMENT</span><h3>{t('指派新的便利贴', 'Assign a sticky note')}</h3></div><button type="button" onClick={() => setIsAdding(false)}><X size={19}/></button></header>
+                        <label><span>{t('指派给', 'Assign to')}</span><select value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})}>{assignees.map(person => <option key={person.uid} value={person.uid}>{person.label || person.email}</option>)}</select></label>
+                        <label><span>{t('任务名称', 'Task title')}</span><input autoFocus required value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder={t('例：整理本周客户跟进名单', 'e.g. Prepare weekly follow-up list')} /></label>
+                        <label><span>{t('说明', 'Details')}</span><textarea rows={3} value={form.detail} onChange={e => setForm({...form, detail: e.target.value})} placeholder={t('补充完成标准、链接或提醒…', 'Add success criteria, links or reminders…')} /></label>
+                        <div className="sticky-form-grid">
+                            <label><span>{t('截止日期', 'Due date')}</span><input type="date" value={form.dueDate} onChange={e => setForm({...form, dueDate: e.target.value})}/></label>
+                            <fieldset><legend>{t('便利贴颜色', 'Note colour')}</legend><div>{Object.entries(STICKY_COLORS).map(([id, color]) => <button type="button" key={id} className={`${color.className} ${form.color === id ? 'active' : ''}`} onClick={() => setForm({...form, color: id})} aria-label={color.label}/>)}</div></fieldset>
+                        </div>
+                        <footer><button type="button" onClick={() => setIsAdding(false)}>{t('取消', 'Cancel')}</button><button type="submit"><UserPlus size={16}/>{t('确认指派', 'Assign task')}</button></footer>
+                    </form>
+                </div>
+            )}
+        </section>
+    );
+};
+
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, onAddSticky, onToggleSticky, onDeleteSticky, t }) => {
     const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
     
     const displayTasks = tasks
@@ -1713,8 +1808,10 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
           </div>
         </div>
 
+        <StickyNotesBoard notes={stickyNotes} isAdmin={isAdmin} assignees={stickyAssignees} viewedUserId={viewedUserId} onAdd={onAddSticky} onToggle={onToggleSticky} onDelete={onDeleteSticky} t={t} />
+
         {}
-        <div className="planner-matrix bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
+        <div className="planner-matrix planner-matrix-retired bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm mb-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Layout size={20} className="text-slate-500"/> {t('艾森豪威尔矩阵 (优先级规划)', 'Eisenhower Matrix (Priority Graph)')}</h3>
@@ -2568,6 +2665,8 @@ export default function App() {
   const [categories, setCategories] = useState([{ name: '工作', color: 'bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300' },{ name: '生活', color: 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300' },{ name: '学习', color: 'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300' }]);
   const [habits, setHabits] = useState([]);
   const [reviews, setReviews] = useState({ daily: {}, cycleTasks: {}, yearly: {} });
+  const [stickyNotes, setStickyNotes] = useState([]);
+  const [teamStickyNotes, setTeamStickyNotes] = useState([]);
 
   useEffect(() => {
     if (isDarkMode) { document.documentElement.classList.add('dark'); } 
@@ -2617,10 +2716,35 @@ export default function App() {
       onSnapshot(path('tasks'), d => d.exists() && setTasks(d.data().list || []), (e) => {}),
       onSnapshot(path('habits'), d => d.exists() && setHabits(d.data().list || []), (e) => {}),
       onSnapshot(path('categories'), d => d.exists() && setCategories(d.data().list || []), (e) => {}),
-      onSnapshot(path('reviews'), d => d.exists() && setReviews(d.data() || {}), (e) => {})
+      onSnapshot(path('reviews'), d => d.exists() && setReviews(d.data() || {}), (e) => {}),
+      onSnapshot(path('sticky_notes'), d => setStickyNotes(d.exists() ? (d.data().list || []) : []), (e) => {})
     ];
     return () => unsubs.forEach(u => u());
   }, [viewedUserId, user]);
+
+  useEffect(() => {
+    if (!user || !isAdmin) {
+        setTeamStickyNotes([]);
+        return;
+    }
+    const staff = globalStaffRegistry.filter(item => item?.uid && (item.adminEmail === user.email || !item.adminEmail));
+    const targets = [{ uid: user.uid, email: user.email }, ...staff];
+    const buckets = new Map();
+    const publish = () => setTeamStickyNotes(Array.from(buckets.values()).flat());
+    const unsubs = targets.map(person => onSnapshot(
+        doc(db, 'artifacts', appId, 'users', person.uid, 'sticky_notes', 'data'),
+        snapshot => {
+            const list = snapshot.exists() ? (snapshot.data().list || []) : [];
+            buckets.set(person.uid, list.map(note => ({ ...note, _ownerId: person.uid, assigneeEmail: note.assigneeEmail || person.email || '' })));
+            publish();
+        },
+        () => {
+            buckets.set(person.uid, []);
+            publish();
+        }
+    ));
+    return () => unsubs.forEach(unsub => unsub());
+  }, [user, isAdmin, globalStaffRegistry]);
 
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
   const isFinanceLocked = isAdmin && viewedUserId !== user?.uid;
@@ -2704,7 +2828,64 @@ export default function App() {
       saveData('habits', { list: reorderedHabits });
   };
 
+  const getStickyRef = (targetUserId) => doc(db, 'artifacts', appId, 'users', targetUserId, 'sticky_notes', 'data');
+
+  const handleAddSticky = async (note) => {
+      if (!isAdmin || !note.assigneeId) return;
+      const target = note.assigneeId;
+      const targetRef = getStickyRef(target);
+      const snapshot = await getDoc(targetRef);
+      const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+      const person = target === user?.uid ? { email: user?.email } : globalStaffRegistry.find(staff => staff.uid === target);
+      const nextNote = {
+          id: generateId(),
+          title: note.title,
+          detail: note.detail || '',
+          dueDate: note.dueDate || '',
+          color: note.color || 'butter',
+          assigneeId: target,
+          assigneeEmail: person?.email || '',
+          assignedBy: user?.email || '',
+          completed: false,
+          completedAt: null,
+          completedBy: null,
+          createdAt: new Date().toISOString()
+      };
+      await setDoc(targetRef, { list: [...existing, nextNote] });
+  };
+
+  const handleToggleSticky = async (noteId, ownerId) => {
+      const targetUserId = ownerId || viewedUserId;
+      if (!targetUserId) return;
+      const source = targetUserId === viewedUserId
+          ? stickyNotes
+          : teamStickyNotes.filter(note => note._ownerId === targetUserId);
+      const next = source.map(note => note.id === noteId ? {
+          ...note,
+          completed: !note.completed,
+          completedAt: !note.completed ? new Date().toISOString() : null,
+          completedBy: !note.completed ? (user?.email || '') : null
+      } : note).map(({ _ownerId, ...note }) => note);
+      if (targetUserId === viewedUserId) setStickyNotes(next);
+      await setDoc(getStickyRef(targetUserId), { list: next });
+  };
+
+  const handleDeleteSticky = async (noteId, ownerId) => {
+      const targetUserId = ownerId || viewedUserId;
+      if (!isAdmin || !targetUserId) return;
+      const source = targetUserId === viewedUserId
+          ? stickyNotes
+          : teamStickyNotes.filter(note => note._ownerId === targetUserId);
+      const next = source.filter(note => note.id !== noteId).map(({ _ownerId, ...note }) => note);
+      if (targetUserId === viewedUserId) setStickyNotes(next);
+      await setDoc(getStickyRef(targetUserId), { list: next });
+  };
+
   const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
+  const stickyAssignees = user ? [
+      { uid: user.uid, email: user.email, label: isAdmin ? t('我自己 (Admin)', 'Myself (Admin)') : t('我自己', 'Myself') },
+      ...myStaffRegistry.filter(staff => staff?.uid).map(staff => ({ uid: staff.uid, email: staff.email, label: staff.email }))
+  ] : [];
 
   if (authLoading) return <div className="flex h-screen w-full items-center justify-center dark:bg-slate-950"><RefreshCw className="animate-spin text-indigo-600" size={48} /></div>;
   if (!user) return <LoginPage t={t} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} lang={lang} setLang={setLang} authError={authError} />;
@@ -2782,7 +2963,7 @@ export default function App() {
                 <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
             ) : (
                 <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} onAddSticky={handleAddSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
