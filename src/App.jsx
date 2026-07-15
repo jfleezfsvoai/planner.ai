@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { 
-  Calendar as CalIcon, Layout, Trello, CheckSquare, 
+  Calendar as CalIcon, Layout, Columns3 as Trello, CheckSquare, 
   Plus, Clock, ChevronLeft, ChevronRight, X, Bell, 
   Search, Target, TrendingUp, ArrowRight, Lock, Unlock, Trash2,
   Menu, Home, Database, Zap, Download, Activity, 
@@ -157,7 +157,7 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
     };
 
     return (
-        <div className={`planner-login-screen flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+        <div className={`planner-legacy planner-login-screen flex flex-col h-screen w-full font-sans transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
             <div className="absolute top-6 right-8 flex items-center gap-2 z-50">
                 <button 
                     onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} 
@@ -2039,8 +2039,10 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
 const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onEditTask, onReorderTask, categories, t }) => {
     const [dropPrompt, setDropPrompt] = useState(null);
     const [dropTime, setDropTime] = useState('09:00');
-    const hours = Array.from({ length: 19 }, (_, i) => i + 6);
-    const daysToShow = [currentDate, new Date(currentDate.getTime() + 86400000)];
+    const hours = Array.from({ length: 18 }, (_, i) => i + 6);
+    const daysToShow = [currentDate];
+    const selectedDateStr = getLocalDateString(currentDate);
+    const untimedTasks = tasks.filter(task => task.date === selectedDateStr && !task.time);
     const navDays = Array.from({length: 7}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 3 + i); return d; });
     const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
     
@@ -2076,8 +2078,20 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={24}/></button>
           </div>
           
-          <div className="grid grid-cols-[80px_1fr_1fr] gap-6 mb-8">
-              <div></div>
+          <div className="timeline-day-summary">
+              <div><span>{currentDate.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</span><strong>{currentDate.toLocaleDateString(t('zh-CN', 'en-US'), { month: 'long', day: 'numeric' })}</strong><small>{tasks.filter(task => task.date === selectedDateStr).length} {t('项计划', 'tasks planned')}</small></div>
+              <button onClick={() => openAddModal(selectedDateStr, '09:00')}><Plus size={17}/>{t('添加今天的任务', 'Add task today')}</button>
+          </div>
+
+          {untimedTasks.length > 0 && (
+              <div className="timeline-anytime">
+                  <div><Clock size={16}/><span>{t('未指定时间', 'Anytime')}</span></div>
+                  <div>{untimedTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}</div>
+              </div>
+          )}
+
+          <div className="planner-timeline-grid grid grid-cols-[92px_minmax(0,1fr)] gap-5 mb-7">
+              <div className="timeline-column-label">{t('时间', 'TIME')}</div>
               {daysToShow.map((d, i) => (
                   <div key={i} className="text-center">
                       <h3 className="text-lg font-bold text-slate-800 dark:text-white">{d.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</h3>
@@ -2086,14 +2100,14 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
               ))}
           </div>
 
-          <div className="space-y-6">
+          <div className="planner-timeline-hours space-y-3">
               {hours.map(hour => {
                   let timeLabel; if (hour === 24 || hour === 0) timeLabel = '12:00 AM'; else if (hour === 12) timeLabel = '12:00 PM'; else if (hour > 12) timeLabel = `${hour - 12}:00 PM`; else timeLabel = `${hour}:00 AM`;
                   const hourValue = hour === 24 ? '00:00' : `${hour.toString().padStart(2, '0')}:00`;
                   const matchHour = hour === 24 ? 0 : hour;
                   
                   return (
-                      <div key={hour} className="grid grid-cols-[80px_1fr_1fr] gap-6 group items-start min-h-[100px]">
+                      <div key={hour} className="grid grid-cols-[92px_minmax(0,1fr)] gap-5 group items-start min-h-[82px]">
                           <div className="pt-2 text-right shrink-0">
                               <span className="text-xs font-semibold text-slate-400 group-hover:text-indigo-600 transition-colors">{timeLabel}</span>
                           </div>
@@ -2899,7 +2913,7 @@ export default function App() {
   ];
 
   return (
-    <div className={`planner-app-shell flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
+    <div className={`planner-legacy planner-app-shell flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
       <div className="planner-topbar px-6 md:px-10 pt-6 pb-4 flex justify-between items-center max-w-7xl mx-auto w-full shrink-0">
           <div className="planner-page-heading"><span>PLANNER AI PRO</span><strong>{menuItems.find(item => item.id === view)?.label}</strong></div>
           <div className="flex items-center gap-4">
