@@ -176,10 +176,8 @@ const LoginPage = ({ t, isDarkMode, setIsDarkMode, lang, setLang, authError }) =
             <div className="flex-1 flex items-center justify-center p-6">
                 <div className="planner-login-card bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md p-10 border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-300">
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-indigo-600 rounded-xl mx-auto flex items-center justify-center text-white mb-6 shadow-md">
-                            <Zap size={32} />
-                        </div>
-                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Planner.AI</h2>
+                        <img className="planner-login-logo" src="/planner-ai-logo.png" alt="Planner AI PRO" />
+                        <h2 className="sr-only">Planner AI PRO</h2>
                         <p className="text-sm text-slate-500 mt-2">{t('私人助理 & 旗舰规划', 'Elite Personal Assistant')}</p>
                     </div>
 
@@ -2959,7 +2957,9 @@ export default function App() {
       </div>
       <div className="planner-side-rail px-4 pb-2 shrink-0 w-full">
         <div className="planner-rail-inner bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm px-4 py-3 flex justify-center mx-auto max-w-5xl transition-colors">
-          <div className="planner-rail-brand"><div><Zap size={20}/></div><span><strong>Planner</strong><small>AI PRO</small></span></div>
+          <div className="planner-rail-brand">
+            <img src="/planner-ai-logo.png" alt="Planner AI PRO" />
+          </div>
           <button className="planner-capture" onClick={() => { setTargetDate(getLocalDateString(new Date())); setPrefilledTime(''); setIsAddModalOpen(true); }}><Plus size={18}/><span>{t('快速添加任务', 'Quick add task')}</span></button>
           <nav className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full justify-start md:justify-center">
         {menuItems.map(m => {
