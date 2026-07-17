@@ -2958,7 +2958,7 @@ export default function App() {
       <div className="planner-side-rail px-4 pb-2 shrink-0 w-full">
         <div className="planner-rail-inner bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm px-4 py-3 flex justify-center mx-auto max-w-5xl transition-colors">
           <div className="planner-rail-brand">
-            <img src="/planner-ai-logo.png" alt="Planner AI PRO" />
+            <img src="/planner-ai-logo-dark.png" alt="Planner AI PRO" />
           </div>
           <button className="planner-capture" onClick={() => { setTargetDate(getLocalDateString(new Date())); setPrefilledTime(''); setIsAddModalOpen(true); }}><Plus size={18}/><span>{t('快速添加任务', 'Quick add task')}</span></button>
           <nav className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full justify-start md:justify-center">
