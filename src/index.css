@@ -403,11 +403,20 @@ kbd { font-family: inherit !important; }
   box-shadow: none !important;
 }
 
-.planner-rail-brand { display: flex; align-items: center; gap: 11px; padding: 0 8px 25px; }
-.planner-rail-brand > div { width: 36px; height: 36px; display: grid; place-items: center; color: white; background: var(--pro-purple); border-radius: 11px; box-shadow: 0 9px 22px rgba(102, 88, 232, .34); }
-.planner-rail-brand > span { display: flex; align-items: baseline; gap: 6px; }
-.planner-rail-brand strong { color: white; font-size: 19px; letter-spacing: -.04em; }
-.planner-rail-brand small { color: #9d96ff; font-size: 8px; font-weight: 800; letter-spacing: .13em; }
+.planner-rail-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76px;
+  margin: 0 2px 24px;
+  padding: 8px 10px;
+  background: linear-gradient(145deg, #ffffff 0%, #f5fbff 100%);
+  border: 1px solid rgba(255, 255, 255, .9);
+  border-radius: 15px;
+  box-shadow: 0 12px 34px rgba(4, 15, 31, .24);
+  overflow: hidden;
+}
+.planner-rail-brand img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 .planner-capture {
   height: 43px;
@@ -639,9 +648,9 @@ kbd { font-family: inherit !important; }
     radial-gradient(circle at 85% 85%, rgba(73, 196, 151, .09), transparent 25rem),
     #f5f6fa !important;
 }
-.planner-login-screen::before { content: 'PLANNER AI PRO'; position: absolute; left: 7vw; top: 9vh; color: #6658e8; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+.planner-login-screen::before { content: ''; position: absolute; left: 7vw; top: 9vh; }
 .planner-login-card { border: 1px solid rgba(255, 255, 255, .8) !important; border-radius: 20px !important; box-shadow: 0 30px 80px rgba(31, 34, 58, .13) !important; }
-.planner-login-card > div:first-child > div:first-child { background: #6658e8 !important; border-radius: 15px !important; box-shadow: 0 12px 28px rgba(102, 88, 232, .26) !important; }
+.planner-login-logo { display: block; width: min(300px, 88%); height: 116px; margin: -18px auto 4px; object-fit: cover; }
 .planner-login-card input { border-radius: 10px !important; }
 .planner-login-card button[type='submit'] { background: #6658e8 !important; border-radius: 10px !important; box-shadow: 0 12px 25px rgba(102, 88, 232, .22) !important; }
 .dark .planner-login-screen { background: radial-gradient(circle at 20% 10%, rgba(102, 88, 232, .18), transparent 26rem), #11121b !important; }
@@ -676,6 +685,7 @@ kbd { font-family: inherit !important; }
   .planner-review-header .shadow-inner { width: 100%; }
   .planner-review-header .shadow-inner button { flex: 1; padding-inline: 10px !important; }
   .planner-login-card { padding: 28px 22px !important; }
+  .planner-login-logo { width: min(270px, 92%); height: 104px; }
   .sticky-board { padding: 20px 16px; }
   .sticky-board-header { align-items: stretch; flex-direction: column; gap: 16px; }
   .sticky-board-actions { justify-content: space-between; }
