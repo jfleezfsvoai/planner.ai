@@ -1639,48 +1639,68 @@ const FinanceVault = ({ t, viewedUserId, user, isAdmin }) => {
 };
 
 // --- Views (Dashboard, Calendar, Timeline, Review) ---
-const STICKY_COLORS = {
-    butter: { label: 'Butter', className: 'sticky-butter' },
-    lilac: { label: 'Lilac', className: 'sticky-lilac' },
-    mint: { label: 'Mint', className: 'sticky-mint' },
-    peach: { label: 'Peach', className: 'sticky-peach' }
-};
-
 const StickyNotesBoard = ({ notes, isAdmin, assignees, viewedUserId, onAdd, onToggle, onDelete, t }) => {
-    const [isAdding, setIsAdding] = useState(false);
     const [filter, setFilter] = useState('active');
-    const [form, setForm] = useState({ title: '', detail: '', dueDate: '', color: 'butter', assigneeId: viewedUserId || '' });
+    const [title, setTitle] = useState('');
+    const [assigneeId, setAssigneeId] = useState(viewedUserId || '');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        setForm(prev => ({ ...prev, assigneeId: viewedUserId || assignees?.[0]?.uid || '' }));
+        setAssigneeId(viewedUserId || assignees?.[0]?.uid || '');
     }, [viewedUserId, assignees]);
 
     const visibleNotes = [...(notes || [])]
         .filter(note => filter === 'all' || (filter === 'done' ? note.completed : !note.completed))
-        .sort((a, b) => Number(a.completed) - Number(b.completed) || String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')));
+        .sort((a, b) => Number(a.completed) - Number(b.completed) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
     const completedCount = (notes || []).filter(note => note.completed).length;
 
     const submit = async (e) => {
         e.preventDefault();
-        if (!form.title.trim() || !form.assigneeId) return;
-        await onAdd({ ...form, title: form.title.trim(), detail: form.detail.trim() });
-        setForm(prev => ({ title: '', detail: '', dueDate: '', color: 'butter', assigneeId: prev.assigneeId }));
-        setIsAdding(false);
+        if (!title.trim() || !assigneeId || isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await onAdd({
+                title: title.trim(),
+                detail: '',
+                dueDate: getLocalDateString(new Date()),
+                assigneeId
+            });
+            setTitle('');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <section className="sticky-board">
             <header className="sticky-board-header">
                 <div>
-                    <span className="sticky-kicker">TEAM PRIORITIES</span>
-                    <h2>{t('协作便利贴', 'Shared Sticky Notes')}</h2>
-                    <p>{t('日历是你的个人计划；这里放置 Admin 指派、需要第一眼看到的团队任务。', 'Calendar holds personal plans. This board keeps assigned team priorities in sight.')}</p>
+                    <span className="sticky-kicker">TODAY</span>
+                    <h2>{t('今天要完成', 'Today’s tasks')}</h2>
+                    <p>{t('写下任务，完成后直接打勾。Admin 指派的任务会用紫色标记。', 'Add a task and check it off when done. Admin assignments are highlighted in purple.')}</p>
                 </div>
                 <div className="sticky-board-actions">
                     <div className="sticky-summary"><strong>{completedCount}</strong><span>/ {(notes || []).length} {t('已完成', 'done')}</span></div>
-                    {isAdmin && <button onClick={() => setIsAdding(true)} className="sticky-add-button"><Plus size={17}/>{t('指派便利贴', 'Assign note')}</button>}
                 </div>
             </header>
+
+            <form className="sticky-composer" onSubmit={submit}>
+                <div className="sticky-composer-check"><Circle size={20}/></div>
+                <input
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    placeholder={t('填写今天要完成的任务…', 'What needs to be done today?')}
+                    aria-label={t('今天的任务', 'Today task')}
+                />
+                {isAdmin && (
+                    <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} aria-label={t('指派给', 'Assign to')}>
+                        {assignees.map(person => <option key={person.uid} value={person.uid}>{person.label || person.email}</option>)}
+                    </select>
+                )}
+                <button type="submit" disabled={!title.trim() || isSubmitting}>
+                    <Plus size={17}/>{isAdmin ? t('新增 / 指派', 'Add / Assign') : t('新增任务', 'Add task')}
+                </button>
+            </form>
 
             <div className="sticky-filter-row">
                 {[['active', t('进行中', 'Active')], ['done', t('已完成', 'Done')], ['all', t('全部', 'All')]].map(([id, label]) => (
@@ -1690,44 +1710,35 @@ const StickyNotesBoard = ({ notes, isAdmin, assignees, viewedUserId, onAdd, onTo
 
             {visibleNotes.length === 0 ? (
                 <div className="sticky-empty">
-                    <MessageSquare size={26}/>
-                    <h3>{filter === 'done' ? t('还没有完成记录', 'No completed notes yet') : t('目前没有待办便利贴', 'No active sticky notes')}</h3>
-                    <p>{isAdmin ? t('点击「指派便利贴」给自己或员工安排任务。', 'Assign a note to yourself or any staff member.') : t('Admin 指派的重点任务会显示在这里。', 'Tasks assigned by admin will appear here.')}</p>
+                    <CheckCircle2 size={28}/>
+                    <h3>{filter === 'done' ? t('还没有完成记录', 'No completed notes yet') : t('今天还没有任务', 'No tasks for today')}</h3>
+                    <p>{t('在上方输入一项任务即可开始。', 'Type a task above to get started.')}</p>
                 </div>
             ) : (
                 <div className="sticky-grid">
-                    {visibleNotes.map((note, index) => {
+                    {visibleNotes.map(note => {
                         const assignee = assignees.find(item => item.uid === note.assigneeId);
-                        const colorClass = STICKY_COLORS[note.color]?.className || STICKY_COLORS.butter.className;
+                        const adminAssigned = note.assignedByAdmin === true || note.source === 'admin';
                         return (
-                            <article key={note.id} className={`sticky-note ${colorClass} ${note.completed ? 'is-done' : ''}`} style={{ '--note-tilt': `${index % 2 === 0 ? '-0.35deg' : '0.35deg'}` }}>
-                                <div className="sticky-note-topline"><span>{note.completed ? t('完成', 'DONE') : t('待办', 'TO DO')}</span>{isAdmin && <button onClick={() => onDelete(note.id, note._ownerId)} title={t('删除', 'Delete')}><X size={15}/></button>}</div>
-                                <button className="sticky-check" onClick={() => onToggle(note.id, note._ownerId)} aria-label={note.completed ? t('取消完成', 'Mark active') : t('标记完成', 'Mark done')}>{note.completed ? <Check size={16} strokeWidth={3}/> : <Circle size={17}/>}</button>
-                                <div className="sticky-note-copy"><h3>{note.title}</h3>{note.detail && <p>{note.detail}</p>}</div>
+                            <article key={note.id} className={`sticky-note ${adminAssigned ? 'is-admin-assigned' : 'is-self-created'} ${note.completed ? 'is-done' : ''}`}>
+                                <button className="sticky-check" onClick={() => onToggle(note.id, note._ownerId)} aria-label={note.completed ? t('取消完成', 'Mark active') : t('标记完成', 'Mark done')}>
+                                    {note.completed ? <Check size={18} strokeWidth={3}/> : <Circle size={19}/>}
+                                </button>
+                                <div className="sticky-note-copy">
+                                    <div className="sticky-note-label">{adminAssigned ? t('ADMIN 指派', 'ADMIN ASSIGNED') : t('自己新增', 'MY TASK')}</div>
+                                    <h3>{note.title}</h3>
+                                    {note.detail && <p>{note.detail}</p>}
+                                </div>
                                 <footer>
                                     <span className="sticky-assignee"><i>{(assignee?.email || note.assigneeEmail || '?').slice(0,1).toUpperCase()}</i>{assignee?.email || note.assigneeEmail || t('员工', 'Staff')}</span>
-                                    {note.dueDate && <time><CalendarDays size={13}/>{note.dueDate.slice(5).replace('-', '/')}</time>}
+                                    <div className="sticky-note-tools">
+                                        {note.dueDate && <time><CalendarDays size={14}/>{note.dueDate.slice(5).replace('-', '/')}</time>}
+                                        {(isAdmin || !adminAssigned) && <button onClick={() => onDelete(note.id, note._ownerId)} title={t('删除', 'Delete')}><Trash2 size={15}/></button>}
+                                    </div>
                                 </footer>
-                                {note.completed && note.completedAt && <div className="sticky-completed-stamp">{t('已完成', 'COMPLETED')}</div>}
                             </article>
                         );
                     })}
-                </div>
-            )}
-
-            {isAdding && (
-                <div className="fixed inset-0 bg-slate-950/60 z-[220] flex items-center justify-center p-4" onClick={() => setIsAdding(false)}>
-                    <form className="sticky-form-modal" onSubmit={submit} onClick={e => e.stopPropagation()}>
-                        <header><div><span className="sticky-kicker">NEW ASSIGNMENT</span><h3>{t('指派新的便利贴', 'Assign a sticky note')}</h3></div><button type="button" onClick={() => setIsAdding(false)}><X size={19}/></button></header>
-                        <label><span>{t('指派给', 'Assign to')}</span><select value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})}>{assignees.map(person => <option key={person.uid} value={person.uid}>{person.label || person.email}</option>)}</select></label>
-                        <label><span>{t('任务名称', 'Task title')}</span><input autoFocus required value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder={t('例：整理本周客户跟进名单', 'e.g. Prepare weekly follow-up list')} /></label>
-                        <label><span>{t('说明', 'Details')}</span><textarea rows={3} value={form.detail} onChange={e => setForm({...form, detail: e.target.value})} placeholder={t('补充完成标准、链接或提醒…', 'Add success criteria, links or reminders…')} /></label>
-                        <div className="sticky-form-grid">
-                            <label><span>{t('截止日期', 'Due date')}</span><input type="date" value={form.dueDate} onChange={e => setForm({...form, dueDate: e.target.value})}/></label>
-                            <fieldset><legend>{t('便利贴颜色', 'Note colour')}</legend><div>{Object.entries(STICKY_COLORS).map(([id, color]) => <button type="button" key={id} className={`${color.className} ${form.color === id ? 'active' : ''}`} onClick={() => setForm({...form, color: id})} aria-label={color.label}/>)}</div></fieldset>
-                        </div>
-                        <footer><button type="button" onClick={() => setIsAdding(false)}>{t('取消', 'Cancel')}</button><button type="submit"><UserPlus size={16}/>{t('确认指派', 'Assign task')}</button></footer>
-                    </form>
                 </div>
             )}
         </section>
@@ -2037,10 +2048,17 @@ const CalendarView = ({ tasks, t, goToTimeline, openAddModal, toggleTask, delete
 const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggleTask, deleteTask, onUpdateTask, onEditTask, onReorderTask, categories, t }) => {
     const [dropPrompt, setDropPrompt] = useState(null);
     const [dropTime, setDropTime] = useState('09:00');
+    const [visibleDayCount, setVisibleDayCount] = useState(3);
     const hours = Array.from({ length: 18 }, (_, i) => i + 6);
-    const daysToShow = [currentDate];
+    const daysToShow = Array.from({ length: visibleDayCount }, (_, index) => {
+        const day = new Date(currentDate);
+        day.setDate(day.getDate() + index);
+        return day;
+    });
     const selectedDateStr = getLocalDateString(currentDate);
-    const untimedTasks = tasks.filter(task => task.date === selectedDateStr && !task.time);
+    const visibleDateStrings = daysToShow.map(getLocalDateString);
+    const untimedTasks = tasks.filter(task => visibleDateStrings.includes(task.date) && !task.time);
+    const visibleTaskCount = tasks.filter(task => visibleDateStrings.includes(task.date)).length;
     const navDays = Array.from({length: 7}, (_, i) => { const d = new Date(currentDate); d.setDate(d.getDate() - 3 + i); return d; });
     const handleDrop = (e, dateStr, hourValue) => { e.preventDefault(); const taskId = e.dataTransfer.getData('taskId'); if(taskId) onUpdateTask(taskId, { date: dateStr, time: hourValue }); };
     
@@ -2048,7 +2066,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
       <div className="planner-timeline max-w-6xl mx-auto animate-in fade-in pb-10">
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-10 relative">
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
-              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))} className="p-2 hover:bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
+              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - visibleDayCount * 86400000))} className="p-2 hover:bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={24}/></button>
               <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
                   {navDays.map((d, i) => {
                       const isSelected = d.toDateString() === currentDate.toDateString();
@@ -2073,22 +2091,38 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                       );
                   })}
               </div>
-              <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={24}/></button>
+              <div className="timeline-view-actions">
+                  <div className="timeline-day-count-toggle">
+                      {[2, 3].map(count => <button key={count} onClick={() => setVisibleDayCount(count)} className={visibleDayCount === count ? 'active' : ''}>{count}{t('天', 'D')}</button>)}
+                  </div>
+                  <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + visibleDayCount * 86400000))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={24}/></button>
+              </div>
           </div>
           
           <div className="timeline-day-summary">
-              <div><span>{currentDate.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'long' })}</span><strong>{currentDate.toLocaleDateString(t('zh-CN', 'en-US'), { month: 'long', day: 'numeric' })}</strong><small>{tasks.filter(task => task.date === selectedDateStr).length} {t('项计划', 'tasks planned')}</small></div>
-              <button onClick={() => openAddModal(selectedDateStr, '09:00')}><Plus size={17}/>{t('添加今天的任务', 'Add task today')}</button>
+              <div><span>{t(`${visibleDayCount} 天计划`, `${visibleDayCount}-DAY PLAN`)}</span><strong>{currentDate.toLocaleDateString(t('zh-CN', 'en-US'), { month: 'long', day: 'numeric' })} — {daysToShow[daysToShow.length - 1].toLocaleDateString(t('zh-CN', 'en-US'), { month: 'short', day: 'numeric' })}</strong><small>{visibleTaskCount} {t('项计划', 'tasks planned')}</small></div>
+              <button onClick={() => openAddModal(selectedDateStr, '09:00')}><Plus size={17}/>{t('添加任务', 'Add task')}</button>
           </div>
 
           {untimedTasks.length > 0 && (
               <div className="timeline-anytime">
                   <div><Clock size={16}/><span>{t('未指定时间', 'Anytime')}</span></div>
-                  <div>{untimedTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}</div>
+                  <div className="timeline-anytime-days" style={{ gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))` }}>
+                      {daysToShow.map(day => {
+                          const dayString = getLocalDateString(day);
+                          const dayTasks = untimedTasks.filter(task => task.date === dayString);
+                          return (
+                              <div key={dayString} className="timeline-anytime-day">
+                                  <strong>{day.toLocaleDateString(t('zh-CN', 'en-US'), { weekday: 'short', day: 'numeric' })}</strong>
+                                  {dayTasks.length ? dayTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />) : <span>{t('没有全天任务', 'No anytime tasks')}</span>}
+                              </div>
+                          );
+                      })}
+                  </div>
               </div>
           )}
 
-          <div className="planner-timeline-grid grid grid-cols-[92px_minmax(0,1fr)] gap-5 mb-7">
+          <div className="planner-timeline-grid timeline-multi-grid mb-7" style={{ gridTemplateColumns: `76px repeat(${visibleDayCount}, minmax(0, 1fr))` }}>
               <div className="timeline-column-label">{t('时间', 'TIME')}</div>
               {daysToShow.map((d, i) => (
                   <div key={i} className="text-center">
@@ -2105,7 +2139,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                   const matchHour = hour === 24 ? 0 : hour;
                   
                   return (
-                      <div key={hour} className="grid grid-cols-[92px_minmax(0,1fr)] gap-5 group items-start min-h-[82px]">
+                      <div key={hour} className="timeline-hour-row group" style={{ gridTemplateColumns: `76px repeat(${visibleDayCount}, minmax(0, 1fr))` }}>
                           <div className="pt-2 text-right shrink-0">
                               <span className="text-xs font-semibold text-slate-400 group-hover:text-indigo-600 transition-colors">{timeLabel}</span>
                           </div>
@@ -2113,7 +2147,7 @@ const TimelineView = ({ currentDate, setCurrentDate, tasks, openAddModal, toggle
                               const dateStr = getLocalDateString(d);
                               const hourTasks = tasks.filter(taskObj => taskObj.date === dateStr && taskObj.time && parseInt(taskObj.time.split(':')[0]) === matchHour);
                               return (
-                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="min-w-0 flex-1 border-l-2 border-slate-200 dark:border-slate-800 pl-4 pb-6 relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-r-xl">
+                                  <div key={dayIndex} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dateStr, hourValue)} className="timeline-hour-cell min-w-0 relative transition-colors">
                                       <div className="absolute top-3 -left-[7px] w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 border-2 border-white dark:border-slate-900 transition-all" />
                                       <div className="space-y-3 w-full min-w-0">
                                           {hourTasks.map(tData => <TaskCard key={tData.id} task={tData} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={onReorderTask} categories={categories} t={t} />)}
@@ -2239,37 +2273,15 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     const renderTaskDays = (startDate, endDate) => {
         if (!startDate || !endDate) return null;
         const daysArr = getDaysArray(startDate, endDate);
-        const todayStr = getLocalDateString(new Date());
-        
+        const start = new Date(`${startDate}T00:00:00`);
+        const end = new Date(`${endDate}T00:00:00`);
         return (
-            <div className="flex flex-col gap-1.5 mt-3">
-                {daysArr.map(dStr => {
-                    const d = new Date(dStr);
-                    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-                    const dateFormatted = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ( ${days[d.getDay()]} )`;
-                    
-                    const isPassed = dStr < todayStr;
-                    const isToday = dStr === todayStr;
-                    const isDue = dStr === endDate;
-
-                    let colorClass = "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700";
-                    if (isPassed) {
-                        colorClass = "text-slate-400 bg-slate-100 border-slate-200 line-through dark:bg-slate-800/50 dark:border-slate-700/50 dark:text-slate-500";
-                    } else if (isDue) {
-                        colorClass = "text-rose-600 bg-rose-50 border-rose-300 font-bold dark:bg-rose-900/40 dark:border-rose-600/50 dark:text-rose-400 shadow-sm";
-                    } else if (isToday) {
-                        colorClass = "text-amber-600 bg-amber-50 border-amber-300 font-bold dark:bg-amber-900/40 dark:border-amber-600/50 dark:text-amber-400 shadow-sm";
-                    } else {
-                        colorClass = "text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-700/50 dark:text-indigo-400";
-                    }
-
-                    return (
-                        <div key={dStr} className={`px-3 py-1.5 text-xs rounded-md border transition-all w-fit ${colorClass}`}>
-                            {dateFormatted}
-                        </div>
-                    )
-                })}
+            <div className="cycle-date-range">
+                <CalendarDays size={14}/>
+                <span>{start.toLocaleDateString(t('zh-CN', 'en-US'), { month: 'short', day: 'numeric' })}</span>
+                <ArrowRight size={13}/>
+                <span>{end.toLocaleDateString(t('zh-CN', 'en-US'), { month: 'short', day: 'numeric' })}</span>
+                <b>{daysArr.length} {t('天', 'days')}</b>
             </div>
         );
     };
@@ -2327,11 +2339,19 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
         onUpdateReview({ ...reviews, yearly: { ...(reviews.yearly || {}), [catKey]: updated } });
     };
 
-    const daily = { keep: ['', '', ''], improve: ['', '', ''], start: ['', '', ''], stop: ['', '', ''], ...(reviews?.daily?.[date] || {}) };
+    const daily = { keep: ['', '', ''], improve: ['', '', ''], start: ['', '', ''], stop: ['', '', ''], linkedYearlyGoalId: '', alignmentNote: '', ...(reviews?.daily?.[date] || {}) };
     const updateDaily = (field, idx, val) => { const newList = Array.isArray(daily[field]) ? [...daily[field]] : ['', '', '']; newList[idx] = val; onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: newList } } }); };
+    const updateDailyMeta = (field, value) => onUpdateReview({ ...reviews, daily: { ...(reviews.daily || {}), [date]: { ...daily, [field]: value } } });
     
     const dailyCategories = [{f:'keep', l: t('Keep (保持)', 'Keep'), c:'emerald', i: CheckCircle2}, {f:'improve', l: t('Improve (改进)', 'Improve'), c:'amber', i: TrendingUp}, {f:'start', l: t('Start (开始)', 'Start'), c:'indigo', i: PlayCircle}, {f:'stop', l: t('Stop (停止)', 'Stop'), c:'rose', i: StopCircle}];
     const yearlyCategories = [{k:'finance', l: t('Finance / 财务', 'Finance'), i: Wallet, c: 'emerald'}, {k:'health', l: t('Health / 健康', 'Health'), i: HeartPulse, c: 'rose'}, {k:'family', l: t('Family / 亲友', 'Family'), i: Users2, c: 'amber'}, {k:'business', l: t('Business / 事业', 'Business'), i: Briefcase, c: 'blue'}, {k:'investment', l: t('Investment / 投资', 'Investment'), i: TrendingUp, c: 'indigo'}, {k:'social', l: t('Social / 社交', 'Social'), i: Users, c: 'cyan'}, {k:'education', l: t('Education / 教育', 'Education'), i: GraduationCap, c: 'violet'}, {k:'breakthrough', l: t('Breakthrough / 突破', 'Breakthrough'), i: Rocket, c: 'orange'}];
+    const activeYearlyGoals = yearlyCategories.flatMap(category => {
+        const categoryGoals = Array.isArray(reviews?.yearly?.[category.k]) ? reviews.yearly[category.k] : [];
+        return categoryGoals
+            .filter(goal => goal && typeof goal === 'object' && !goal.completed)
+            .map(goal => ({ ...goal, catKey: category.k, catLabel: category.l }));
+    });
+    const linkedYearlyGoal = activeYearlyGoals.find(goal => goal.id === daily.linkedYearlyGoalId);
     
     const unitSuggestions = {
         finance: ['RM', 'USD', '%'],
@@ -2347,7 +2367,7 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
     return (
         <div className="planner-review max-w-6xl mx-auto pb-20 space-y-8 animate-in fade-in relative">
           <header className="planner-review-header flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors text-center md:text-left">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('复盘', 'Review')}</h2>
+            <div><span className="review-header-kicker">REVIEW × GOALS</span><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('复盘 × 年度目标', 'Review × Yearly Goals')}</h2></div>
             <div className="flex items-center gap-4 flex-wrap justify-center">
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 font-medium outline-none text-slate-700 dark:text-white focus:border-indigo-500 transition-colors" />
                 <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner">
@@ -2357,6 +2377,50 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                 </div>
             </div>
           </header>
+
+          <section className="review-goal-bridge">
+              <div className="review-goal-bridge-head">
+                  <div>
+                      <span>{t('年度目标连接', 'YEARLY GOAL ALIGNMENT')}</span>
+                      <h3>{t('每次复盘，都要回到最重要的目标', 'Connect every review to what matters most')}</h3>
+                  </div>
+                  <button onClick={() => setTab('yearly')}>{t('管理年度目标', 'Manage yearly goals')}<ArrowRight size={15}/></button>
+              </div>
+              {activeYearlyGoals.length === 0 ? (
+                  <div className="review-goal-empty"><Target size={20}/><span>{t('还没有进行中的年度目标，请先在「年度」建立目标。', 'No active yearly goals yet. Create one in the Yearly tab.')}</span></div>
+              ) : (
+                  <>
+                      <div className="review-goal-list">
+                          {activeYearlyGoals.slice(0, 6).map(goal => {
+                              const progress = goal.target > 0 ? Math.min(100, (goal.current / goal.target) * 100) : 0;
+                              return (
+                                  <button key={`${goal.catKey}-${goal.id}`} onClick={() => updateDailyMeta('linkedYearlyGoalId', goal.id)} className={daily.linkedYearlyGoalId === goal.id ? 'active' : ''}>
+                                      <span>{goal.catLabel}</span>
+                                      <strong>{goal.name}</strong>
+                                      <i><b style={{ width: `${progress}%` }}/></i>
+                                      <small>{progress.toFixed(0)}%</small>
+                                  </button>
+                              );
+                          })}
+                      </div>
+                      {tab === 'daily' && (
+                          <div className="review-alignment-entry">
+                              <label>
+                                  <span>{t('今天主要推进哪个年度目标？', 'Which yearly goal did today move forward?')}</span>
+                                  <select value={daily.linkedYearlyGoalId || ''} onChange={e => updateDailyMeta('linkedYearlyGoalId', e.target.value)}>
+                                      <option value="">{t('选择年度目标', 'Select a yearly goal')}</option>
+                                      {activeYearlyGoals.map(goal => <option key={`${goal.catKey}-${goal.id}`} value={goal.id}>{goal.catLabel} — {goal.name}</option>)}
+                                  </select>
+                              </label>
+                              <label>
+                                  <span>{linkedYearlyGoal ? t(`今天如何推进「${linkedYearlyGoal.name}」？`, `How did today advance “${linkedYearlyGoal.name}”?`) : t('今天最重要的进展', 'Most important progress today')}</span>
+                                  <input value={daily.alignmentNote || ''} onChange={e => updateDailyMeta('alignmentNote', e.target.value)} placeholder={t('写下一句具体成果…', 'Write one concrete outcome…')} />
+                              </label>
+                          </div>
+                      )}
+                  </>
+              )}
+          </section>
 
           <div className="w-full">
             {tab === 'daily' && (
@@ -2408,7 +2472,7 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                         </div>
                     </div>
 
-                    <div className="space-y-4 flex-1">
+                    <div className="cycle-task-grid flex-1">
                         {sortedCycleTasks.length === 0 ? (
                             <div className="text-center py-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/30">
                                 <Target className="mx-auto text-slate-400 mb-3" size={32} />
@@ -2416,17 +2480,17 @@ const ReviewView = ({ reviews, onUpdateReview, t }) => {
                             </div>
                         ) : (
                             sortedCycleTasks.map(task => (
-                                <div key={task.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-5 flex gap-4 items-start shadow-sm transition-all hover:shadow-md ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
+                                <div key={task.id} className={`cycle-task-card bg-white dark:bg-slate-800 border rounded-xl p-5 shadow-sm transition-all hover:shadow-md ${task.completed ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-indigo-100 dark:border-indigo-500/30'}`}>
                                     <button onClick={() => toggleCycleTask(task.id)} className={`mt-0.5 shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-500 hover:border-indigo-400'}`}>
                                         {task.completed && <Check size={14} strokeWidth={3} />}
                                     </button>
                                     
-                                    <div className="flex-1 flex flex-col lg:flex-row gap-6 min-w-0">
-                                        <div className="lg:w-1/4 flex flex-col justify-start shrink-0">
+                                    <div className="flex-1 flex flex-col gap-4 min-w-0">
+                                        <div className="flex flex-col justify-start">
                                             <h4 className={`text-base font-bold break-words ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.name}</h4>
                                             {renderTaskDays(task.startDate, task.endDate)}
                                         </div>
-                                        <div className="lg:w-3/4 flex flex-col gap-3 min-w-0">
+                                        <div className="flex flex-col gap-3 min-w-0">
                                             <div className="w-full bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 space-y-2">
                                                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('执行细节', 'Execution Details')}:</p>
                                                 {task.detail1 && <p className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2 break-words"><ChevronRight size={16} className="text-indigo-400 shrink-0 mt-0.5"/> <span className="leading-relaxed">{task.detail1}</span></p>}
@@ -2679,6 +2743,7 @@ export default function App() {
   const [reviews, setReviews] = useState({ daily: {}, cycleTasks: {}, yearly: {} });
   const [stickyNotes, setStickyNotes] = useState([]);
   const [teamStickyNotes, setTeamStickyNotes] = useState([]);
+  const taskWriteQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     if (isDarkMode) { document.documentElement.classList.add('dark'); } 
@@ -2759,19 +2824,31 @@ export default function App() {
   }, [user, isAdmin, globalStaffRegistry]);
 
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
+  const commitTasks = (nextTasks) => {
+      const cleanTasks = nextTasks.filter(task => task && task.id);
+      setTasks(cleanTasks);
+      if (!user || !viewedUserId) return Promise.resolve();
+      const taskRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', 'data');
+      taskWriteQueueRef.current = taskWriteQueueRef.current
+          .catch(() => {})
+          .then(() => setDoc(taskRef, { list: cleanTasks, updatedAt: new Date().toISOString() }))
+          .catch(error => console.error('Task save failed:', error));
+      return taskWriteQueueRef.current;
+  };
   const isFinanceLocked = isAdmin && viewedUserId !== user?.uid;
 
   const handleToggleTask = (id) => {
       const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t);
-      setTasks(n); saveData('tasks', { list: n });
+      commitTasks(n);
   };
 
   const handleDeleteTask = (id) => {
       const n = tasks.filter(t => t.id !== id);
-      setTasks(n); saveData('tasks', { list: n });
+      commitTasks(n);
   };
 
-  const handleUpdateTask = (id, up) => {
+  const handleUpdateTask = (id, updates) => {
+      const up = { ...updates };
       let n = [...tasks];
       if (up.cancelRecurring) {
           const taskToCancel = n.find(t => t.id === id);
@@ -2812,8 +2889,7 @@ export default function App() {
           delete up.makeRecurring;
       }
       n = n.map(t => t.id === id ? { ...t, ...up } : t);
-      setTasks(n); 
-      saveData('tasks', { list: n });
+      commitTasks(n);
   };
 
   const handleReorderTask = (draggedId, targetId, position, targetDate, targetTime) => {
@@ -2821,7 +2897,12 @@ export default function App() {
       const draggedIdx = n.findIndex(t => t.id === draggedId);
       if (draggedIdx === -1) return;
 
-      const draggedTask = { ...n[draggedIdx], date: targetDate, time: targetTime };
+      const originalTask = n[draggedIdx];
+      const draggedTask = {
+          ...originalTask,
+          date: targetDate || originalTask.date,
+          time: targetTime ?? originalTask.time ?? ''
+      };
       n.splice(draggedIdx, 1);
 
       const targetIdx = n.findIndex(t => t.id === targetId);
@@ -2831,8 +2912,7 @@ export default function App() {
           n.push(draggedTask);
       }
 
-      setTasks(n);
-      saveData('tasks', { list: n });
+      commitTasks(n);
   };
 
   const handleReorderHabits = (reorderedHabits) => {
@@ -2843,8 +2923,9 @@ export default function App() {
   const getStickyRef = (targetUserId) => doc(db, 'artifacts', appId, 'users', targetUserId, 'sticky_notes', 'data');
 
   const handleAddSticky = async (note) => {
-      if (!isAdmin || !note.assigneeId) return;
-      const target = note.assigneeId;
+      if (!user) return;
+      const target = isAdmin ? note.assigneeId : user.uid;
+      if (!target) return;
       const targetRef = getStickyRef(target);
       const snapshot = await getDoc(targetRef);
       const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
@@ -2854,10 +2935,11 @@ export default function App() {
           title: note.title,
           detail: note.detail || '',
           dueDate: note.dueDate || '',
-          color: note.color || 'butter',
           assigneeId: target,
           assigneeEmail: person?.email || '',
           assignedBy: user?.email || '',
+          assignedByAdmin: isAdmin,
+          source: isAdmin ? 'admin' : 'self',
           completed: false,
           completedAt: null,
           completedBy: null,
@@ -2884,10 +2966,12 @@ export default function App() {
 
   const handleDeleteSticky = async (noteId, ownerId) => {
       const targetUserId = ownerId || viewedUserId;
-      if (!isAdmin || !targetUserId) return;
+      if (!targetUserId || (!isAdmin && targetUserId !== user?.uid)) return;
       const source = targetUserId === viewedUserId
           ? stickyNotes
           : teamStickyNotes.filter(note => note._ownerId === targetUserId);
+      const targetNote = source.find(note => note.id === noteId);
+      if (!isAdmin && (targetNote?.assignedByAdmin === true || targetNote?.source === 'admin')) return;
       const next = source.filter(note => note.id !== noteId).map(({ _ownerId, ...note }) => note);
       if (targetUserId === viewedUserId) setStickyNotes(next);
       await setDoc(getStickyRef(targetUserId), { list: next });
@@ -2989,28 +3073,36 @@ export default function App() {
 
       <AddTaskModal t={t} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={(taskData) => {
           let n = [...tasks];
-          const rec = taskData.recurringConfig;
-          delete taskData.recurringConfig;
-          if (taskData.recurring === 'daily' && rec) {
+          const { recurringConfig: rec, ...rawTask } = taskData;
+          const normalizedTask = {
+              ...rawTask,
+              title: String(rawTask.title || '').trim(),
+              date: rawTask.date || targetDate || getLocalDateString(new Date()),
+              time: rawTask.time || ''
+          };
+          if (!normalizedTask.title) return;
+          if (normalizedTask.recurring === 'daily' && rec) {
               const newTasks = [];
               const groupId = generateId();
               let iterations = 30;
               if (rec.endType === 'days') iterations = parseInt(rec.days) || 30;
               else if (rec.endType === 'forever') iterations = 365;
               else if (rec.endType === 'date' && rec.endDate) {
-                  const start = new Date(taskData.date);
+                  const start = new Date(normalizedTask.date);
                   const end = new Date(rec.endDate);
                   iterations = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
                   if (iterations < 1) iterations = 1;
                   if (iterations > 365) iterations = 365;
               }
               for(let i=0; i<iterations; i++) {
-                  const d = new Date(taskData.date); d.setDate(d.getDate() + i);
-                  newTasks.push({ id: generateId(), groupId, completed: false, ...taskData, date: getLocalDateString(d) });
+                  const d = new Date(normalizedTask.date); d.setDate(d.getDate() + i);
+                  newTasks.push({ id: generateId(), groupId, completed: false, ...normalizedTask, date: getLocalDateString(d) });
               }
               n = [...n, ...newTasks];
-          } else { n.push({ id: generateId(), completed: false, ...taskData }); }
-          setTasks(n); saveData('tasks', { list: n });
+          } else {
+              n.push({ id: generateId(), completed: false, ...normalizedTask });
+          }
+          commitTasks(n);
       }} defaultDate={targetDate} categories={categories} prefilledTime={prefilledTime} onAddCategory={(name) => { const n = [...categories, { name, color: LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)] }]; setCategories(n); saveData('categories', { list: n }); }} />
 
       <EditTaskModal
