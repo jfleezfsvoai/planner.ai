@@ -1915,9 +1915,9 @@ const TeamOperationsHub = ({ isAdmin, user, staff, teamCheckins, onCheckIn, onSa
     const [breakdownText, setBreakdownText] = useState('');
     const [breakdownItems, setBreakdownItems] = useState([]);
     const [assigneeId, setAssigneeId] = useState(user?.uid || '');
+    useEffect(() => { setAssigneeId(user?.uid || ''); }, [user?.uid]);
     const templates = [
         { title: t('每日广告检查', 'Daily ads check'), tasks: [t('检查广告花费与 ROAS', 'Review ad spend and ROAS'), t('检查素材状态与评论', 'Review creatives and comments'), t('记录异常并通知负责人', 'Log issues and notify owner')] },
-        { title: t('直播准备流程', 'Live commerce prep'), tasks: [t('确认直播脚本与商品链接', 'Confirm script and product links'), t('准备直播素材与优惠券', 'Prepare assets and vouchers'), t('直播后整理订单与复盘', 'Reconcile orders and review performance')] },
         { title: t('客服跟进流程', 'Customer follow-up'), tasks: [t('处理未回复客户', 'Handle unanswered customers'), t('跟进待付款订单', 'Follow up pending payments'), t('标记高意向客户', 'Tag high-intent leads')] },
         { title: t('内容发布流程', 'Content publishing'), tasks: [t('完成今日内容排期', 'Complete today’s content plan'), t('检查文案、封面与链接', 'Check copy, cover and links'), t('发布并记录数据', 'Publish and log results')] }
     ];
@@ -1979,7 +1979,7 @@ const TeamOperationsHub = ({ isAdmin, user, staff, teamCheckins, onCheckIn, onSa
     );
 };
 
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, onAddSticky, onUpdateSticky, onToggleSticky, onDeleteSticky, teamStaff, teamTaskSnapshots, teamReportSnapshots, onViewStaff, teamCheckins, onCheckIn, onSaveReport, onCreateTask, t }) => {
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, member, onAddSticky, onUpdateSticky, onToggleSticky, onDeleteSticky, teamStaff, teamTaskSnapshots, teamReportSnapshots, onViewStaff, teamCheckins, onCheckIn, onSaveReport, onCreateTask, t }) => {
     const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
     
     const displayTasks = tasks
@@ -2038,7 +2038,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
     return (
       <div className="planner-dashboard max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
         {isAdmin && viewedUserId === stickyAssignees?.[0]?.uid && <TeamPulseDashboard staff={teamStaff} taskSnapshots={teamTaskSnapshots} reportSnapshots={teamReportSnapshots} selectedDate={selectedDate} setSelectedDate={setSelectedDate} onViewStaff={onViewStaff} t={t} />}
-        <TeamOperationsHub isAdmin={isAdmin} user={stickyAssignees?.[0]} staff={teamStaff} teamCheckins={teamCheckins} onCheckIn={onCheckIn} onSaveReport={onSaveReport} onCreateTask={onCreateTask} onUpdateTask={onUpdateTask} t={t} />
+        <TeamOperationsHub isAdmin={isAdmin} user={member} staff={teamStaff} teamCheckins={teamCheckins} onCheckIn={onCheckIn} onSaveReport={onSaveReport} onCreateTask={onCreateTask} onUpdateTask={onUpdateTask} t={t} />
         <div className="planner-progress-hero bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div className="flex items-center gap-3">
@@ -2052,6 +2052,11 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
               <div className="h-full bg-white rounded-full transition-all duration-1000" style={{ width: `${progressValue}%` }} />
           </div>
         </div>
+
+        <section className="today-task-list surface">
+            <header><div><span className="eyebrow">MY WORK QUEUE</span><h2>{t('我的今日任务', 'My tasks today')}</h2><p>{t('你领取、被指派或自己新增的任务都会出现在这里。点击任务可以编辑状态、完成证明和阻塞原因。', 'Tasks you own, receive or create appear here. Open a task to update status, proof and blockers.')}</p></div><strong>{completedCount}/{displayTasks.length}</strong></header>
+            <div className="today-task-list-body">{displayTasks.length ? displayTasks.map(task => <TaskCard key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} onUpdateTask={onUpdateTask} onEditTask={onEditTask} onReorderDrop={undefined} categories={categories} t={t} />) : <div className="today-task-empty"><ClipboardList size={24}/><span>{t('今天还没有任务。可以点击上面的模板、WhatsApp 转任务或 AI 拆解来创建。', 'No tasks for today. Use Templates, WhatsApp to task or AI breakdown above.')}</span></div>}</div>
+        </section>
 
         <StickyNotesBoard notes={stickyNotes} isAdmin={isAdmin} assignees={stickyAssignees} viewedUserId={viewedUserId} onAdd={onAddSticky} onUpdate={onUpdateSticky} onToggle={onToggleSticky} onDelete={onDeleteSticky} t={t} />
 
@@ -3028,12 +3033,17 @@ export default function App() {
   // Synchronize Firestore Data based on viewedUserId
   useEffect(() => {
     if (!user || !viewedUserId) return;
+    setTasks([]);
+    setHabits([]);
+    setCategories([{ name: '工作', color: 'bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300' },{ name: '生活', color: 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300' },{ name: '学习', color: 'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300' }]);
+    setReviews({ daily: {}, cycleTasks: {}, yearly: {} });
+    setStickyNotes([]);
     const path = (c) => doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data');
     const unsubs = [
-      onSnapshot(path('tasks'), d => d.exists() && setTasks(d.data().list || []), (e) => {}),
-      onSnapshot(path('habits'), d => d.exists() && setHabits(d.data().list || []), (e) => {}),
-      onSnapshot(path('categories'), d => d.exists() && setCategories(d.data().list || []), (e) => {}),
-      onSnapshot(path('reviews'), d => d.exists() && setReviews(d.data() || {}), (e) => {}),
+      onSnapshot(path('tasks'), d => setTasks(d.exists() ? (d.data().list || []) : []), (e) => setTasks([])),
+      onSnapshot(path('habits'), d => setHabits(d.exists() ? (d.data().list || []) : []), (e) => setHabits([])),
+      onSnapshot(path('categories'), d => d.exists() ? setCategories(d.data().list || []) : null, (e) => {}),
+      onSnapshot(path('reviews'), d => setReviews(d.exists() ? (d.data() || {}) : { daily: {}, cycleTasks: {}, yearly: {} }), (e) => setReviews({ daily: {}, cycleTasks: {}, yearly: {} })),
       onSnapshot(path('sticky_notes'), d => setStickyNotes(d.exists() ? (d.data().list || []) : []), (e) => {})
     ];
     return () => unsubs.forEach(u => u());
@@ -3133,14 +3143,15 @@ export default function App() {
   const handleCreateTeamTask = async (taskData) => {
       const targetUserId = isAdmin && taskData.assigneeId ? taskData.assigneeId : viewedUserId;
       const nextTask = { id: generateId(), completed: false, date: taskData.date || getLocalDateString(new Date()), time: taskData.time || '', ...taskData };
-      if (targetUserId === viewedUserId) {
-          commitTasks([...tasks, nextTask]);
-          return;
-      }
       const targetRef = doc(db, 'artifacts', appId, 'users', targetUserId, 'tasks', 'data');
-      const snapshot = await getDoc(targetRef);
-      const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
-      await setDoc(targetRef, { list: [...existing, nextTask], updatedAt: new Date().toISOString() });
+      taskWriteQueueRef.current = taskWriteQueueRef.current.catch(() => {}).then(async () => {
+          const snapshot = await getDoc(targetRef);
+          const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+          const next = [...existing, nextTask];
+          if (targetUserId === viewedUserId) setTasks(next);
+          await setDoc(targetRef, { list: next, updatedAt: new Date().toISOString() });
+      }).catch(error => console.error('Team task creation failed:', error));
+      return taskWriteQueueRef.current;
   };
   const handleCheckIn = async () => {
       if (!user || !viewedUserId) return;
@@ -3322,6 +3333,10 @@ export default function App() {
       ...myStaffRegistry.filter(staff => staff?.uid).map(staff => ({ uid: staff.uid, email: staff.email, label: staff.email }))
   ] : [];
 
+  const viewedMember = viewedUserId === user?.uid
+      ? { label: isAdmin ? t('我自己 (Admin)', 'Myself (Admin)') : (user?.displayName || user?.email || t('我自己', 'Myself')), email: user?.email }
+      : myStaffRegistry.find(staff => staff.uid === viewedUserId) || { label: viewedUserId || t('未知成员', 'Unknown member'), email: '' };
+
   if (authLoading) return <div className="flex h-screen w-full items-center justify-center dark:bg-slate-950"><RefreshCw className="animate-spin text-indigo-600" size={48} /></div>;
   if (!user) return <LoginPage t={t} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} lang={lang} setLang={setLang} authError={authError} />;
 
@@ -3335,7 +3350,7 @@ export default function App() {
   return (
     <div className={`planner-legacy planner-app-shell flex flex-col h-screen w-full font-sans overflow-hidden transition-colors duration-500 bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100`}>
       <div className="planner-topbar px-6 md:px-10 pt-6 pb-4 flex justify-between items-center max-w-7xl mx-auto w-full shrink-0">
-          <div className="planner-page-heading"><span>PLANNER AI PRO</span><strong>{menuItems.find(item => item.id === view)?.label}</strong></div>
+          <div className="planner-page-heading"><span>PLANNER AI PRO</span><strong>{menuItems.find(item => item.id === view)?.label}</strong><small className="planner-member-context">{t('当前成员：', 'Member: ')}{viewedMember.label || viewedMember.email}</small></div>
           <div className="flex items-center gap-4">
             {isAdmin && (
                 <div className="flex items-center gap-3">
@@ -3353,7 +3368,7 @@ export default function App() {
                             <option value={user.uid}>{t('我的数据 (Admin)', 'My Data')}</option>
                             {myStaffRegistry.map((s, i) => {
                                 if (!s || typeof s !== 'object' || !s.uid) return null;
-                                return <option key={s.uid || i} value={s.uid}>{s.email}</option>
+                                return <option key={s.uid || i} value={s.uid}>{s.displayName || s.email || s.uid}</option>
                             })}
                         </select>
                     </div>
@@ -3396,7 +3411,7 @@ export default function App() {
       <main className="planner-content flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
         <div className="max-w-7xl mx-auto">
             <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} teamReportSnapshots={teamReportSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} teamCheckins={teamCheckins} onCheckIn={handleCheckIn} onSaveReport={handleSaveReport} onCreateTask={handleCreateTeamTask} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} member={{ uid: viewedUserId, email: viewedMember.email, label: viewedMember.label }} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} teamReportSnapshots={teamReportSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} teamCheckins={teamCheckins} onCheckIn={handleCheckIn} onSaveReport={handleSaveReport} onCreateTask={handleCreateTeamTask} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
