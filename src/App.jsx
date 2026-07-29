@@ -2991,6 +2991,7 @@ export default function App() {
   const [teamReports, setTeamReports] = useState([]);
   const [operationNotice, setOperationNotice] = useState('');
   const taskWriteQueueRef = useRef(Promise.resolve());
+  const stickyWriteQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     if (isDarkMode) { document.documentElement.classList.add('dark'); } 
@@ -3272,13 +3273,22 @@ export default function App() {
 
   const getStickyRef = (targetUserId) => doc(db, 'artifacts', appId, 'users', targetUserId, 'sticky_notes', 'data');
 
+  const enqueueStickyWrite = (targetUserId, updater) => {
+      const targetRef = getStickyRef(targetUserId);
+      stickyWriteQueueRef.current = stickyWriteQueueRef.current.catch(() => {}).then(async () => {
+          const snapshot = await getDoc(targetRef);
+          const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+          const next = updater(existing);
+          if (targetUserId === viewedUserId) setStickyNotes(next);
+          await setDoc(targetRef, { list: next, updatedAt: new Date().toISOString() });
+      }).catch(error => console.error('Sticky note save failed:', error));
+      return stickyWriteQueueRef.current;
+  };
+
   const handleAddSticky = async (note) => {
       if (!user) return;
       const target = isAdmin ? note.assigneeId : user.uid;
       if (!target) return;
-      const targetRef = getStickyRef(target);
-      const snapshot = await getDoc(targetRef);
-      const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
       const person = target === user?.uid ? { email: user?.email } : globalStaffRegistry.find(staff => staff.uid === target);
       const nextNote = {
           id: generateId(),
@@ -3295,53 +3305,39 @@ export default function App() {
           completedBy: null,
           createdAt: new Date().toISOString()
       };
-      await setDoc(targetRef, { list: [...existing, nextNote] });
+      await enqueueStickyWrite(target, existing => [...existing, nextNote]);
   };
 
   const handleUpdateSticky = async (noteId, ownerId, updates) => {
       const targetUserId = ownerId || viewedUserId;
       if (!user || !targetUserId || (!isAdmin && targetUserId !== user.uid)) return;
-      const targetRef = getStickyRef(targetUserId);
-      const snapshot = await getDoc(targetRef);
-      const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
-      const next = existing.map(note => note.id === noteId ? {
+      await enqueueStickyWrite(targetUserId, existing => existing.map(note => note.id === noteId ? {
           ...note,
           title: updates.title,
           detail: updates.detail || '',
           dueDate: updates.dueDate || '',
           updatedAt: new Date().toISOString()
-      } : note);
-      if (targetUserId === viewedUserId) setStickyNotes(next);
-      await setDoc(targetRef, { list: next });
+      } : note));
   };
 
   const handleToggleSticky = async (noteId, ownerId) => {
       const targetUserId = ownerId || viewedUserId;
       if (!targetUserId) return;
-      const source = targetUserId === viewedUserId
-          ? stickyNotes
-          : teamStickyNotes.filter(note => note._ownerId === targetUserId);
-      const next = source.map(note => note.id === noteId ? {
+      await enqueueStickyWrite(targetUserId, existing => existing.map(note => note.id === noteId ? {
           ...note,
           completed: !note.completed,
           completedAt: !note.completed ? new Date().toISOString() : null,
           completedBy: !note.completed ? (user?.email || '') : null
-      } : note).map(({ _ownerId, ...note }) => note);
-      if (targetUserId === viewedUserId) setStickyNotes(next);
-      await setDoc(getStickyRef(targetUserId), { list: next });
+      } : note));
   };
 
   const handleDeleteSticky = async (noteId, ownerId) => {
       const targetUserId = ownerId || viewedUserId;
       if (!targetUserId || (!isAdmin && targetUserId !== user?.uid)) return;
-      const source = targetUserId === viewedUserId
-          ? stickyNotes
-          : teamStickyNotes.filter(note => note._ownerId === targetUserId);
+      const source = targetUserId === viewedUserId ? stickyNotes : teamStickyNotes.filter(note => note._ownerId === targetUserId);
       const targetNote = source.find(note => note.id === noteId);
       if (!isAdmin && (targetNote?.assignedByAdmin === true || targetNote?.source === 'admin')) return;
-      const next = source.filter(note => note.id !== noteId).map(({ _ownerId, ...note }) => note);
-      if (targetUserId === viewedUserId) setStickyNotes(next);
-      await setDoc(getStickyRef(targetUserId), { list: next });
+      await enqueueStickyWrite(targetUserId, existing => existing.filter(note => note.id !== noteId));
   };
 
   const myStaffRegistry = isAdmin && user ? globalStaffRegistry.filter(s => s.adminEmail === user.email || !s.adminEmail) : [];
