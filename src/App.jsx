@@ -50,6 +50,25 @@ const cleanFirestoreValue = (value) => {
   return value;
 };
 
+const TASK_CHUNK_LIMIT = 700000;
+const splitTaskChunks = (list) => {
+  const chunks = [];
+  let current = [];
+  let currentBytes = 2;
+  list.forEach(task => {
+    const bytes = new TextEncoder().encode(JSON.stringify(task)).length + 1;
+    if (current.length && currentBytes + bytes > TASK_CHUNK_LIMIT) {
+      chunks.push(current);
+      current = [];
+      currentBytes = 2;
+    }
+    current.push(task);
+    currentBytes += bytes;
+  });
+  if (current.length || !chunks.length) chunks.push(current);
+  return chunks;
+};
+
 // 初始化双核 App：用于 Admin 注册员工而不被登出
 const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
 const secondaryAuth = getAuth(secondaryApp);
@@ -3061,7 +3080,16 @@ export default function App() {
     const path = (c) => doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data');
     const unsubs = [
       onSnapshot(path('tasks'), d => {
-          const incoming = d.exists() ? (d.data().list || []) : [];
+          if (!d.exists()) { setTasks([]); return; }
+          const data = d.data() || {};
+          if (data.storage === 'chunked') {
+              Promise.all(Array.from({ length: data.chunkCount || 0 }, (_, index) => getDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', `data_chunk_${index}`))))
+                .then(chunks => chunks.flatMap(chunk => chunk.exists() ? (chunk.data().list || []) : []))
+                .then(incoming => setTasks(incoming.map(task => pendingTaskStateRef.current.has(task.id) ? { ...task, ...pendingTaskStateRef.current.get(task.id) } : task)))
+                .catch(() => setTasks([]));
+              return;
+          }
+          const incoming = data.list || [];
           setTasks(incoming.map(task => pendingTaskStateRef.current.has(task.id) ? { ...task, ...pendingTaskStateRef.current.get(task.id) } : task));
       }, (e) => setTasks([])),
       onSnapshot(path('habits'), d => setHabits(d.exists() ? (d.data().list || []) : []), (e) => setHabits([])),
@@ -3129,8 +3157,15 @@ export default function App() {
     const unsubs = targets.map(person => onSnapshot(
         doc(db, 'artifacts', appId, 'users', person.uid, 'tasks', 'data'),
         snapshot => {
-            buckets.set(person.uid, { uid: person.uid, email: person.email || '', tasks: snapshot.exists() ? (snapshot.data().list || []) : [] });
-            publish();
+            const data = snapshot.exists() ? (snapshot.data() || {}) : {};
+            if (data.storage === 'chunked') {
+                Promise.all(Array.from({ length: data.chunkCount || 0 }, (_, index) => getDoc(doc(db, 'artifacts', appId, 'users', person.uid, 'tasks', `data_chunk_${index}`))))
+                  .then(chunks => chunks.flatMap(chunk => chunk.exists() ? (chunk.data().list || []) : []))
+                  .then(tasks => { buckets.set(person.uid, { uid: person.uid, email: person.email || '', tasks }); publish(); });
+            } else {
+                buckets.set(person.uid, { uid: person.uid, email: person.email || '', tasks: data.list || [] });
+                publish();
+            }
         },
         () => {
             buckets.set(person.uid, { uid: person.uid, email: person.email || '', tasks: [] });
@@ -3158,14 +3193,38 @@ export default function App() {
   }, [user, isAdmin, globalStaffRegistry]);
 
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
+  const getTaskRef = (targetUserId) => doc(db, 'artifacts', appId, 'users', targetUserId, 'tasks', 'data');
+  const readTaskList = async (targetUserId) => {
+      const ref = getTaskRef(targetUserId);
+      const snapshot = await getDoc(ref);
+      if (!snapshot.exists()) return [];
+      const data = snapshot.data() || {};
+      if (data.storage !== 'chunked') return data.list || [];
+      const chunks = await Promise.all(Array.from({ length: data.chunkCount || 0 }, (_, index) => getDoc(doc(db, 'artifacts', appId, 'users', targetUserId, 'tasks', `data_chunk_${index}`))));
+      return chunks.flatMap(chunk => chunk.exists() ? (chunk.data().list || []) : []);
+  };
+  const persistTaskList = async (targetUserId, taskList) => {
+      const cleanList = cleanFirestoreValue(taskList || []);
+      const serializedSize = new TextEncoder().encode(JSON.stringify(cleanList)).length;
+      const ref = getTaskRef(targetUserId);
+      if (serializedSize <= TASK_CHUNK_LIMIT) {
+          await setDoc(ref, { list: cleanList, updatedAt: new Date().toISOString() });
+          return;
+      }
+      const chunks = splitTaskChunks(cleanList);
+      await Promise.all(chunks.map((chunk, index) => setDoc(
+          doc(db, 'artifacts', appId, 'users', targetUserId, 'tasks', `data_chunk_${index}`),
+          { list: chunk, index, updatedAt: new Date().toISOString() }
+      )));
+      await setDoc(ref, { storage: 'chunked', chunkCount: chunks.length, updatedAt: new Date().toISOString() });
+  };
   const commitTasks = (nextTasks) => {
       const cleanTasks = nextTasks.filter(task => task && task.id);
       setTasks(cleanTasks);
       if (!user || !viewedUserId) return Promise.resolve();
-      const taskRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', 'data');
       taskWriteQueueRef.current = taskWriteQueueRef.current
           .catch(() => {})
-          .then(() => setDoc(taskRef, { list: cleanFirestoreValue(cleanTasks), updatedAt: new Date().toISOString() }))
+          .then(() => persistTaskList(viewedUserId, cleanTasks))
           .catch(error => console.error('Task save failed:', error));
       return taskWriteQueueRef.current;
   };
@@ -3177,13 +3236,11 @@ export default function App() {
       setOperationNotice(`${t('已建立任务：', 'Task created: ')}${nextTask.title} · ${targetPerson}`);
       window.setTimeout(() => setOperationNotice(''), 4500);
       if (targetUserId === viewedUserId) setTasks(previous => previous.some(task => task.id === nextTask.id) ? previous : [...previous, nextTask]);
-      const targetRef = doc(db, 'artifacts', appId, 'users', targetUserId, 'tasks', 'data');
       taskWriteQueueRef.current = taskWriteQueueRef.current.catch(() => {}).then(async () => {
-          const snapshot = await getDoc(targetRef);
-          const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+          const existing = await readTaskList(targetUserId);
           const next = [...existing, nextTask];
           if (targetUserId === viewedUserId) setTasks(next);
-          await setDoc(targetRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
+          await persistTaskList(targetUserId, next);
       }).catch(error => console.error('Team task creation failed:', error));
       return taskWriteQueueRef.current;
   };
@@ -3205,7 +3262,6 @@ export default function App() {
       await setDoc(reportRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
   };
   const handleToggleTask = (id) => {
-      const taskRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', 'data');
       const displayed = tasks.find(task => task.id === id);
       if (!displayed) return;
       const optimisticState = {
@@ -3217,8 +3273,7 @@ export default function App() {
       pendingTaskStateRef.current.set(id, optimisticState);
       setTasks(previous => previous.map(task => task.id === id ? { ...task, ...optimisticState } : task));
       taskWriteQueueRef.current = taskWriteQueueRef.current.catch(() => {}).then(async () => {
-          const snapshot = await getDoc(taskRef);
-          const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+          const existing = await readTaskList(viewedUserId);
           const current = existing.find(task => task.id === id);
           if (!current) {
               pendingTaskStateRef.current.delete(id);
@@ -3235,7 +3290,7 @@ export default function App() {
               ...nextState
           } : task);
           setTasks(next);
-          await setDoc(taskRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
+          await persistTaskList(viewedUserId, next);
           const committedState = nextState;
           window.setTimeout(() => {
               if (pendingTaskStateRef.current.get(id) === committedState) pendingTaskStateRef.current.delete(id);
