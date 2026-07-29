@@ -377,6 +377,7 @@ kbd { font-family: inherit !important; }
 .planner-page-heading { display: flex; flex-direction: column; gap: 2px; }
 .planner-page-heading span { color: var(--pro-purple); font-size: 9px; font-weight: 800; letter-spacing: .15em; }
 .planner-page-heading strong { color: var(--pro-text); font-size: 19px; line-height: 1.2; letter-spacing: -.025em; }
+.planner-member-context { color: var(--pro-muted); font-size: 10px; font-weight: 700; }
 
 .planner-legacy .planner-side-rail {
   grid-column: 1;
@@ -570,6 +571,9 @@ kbd { font-family: inherit !important; }
 .sticky-note.is-done h3 { text-decoration: line-through; }
 .sticky-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--pro-muted); background: var(--pro-bg); border: 1px dashed color-mix(in srgb, var(--pro-muted) 28%, transparent); border-radius: 14px; text-align: center; }
 .sticky-empty svg { color: #aaa3ed; }.sticky-empty h3 { margin: 10px 0 4px; color: var(--pro-text); font-size: 14px; }.sticky-empty p { margin: 0; font-size: 11px; }
+.today-task-list { padding: 24px 26px; }
+.today-task-list > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 17px; }
+.today-task-list h2 { margin: 6px 0 0; color: var(--pro-text); font-size: 20px; letter-spacing: -.035em; }.today-task-list p { max-width: 660px; margin: 6px 0 0; color: var(--pro-muted); font-size: 11px; line-height: 1.5; }.today-task-list > header > strong { color: var(--pro-purple); font-size: 20px; white-space: nowrap; }.today-task-list-body { display: flex; flex-direction: column; gap: 9px; }.today-task-empty { min-height: 90px; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--pro-muted); background: var(--pro-bg); border: 1px dashed var(--pro-border); border-radius: 10px; font-size: 11px; text-align: center; }
 .team-pulse { padding: 26px; background: linear-gradient(135deg, var(--pro-panel), color-mix(in srgb, var(--pro-purple) 3%, var(--pro-panel))); }
 .team-pulse-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; }
 .team-pulse-head h2 { margin: 7px 0 0; color: var(--pro-text); font-size: 21px; letter-spacing: -.035em; }
@@ -800,6 +804,7 @@ kbd { font-family: inherit !important; }
   .team-pulse-table-head, .team-pulse-row { min-width: 560px; }
   .team-operations-hub { padding: 20px 16px; }
   .team-operations-head { align-items: flex-start; flex-direction: column; }
+  .today-task-list { padding: 20px 16px; }.today-task-list > header { flex-direction: column; }
   .ops-template-grid { grid-template-columns: 1fr; padding-inline: 16px; }
   .sticky-task-form-row { grid-template-columns: 1fr; }
   .sticky-task-modal { max-height: 92vh; overflow-y: auto; }
