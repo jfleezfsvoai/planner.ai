@@ -794,6 +794,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorde
                         {}
                         {priorityInfo && task.priority !== 'none' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border ${priorityInfo.color.split(' ')[0]} ${priorityInfo.color.split(' ')[1]} ${priorityInfo.color.split(' ')[2]}`}><Flag size={10}/>{priorityInfo.label[t('zh','en')]}</span>}
                         {task.recurring === 'daily' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 dark:bg-indigo-900/30 flex items-center" title={t('每日重复', 'Daily Recurring')}><Repeat size={10}/></span>}
+                        {task.source === 'admin' || task.assignedByAdmin ? <span className="task-owner-badge assigned"><UserPlus size={10}/>{t('团队指派', 'Assigned')}</span> : <span className="task-owner-badge self"><User size={10}/>{t('我的任务', 'My task')}</span>}
                         {task.executionStatus && task.executionStatus !== 'not_started' && <span className={`task-status-badge ${task.executionStatus}`}><span />{({ in_progress: t('进行中', 'In progress'), waiting: t('等待资料', 'Waiting'), blocked: t('被阻塞', 'Blocked'), completed: t('已完成', 'Complete') })[task.executionStatus] || task.executionStatus}</span>}
                     </div>
                     
@@ -2992,6 +2993,8 @@ export default function App() {
   const [operationNotice, setOperationNotice] = useState('');
   const taskWriteQueueRef = useRef(Promise.resolve());
   const stickyWriteQueueRef = useRef(Promise.resolve());
+  const pendingTaskStateRef = useRef(new Map());
+  const pendingStickyStateRef = useRef(new Map());
 
   useEffect(() => {
     if (isDarkMode) { document.documentElement.classList.add('dark'); } 
@@ -3043,11 +3046,20 @@ export default function App() {
     setStickyNotes([]);
     const path = (c) => doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data');
     const unsubs = [
-      onSnapshot(path('tasks'), d => setTasks(d.exists() ? (d.data().list || []) : []), (e) => setTasks([])),
+      onSnapshot(path('tasks'), d => {
+          const incoming = d.exists() ? (d.data().list || []) : [];
+          setTasks(incoming.map(task => pendingTaskStateRef.current.has(task.id) ? { ...task, ...pendingTaskStateRef.current.get(task.id) } : task));
+      }, (e) => setTasks([])),
       onSnapshot(path('habits'), d => setHabits(d.exists() ? (d.data().list || []) : []), (e) => setHabits([])),
       onSnapshot(path('categories'), d => d.exists() ? setCategories(d.data().list || []) : null, (e) => {}),
       onSnapshot(path('reviews'), d => setReviews(d.exists() ? (d.data() || {}) : { daily: {}, cycleTasks: {}, yearly: {} }), (e) => setReviews({ daily: {}, cycleTasks: {}, yearly: {} })),
-      onSnapshot(path('sticky_notes'), d => setStickyNotes(d.exists() ? (d.data().list || []) : []), (e) => {})
+      onSnapshot(path('sticky_notes'), d => {
+          const incoming = d.exists() ? (d.data().list || []) : [];
+          setStickyNotes(incoming.map(note => {
+              const pending = pendingStickyStateRef.current.get(`${viewedUserId}:${note.id}`);
+              return pending ? { ...note, ...pending } : note;
+          }));
+      }, (e) => {})
     ];
     return () => unsubs.forEach(u => u());
   }, [viewedUserId, user]);
@@ -3145,7 +3157,8 @@ export default function App() {
   };
   const handleCreateTeamTask = async (taskData) => {
       const targetUserId = isAdmin && taskData.assigneeId ? taskData.assigneeId : viewedUserId;
-      const nextTask = { id: generateId(), completed: false, date: taskData.date || getLocalDateString(new Date()), time: taskData.time || '', ...taskData };
+      const isAssignedTask = isAdmin && targetUserId !== user?.uid;
+      const nextTask = { id: generateId(), completed: false, date: taskData.date || getLocalDateString(new Date()), time: taskData.time || '', source: taskData.source || (isAssignedTask ? 'admin' : 'self'), assignedByAdmin: isAssignedTask, assignedBy: isAssignedTask ? (user?.email || '') : '', assigneeId: targetUserId, ...taskData };
       const targetPerson = targetUserId === user?.uid ? t('我自己', 'Myself') : (globalStaffRegistry.find(person => person.uid === targetUserId)?.email || targetUserId);
       setOperationNotice(`${t('已建立任务：', 'Task created: ')}${nextTask.title} · ${targetPerson}`);
       window.setTimeout(() => setOperationNotice(''), 4500);
@@ -3182,15 +3195,27 @@ export default function App() {
       taskWriteQueueRef.current = taskWriteQueueRef.current.catch(() => {}).then(async () => {
           const snapshot = await getDoc(taskRef);
           const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+          const current = existing.find(task => task.id === id);
+          if (!current) return;
+          const nextState = {
+              completed: !current.completed,
+              executionStatus: !current.completed ? 'completed' : (current.executionStatus === 'completed' ? 'in_progress' : current.executionStatus || 'in_progress'),
+              completedAt: !current.completed ? new Date().toISOString() : null
+          };
+          pendingTaskStateRef.current.set(id, nextState);
           const next = existing.map(task => task.id === id ? {
               ...task,
-              completed: !task.completed,
-              executionStatus: !task.completed ? 'completed' : (task.executionStatus === 'completed' ? 'in_progress' : task.executionStatus || 'in_progress'),
-              completedAt: !task.completed ? new Date().toISOString() : null
+              ...nextState
           } : task);
           setTasks(next);
           await setDoc(taskRef, { list: next, updatedAt: new Date().toISOString() });
-      }).catch(error => console.error('Task toggle failed:', error));
+          pendingTaskStateRef.current.delete(id);
+      }).catch(error => {
+          pendingTaskStateRef.current.delete(id);
+          setOperationNotice(`${t('保存失败：请检查 Firebase 权限或网络','Save failed: check Firebase permissions or network')}`);
+          window.setTimeout(() => setOperationNotice(''), 6000);
+          console.error('Task toggle failed:', error);
+      });
   };
 
   const handleDeleteTask = (id) => {
@@ -3281,7 +3306,11 @@ export default function App() {
           const next = updater(existing);
           if (targetUserId === viewedUserId) setStickyNotes(next);
           await setDoc(targetRef, { list: next, updatedAt: new Date().toISOString() });
-      }).catch(error => console.error('Sticky note save failed:', error));
+      }).catch(error => {
+          setOperationNotice(`${t('保存失败：请检查 Firebase 权限或网络','Save failed: check Firebase permissions or network')}`);
+          window.setTimeout(() => setOperationNotice(''), 6000);
+          console.error('Sticky note save failed:', error);
+      });
       return stickyWriteQueueRef.current;
   };
 
@@ -3323,12 +3352,18 @@ export default function App() {
   const handleToggleSticky = async (noteId, ownerId) => {
       const targetUserId = ownerId || viewedUserId;
       if (!targetUserId) return;
+      const pendingKey = `${targetUserId}:${noteId}`;
+      const displayed = targetUserId === viewedUserId ? stickyNotes.find(note => note.id === noteId) : teamStickyNotes.find(note => note._ownerId === targetUserId && note.id === noteId);
+      if (displayed) pendingStickyStateRef.current.set(pendingKey, {
+          completed: !displayed.completed,
+          completedAt: !displayed.completed ? new Date().toISOString() : null,
+          completedBy: !displayed.completed ? (user?.email || '') : null
+      });
       await enqueueStickyWrite(targetUserId, existing => existing.map(note => note.id === noteId ? {
           ...note,
-          completed: !note.completed,
-          completedAt: !note.completed ? new Date().toISOString() : null,
-          completedBy: !note.completed ? (user?.email || '') : null
+          ...pendingStickyStateRef.current.get(pendingKey)
       } : note));
+      pendingStickyStateRef.current.delete(pendingKey);
   };
 
   const handleDeleteSticky = async (noteId, ownerId) => {
@@ -3422,6 +3457,7 @@ export default function App() {
         </div>
       </div>
       <main className="planner-content flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
+        {operationNotice && <div className="ops-notice planner-global-notice" role="status">{operationNotice}</div>}
         <div className="max-w-7xl mx-auto">
             <>
                     {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} member={{ uid: viewedUserId, email: viewedMember.email, label: viewedMember.label }} operationNotice={operationNotice} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} teamReportSnapshots={teamReportSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} teamCheckins={teamCheckins} onCheckIn={handleCheckIn} onSaveReport={handleSaveReport} onCreateTask={handleCreateTeamTask} />}
