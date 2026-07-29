@@ -3206,7 +3206,10 @@ export default function App() {
           const snapshot = await getDoc(taskRef);
           const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
           const current = existing.find(task => task.id === id);
-          if (!current) return;
+          if (!current) {
+              pendingTaskStateRef.current.delete(id);
+              return;
+          }
           const nextState = {
               completed: !current.completed,
               executionStatus: !current.completed ? 'completed' : (current.executionStatus === 'completed' ? 'in_progress' : current.executionStatus || 'in_progress'),
@@ -3219,11 +3222,14 @@ export default function App() {
           } : task);
           setTasks(next);
           await setDoc(taskRef, { list: next, updatedAt: new Date().toISOString() });
-          pendingTaskStateRef.current.delete(id);
+          const committedState = nextState;
+          window.setTimeout(() => {
+              if (pendingTaskStateRef.current.get(id) === committedState) pendingTaskStateRef.current.delete(id);
+          }, 4000);
       }).catch(error => {
           pendingTaskStateRef.current.delete(id);
           setTasks(previous => previous.map(task => task.id === id ? { ...task, ...previousState } : task));
-          setOperationNotice(`${t('保存失败：请检查 Firebase 权限或网络','Save failed: check Firebase permissions or network')}`);
+          setOperationNotice(`${t('保存失败：', 'Save failed: ')}${error?.code || t('请检查 Firebase 权限或网络', 'check Firebase permissions or network')}`);
           window.setTimeout(() => setOperationNotice(''), 6000);
           console.error('Task toggle failed:', error);
       });
@@ -3318,7 +3324,7 @@ export default function App() {
           if (targetUserId === viewedUserId) setStickyNotes(next);
           await setDoc(targetRef, { list: next, updatedAt: new Date().toISOString() });
       }).catch(error => {
-          setOperationNotice(`${t('保存失败：请检查 Firebase 权限或网络','Save failed: check Firebase permissions or network')}`);
+          setOperationNotice(`${t('保存失败：', 'Save failed: ')}${error?.code || t('请检查 Firebase 权限或网络', 'check Firebase permissions or network')}`);
           window.setTimeout(() => setOperationNotice(''), 6000);
           console.error('Sticky note save failed:', error);
       });
@@ -3374,7 +3380,10 @@ export default function App() {
           ...note,
           ...pendingStickyStateRef.current.get(pendingKey)
       } : note));
-      pendingStickyStateRef.current.delete(pendingKey);
+      const committedState = pendingStickyStateRef.current.get(pendingKey);
+      window.setTimeout(() => {
+          if (pendingStickyStateRef.current.get(pendingKey) === committedState) pendingStickyStateRef.current.delete(pendingKey);
+      }, 4000);
   };
 
   const handleDeleteSticky = async (noteId, ownerId) => {
@@ -3468,7 +3477,7 @@ export default function App() {
         </div>
       </div>
       <main className="planner-content flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
-        {operationNotice && <div className="ops-notice planner-global-notice" role="status">{operationNotice}</div>}
+        {operationNotice && <div className={`ops-notice planner-global-notice ${operationNotice.includes('失败') || operationNotice.includes('failed') ? 'error' : ''}`} role="status">{operationNotice.includes('失败') || operationNotice.includes('failed') ? <AlertTriangle size={15}/> : <CheckCircle2 size={15}/>}<span>{operationNotice}</span></div>}
         <div className="max-w-7xl mx-auto">
             <>
                     {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} member={{ uid: viewedUserId, email: viewedMember.email, label: viewedMember.label }} operationNotice={operationNotice} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} teamReportSnapshots={teamReportSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} teamCheckins={teamCheckins} onCheckIn={handleCheckIn} onSaveReport={handleSaveReport} onCreateTask={handleCreateTeamTask} />}
