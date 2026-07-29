@@ -1197,7 +1197,7 @@ textarea:focus-visible {
   }
 
   .kpi-card > div:nth-child(2),
-  .kpi-team-panel > div:nth-child(2) {
+  .kpi-team-panel > div:nth-child(2) { 
     padding: 20px;
   }
 
