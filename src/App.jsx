@@ -19,7 +19,7 @@ import {
 // --- Firebase Imports ---
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
+import { initializeFirestore, getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, getDocs } from "firebase/firestore";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -34,7 +34,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Legacy tasks can contain optional undefined fields. Ignore them instead of
+// rejecting the entire list with Firestore's invalid-argument error.
+const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
 
 // 初始化双核 App：用于 Admin 注册员工而不被登出
 const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
