@@ -38,6 +38,18 @@ const auth = getAuth(app);
 // rejecting the entire list with Firestore's invalid-argument error.
 const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
 
+// Firestore rejects undefined values, including undefined values nested in
+// legacy task objects. Clean every write payload before sending it.
+const cleanFirestoreValue = (value) => {
+  if (Array.isArray(value)) return value.map(cleanFirestoreValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value)
+      .filter(([, child]) => child !== undefined)
+      .map(([key, child]) => [key, cleanFirestoreValue(child)]));
+  }
+  return value;
+};
+
 // 初始化双核 App：用于 Admin 注册员工而不被登出
 const secondaryApp = getApps().find(a => a.name === "StaffCreatorApp") || initializeApp(firebaseConfig, "StaffCreatorApp");
 const secondaryAuth = getAuth(secondaryApp);
@@ -3153,7 +3165,7 @@ export default function App() {
       const taskRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', 'data');
       taskWriteQueueRef.current = taskWriteQueueRef.current
           .catch(() => {})
-          .then(() => setDoc(taskRef, { list: cleanTasks, updatedAt: new Date().toISOString() }))
+          .then(() => setDoc(taskRef, { list: cleanFirestoreValue(cleanTasks), updatedAt: new Date().toISOString() }))
           .catch(error => console.error('Task save failed:', error));
       return taskWriteQueueRef.current;
   };
@@ -3171,7 +3183,7 @@ export default function App() {
           const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
           const next = [...existing, nextTask];
           if (targetUserId === viewedUserId) setTasks(next);
-          await setDoc(targetRef, { list: next, updatedAt: new Date().toISOString() });
+          await setDoc(targetRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
       }).catch(error => console.error('Team task creation failed:', error));
       return taskWriteQueueRef.current;
   };
@@ -3190,7 +3202,7 @@ export default function App() {
       const snapshot = await getDoc(reportRef);
       const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
       const next = [{ id: generateId(), date: getLocalDateString(new Date()), text, createdAt: new Date().toISOString(), author: user.email || '' }, ...existing].slice(0, 90);
-      await setDoc(reportRef, { list: next, updatedAt: new Date().toISOString() });
+      await setDoc(reportRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
   };
   const handleToggleTask = (id) => {
       const taskRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', 'data');
@@ -3223,7 +3235,7 @@ export default function App() {
               ...nextState
           } : task);
           setTasks(next);
-          await setDoc(taskRef, { list: next, updatedAt: new Date().toISOString() });
+          await setDoc(taskRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
           const committedState = nextState;
           window.setTimeout(() => {
               if (pendingTaskStateRef.current.get(id) === committedState) pendingTaskStateRef.current.delete(id);
@@ -3231,7 +3243,7 @@ export default function App() {
       }).catch(error => {
           pendingTaskStateRef.current.delete(id);
           setTasks(previous => previous.map(task => task.id === id ? { ...task, ...previousState } : task));
-          setOperationNotice(`${t('保存失败：', 'Save failed: ')}${error?.code || t('请检查 Firebase 权限或网络', 'check Firebase permissions or network')}`);
+          setOperationNotice(`${t('保存失败：', 'Save failed: ')}${error?.code || 'unknown'}${error?.message ? ` · ${error.message}` : ''}`);
           window.setTimeout(() => setOperationNotice(''), 6000);
           console.error('Task toggle failed:', error);
       });
@@ -3324,9 +3336,9 @@ export default function App() {
           const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
           const next = updater(existing);
           if (targetUserId === viewedUserId) setStickyNotes(next);
-          await setDoc(targetRef, { list: next, updatedAt: new Date().toISOString() });
+          await setDoc(targetRef, { list: cleanFirestoreValue(next), updatedAt: new Date().toISOString() });
       }).catch(error => {
-          setOperationNotice(`${t('保存失败：', 'Save failed: ')}${error?.code || t('请检查 Firebase 权限或网络', 'check Firebase permissions or network')}`);
+          setOperationNotice(`${t('保存失败：', 'Save failed: ')}${error?.code || 'unknown'}${error?.message ? ` · ${error.message}` : ''}`);
           window.setTimeout(() => setOperationNotice(''), 6000);
           console.error('Sticky note save failed:', error);
       });
