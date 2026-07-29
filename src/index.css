@@ -616,6 +616,7 @@ kbd { font-family: inherit !important; }
 .ops-action { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; color: var(--pro-text); background: var(--pro-panel); border: 1px solid var(--pro-border); border-radius: 9px; font-size: 10px; font-weight: 750; box-shadow: 0 3px 10px rgba(31,34,58,.035); }
 .ops-action:hover { color: var(--pro-purple); border-color: rgba(102,88,232,.3); transform: translateY(-1px); }
 .ops-action.primary { color: white; background: var(--pro-purple); border-color: var(--pro-purple); }
+.ops-notice { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 9px 11px; color: #1d9c70; background: rgba(76,182,138,.1); border: 1px solid rgba(76,182,138,.2); border-radius: 8px; font-size: 10px; font-weight: 750; }
 .ops-modal { width: min(590px, 100%); overflow: hidden; color: var(--pro-text); background: var(--pro-panel) !important; border: 1px solid var(--pro-border); border-radius: 17px; box-shadow: 0 30px 80px rgba(20,20,40,.3); }
 .ops-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 22px; border-bottom: 1px solid var(--pro-border); }
 .ops-modal > header span { display: block; margin-bottom: 5px; color: var(--pro-purple); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
