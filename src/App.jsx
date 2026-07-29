@@ -429,6 +429,9 @@ const AddTaskModal = ({ isOpen, onClose, onAdd, defaultDate, categories, onAddCa
         time: taskType === 'allday' ? '' : time, 
         date: defaultDate, 
         recurring: isRecurring ? 'daily' : 'none',
+        executionStatus: 'not_started',
+        proofUrl: '',
+        blockedReason: '',
         recurringConfig: { enabled: isRecurring, endType: recurringEndType, days: recurringDays, endDate: recurringEndDate }
     });
     handleCloseModal();
@@ -564,6 +567,9 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
     const [priority, setPriority] = useState('none');
     const [time, setTime] = useState('');
     const [comments, setComments] = useState('');
+    const [executionStatus, setExecutionStatus] = useState('not_started');
+    const [proofUrl, setProofUrl] = useState('');
+    const [blockedReason, setBlockedReason] = useState('');
     const [isRecurring, setIsRecurring] = useState(false);
     const [recurringEndType, setRecurringEndType] = useState('days');
     const [recurringDays, setRecurringDays] = useState(30);
@@ -575,6 +581,9 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
             setTime(task.time || ''); 
             setPriority(task.priority || 'none'); 
             setComments(task.comments || '');
+            setExecutionStatus(task.executionStatus || (task.completed ? 'completed' : 'not_started'));
+            setProofUrl(task.proofUrl || '');
+            setBlockedReason(task.blockedReason || '');
             setCategory(task.category || categories[0]?.name || '');
             setIsRecurring(task.recurring === 'daily');
             
@@ -603,6 +612,9 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
           priority, 
           time, 
           comments,
+          executionStatus: task.completed ? 'completed' : executionStatus,
+          proofUrl,
+          blockedReason: executionStatus === 'blocked' ? blockedReason : '',
           recurringConfig: { endType: recurringEndType, days: recurringDays, endDate: recurringEndDate }
       };
       
@@ -636,6 +648,20 @@ const EditTaskModal = ({ isOpen, onClose, task, onSave, categories, t }) => {
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"><MessageSquare size={16}/>{t('备注 / Comments', 'Comments')}</label>
               <textarea value={comments} onChange={e => setComments(e.target.value)} rows={3} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white shadow-sm resize-none" placeholder={t('添加执行细节、总结或链接...', 'Add execution details, summary or links...')} />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('执行状态', 'Execution status')}</label>
+                <select value={executionStatus} onChange={e => setExecutionStatus(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none dark:text-white">
+                  <option value="not_started">{t('未开始', 'Not started')}</option><option value="in_progress">{t('进行中', 'In progress')}</option><option value="waiting">{t('等待资料', 'Waiting')}</option><option value="blocked">{t('被阻塞', 'Blocked')}</option><option value="completed">{t('已完成', 'Completed')}</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('完成证明 / 链接', 'Proof / link')}</label>
+                <input value={proofUrl} onChange={e => setProofUrl(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white" placeholder="https://..." />
+              </div>
+            </div>
+            {executionStatus === 'blocked' && <div className="space-y-1.5"><label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('阻塞原因', 'Blocker reason')}</label><textarea value={blockedReason} onChange={e => setBlockedReason(e.target.value)} rows={2} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 dark:text-white resize-none" placeholder={t('需要谁提供什么资料？', 'What do you need and from whom?')} /></div>}
   
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -768,6 +794,7 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorde
                         {}
                         {priorityInfo && task.priority !== 'none' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border ${priorityInfo.color.split(' ')[0]} ${priorityInfo.color.split(' ')[1]} ${priorityInfo.color.split(' ')[2]}`}><Flag size={10}/>{priorityInfo.label[t('zh','en')]}</span>}
                         {task.recurring === 'daily' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 dark:bg-indigo-900/30 flex items-center" title={t('每日重复', 'Daily Recurring')}><Repeat size={10}/></span>}
+                        {task.executionStatus && task.executionStatus !== 'not_started' && <span className={`task-status-badge ${task.executionStatus}`}><span />{({ in_progress: t('进行中', 'In progress'), waiting: t('等待资料', 'Waiting'), blocked: t('被阻塞', 'Blocked'), completed: t('已完成', 'Complete') })[task.executionStatus] || task.executionStatus}</span>}
                     </div>
                     
                     <span className={`text-sm font-semibold truncate ${task.completed ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{task.title}</span>
@@ -778,6 +805,8 @@ const TaskCard = ({ task, onToggle, onDelete, onUpdateTask, onEditTask, onReorde
                             <span className="leading-snug whitespace-pre-wrap break-words w-full">{task.comments}</span>
                         </div>
                     )}
+                    {task.proofUrl && <a href={task.proofUrl} target="_blank" rel="noreferrer" className="task-proof-link" onClick={e => e.stopPropagation()}>{t('查看完成证明', 'View proof')} <ArrowUpRight size={11}/></a>}
+                    {task.executionStatus === 'blocked' && task.blockedReason && <div className="task-blocker-note">{t('阻塞：', 'Blocked: ')}{task.blockedReason}</div>}
                 </div>
                 
                 <div className="shrink-0 flex items-center gap-0.5 transition-opacity pl-1 sm:opacity-0 sm:group-hover:opacity-100 mt-0.5 sm:mt-0">
@@ -1831,7 +1860,7 @@ const StickyNotesBoard = ({ notes, isAdmin, assignees, viewedUserId, onAdd, onUp
     );
 };
 
-const TeamPulseDashboard = ({ staff, taskSnapshots, selectedDate, setSelectedDate, onViewStaff, t }) => {
+const TeamPulseDashboard = ({ staff, taskSnapshots, reportSnapshots, selectedDate, setSelectedDate, onViewStaff, t }) => {
     const people = (staff || []).map(person => {
         const record = taskSnapshots?.find(item => item.uid === person.uid) || { tasks: [] };
         const tasks = (record.tasks || []).filter(task => task.date === selectedDate);
@@ -1844,6 +1873,7 @@ const TeamPulseDashboard = ({ staff, taskSnapshots, selectedDate, setSelectedDat
     const done = allTasks.filter(task => task.completed).length;
     const overdue = allTasks.filter(task => !task.completed && task.date < getLocalDateString(new Date())).length;
     const completion = allTasks.length ? Math.round((done / allTasks.length) * 100) : 0;
+    const recentReports = (reportSnapshots || []).flatMap(item => (item.list || []).map(report => ({ ...report, email: item.email }))).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 3);
 
     return (
         <section className="team-pulse surface">
@@ -1873,11 +1903,83 @@ const TeamPulseDashboard = ({ staff, taskSnapshots, selectedDate, setSelectedDat
                 ))}
                 {!people.length && <div className="team-pulse-empty">{t('先添加团队成员，就能在这里看到执行情况。', 'Add staff members to see execution here.')}</div>}
             </div>
+            {recentReports.length > 0 && <div className="team-report-feed"><div className="team-report-feed-title"><span>{t('最近团队汇报', 'Latest team updates')}</span><small>{t('Manager view', 'Manager view')}</small></div>{recentReports.map(report => <div key={report.id}><i>{(report.email || report.author || '?').slice(0, 1).toUpperCase()}</i><p><b>{report.email || report.author}</b><span>{report.text}</span></p><time>{String(report.date || report.createdAt || '').slice(0, 10)}</time></div>)}</div>}
         </section>
     );
 };
 
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, onAddSticky, onUpdateSticky, onToggleSticky, onDeleteSticky, teamStaff, teamTaskSnapshots, onViewStaff, t }) => {
+const TeamOperationsHub = ({ isAdmin, user, staff, teamCheckins, onCheckIn, onSaveReport, onCreateTask, onUpdateTask, t }) => {
+    const [panel, setPanel] = useState(null);
+    const [report, setReport] = useState('');
+    const [whatsappText, setWhatsappText] = useState('');
+    const [breakdownText, setBreakdownText] = useState('');
+    const [breakdownItems, setBreakdownItems] = useState([]);
+    const [assigneeId, setAssigneeId] = useState(user?.uid || '');
+    const templates = [
+        { title: t('每日广告检查', 'Daily ads check'), tasks: [t('检查广告花费与 ROAS', 'Review ad spend and ROAS'), t('检查素材状态与评论', 'Review creatives and comments'), t('记录异常并通知负责人', 'Log issues and notify owner')] },
+        { title: t('直播准备流程', 'Live commerce prep'), tasks: [t('确认直播脚本与商品链接', 'Confirm script and product links'), t('准备直播素材与优惠券', 'Prepare assets and vouchers'), t('直播后整理订单与复盘', 'Reconcile orders and review performance')] },
+        { title: t('客服跟进流程', 'Customer follow-up'), tasks: [t('处理未回复客户', 'Handle unanswered customers'), t('跟进待付款订单', 'Follow up pending payments'), t('标记高意向客户', 'Tag high-intent leads')] },
+        { title: t('内容发布流程', 'Content publishing'), tasks: [t('完成今日内容排期', 'Complete today’s content plan'), t('检查文案、封面与链接', 'Check copy, cover and links'), t('发布并记录数据', 'Publish and log results')] }
+    ];
+    const checkin = teamCheckins?.find(item => item.uid === user?.uid);
+    const createFromTemplate = (template) => {
+        template.tasks.forEach((title, index) => onCreateTask({ title, date: getLocalDateString(new Date()), time: '', category: '工作', priority: index === 0 ? 'important_not_urgent' : 'none', comments: `${template.title} · ${t('团队模板任务', 'Team template task')}`, executionStatus: 'not_started' }));
+        setPanel(null);
+    };
+    const importWhatsApp = () => {
+        const lines = whatsappText.split('\n').map(line => line.trim()).filter(Boolean);
+        if (!lines.length) return;
+        onCreateTask({ title: lines[0].replace(/^[-*\d.)]+\s*/, ''), comments: lines.slice(1).join('\n'), date: getLocalDateString(new Date()), time: '', category: '工作', priority: 'none', executionStatus: 'not_started', source: 'whatsapp' });
+        setWhatsappText('');
+        setPanel(null);
+    };
+    const generateBreakdown = () => {
+        const raw = breakdownText.trim();
+        if (!raw) return;
+        const pieces = raw.split(/[，,；;。.!！?？\n]/).map(item => item.trim()).filter(Boolean);
+        const base = pieces.length > 1 ? pieces : [
+            t('确认目标与截止日期', 'Confirm objective and deadline'),
+            t('准备执行资料与素材', 'Prepare materials and creatives'),
+            t('执行任务并记录结果', 'Execute and log the result'),
+            t('检查结果并完成复盘', 'Review result and close the loop')
+        ];
+        setBreakdownItems(base.slice(0, 6));
+    };
+    const applyBreakdown = () => {
+        breakdownItems.forEach(title => onCreateTask({ title, date: getLocalDateString(new Date()), time: '', category: '工作', priority: 'none', comments: `${t('由 AI 任务拆解生成', 'Generated by AI task breakdown')}: ${breakdownText}`, executionStatus: 'not_started', assigneeId }));
+        setBreakdownItems([]);
+        setBreakdownText('');
+        setPanel(null);
+    };
+    const saveReport = () => { if (!report.trim()) return; onSaveReport(report.trim()); setReport(''); setPanel(null); };
+
+    return (
+        <section className="team-operations-hub surface">
+            <div className="team-operations-head">
+                <div><span className="eyebrow">OPERATIONS TOOLKIT</span><h2>{t('团队执行工具', 'Team execution tools')}</h2><p>{t('把每天的沟通、任务和复盘集中在一个地方。', 'Keep daily communication, execution and review in one place.')}</p></div>
+                <div className="team-operations-status"><i className={checkin ? 'checked' : ''}>{checkin ? <Check size={14}/> : <Clock size={14}/>}</i><span>{checkin ? t('今天已打卡', 'Checked in today') : t('今天尚未打卡', 'Not checked in')}</span></div>
+            </div>
+            <div className="team-operations-actions">
+                <button onClick={() => onCheckIn()} className="ops-action primary"><CheckCircle2 size={17}/><span>{checkin ? t('更新打卡', 'Update check-in') : t('每日打卡', 'Daily check-in')}</span></button>
+                <button onClick={() => setPanel('report')} className="ops-action"><MessageSquare size={17}/><span>{t('提交今日汇报', 'End-of-day report')}</span></button>
+                <button onClick={() => setPanel('templates')} className="ops-action"><Layers size={17}/><span>{t('任务模板', 'Templates')}</span></button>
+                <button onClick={() => setPanel('whatsapp')} className="ops-action"><Zap size={17}/><span>{t('WhatsApp 转任务', 'WhatsApp to task')}</span></button>
+                <button onClick={() => setPanel('breakdown')} className="ops-action"><Bot size={17}/><span>{t('AI 拆解任务', 'AI breakdown')}</span></button>
+            </div>
+            {panel && <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-sm flex items-center justify-center p-4 z-[220]" onClick={() => setPanel(null)}>
+                <div className="ops-modal" onClick={e => e.stopPropagation()}>
+                    <header><div><span>{panel === 'templates' ? 'PLAYBOOKS' : panel === 'breakdown' ? 'AI ASSISTANT' : 'TEAM UPDATE'}</span><h3>{panel === 'report' ? t('提交今日汇报', 'Submit end-of-day report') : panel === 'templates' ? t('电商团队任务模板', 'Ecommerce playbooks') : panel === 'whatsapp' ? t('把 WhatsApp 内容变成任务', 'Turn WhatsApp into a task') : t('AI 自动拆解任务', 'AI task breakdown')}</h3></div><button onClick={() => setPanel(null)}><X size={18}/></button></header>
+                    {panel === 'report' && <div className="ops-modal-body"><label>{t('今天完成了什么？遇到什么问题？明天要跟进什么？', 'What did you complete, what is blocked, and what is next?')}<textarea autoFocus rows={7} value={report} onChange={e => setReport(e.target.value)} placeholder={t('写下简短汇报…', 'Write a short update…')} /></label><button className="ops-modal-save" onClick={saveReport}>{t('提交汇报', 'Submit report')}</button></div>}
+                    {panel === 'templates' && <div className="ops-template-grid">{templates.map(template => <button key={template.title} onClick={() => createFromTemplate(template)}><b>{template.title}</b><span>{template.tasks.length} {t('项任务', 'tasks')}</span><em>{template.tasks.join(' · ')}</em></button>)}</div>}
+                    {panel === 'whatsapp' && <div className="ops-modal-body"><p className="ops-help">{t('把群组里的任务讯息贴在这里，第一行会成为标题，其余内容会成为任务备注。', 'Paste a task message. The first line becomes the title and the rest becomes task notes.')}</p><textarea autoFocus rows={8} value={whatsappText} onChange={e => setWhatsappText(e.target.value)} placeholder={t('例如：明天完成 9.9 活动素材\n请检查封面、文案和链接…', 'e.g. Finish 9.9 campaign creatives tomorrow\nCheck cover, copy and links…')} /><button className="ops-modal-save" onClick={importWhatsApp}>{t('建立任务', 'Create task')}</button></div>}
+                    {panel === 'breakdown' && <div className="ops-modal-body"><label>{t('告诉 AI 你要完成什么', 'What do you want to accomplish?')}<textarea autoFocus rows={4} value={breakdownText} onChange={e => setBreakdownText(e.target.value)} placeholder={t('例如：准备下个月直播活动', 'e.g. Prepare next month’s live campaign')} /></label>{isAdmin && <label>{t('指派给', 'Assign to')}<select value={assigneeId} onChange={e => setAssigneeId(e.target.value)}><option value={user?.uid}>{t('我自己', 'Myself')}</option>{(staff || []).filter(person => person.uid !== user?.uid).map(person => <option key={person.uid} value={person.uid}>{person.email}</option>)}</select></label>}<button className="ops-modal-save" onClick={generateBreakdown}>{t('生成步骤', 'Generate steps')}</button>{breakdownItems.length > 0 && <div className="ops-breakdown-list">{breakdownItems.map((item, index) => <div key={`${item}-${index}`}><span>{index + 1}</span><b>{item}</b></div>)}<button className="ops-modal-save" onClick={applyBreakdown}>{t('建立全部任务', 'Create all tasks')}</button></div>}</div>}
+                </div>
+            </div>}
+        </section>
+    );
+};
+
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, onAddSticky, onUpdateSticky, onToggleSticky, onDeleteSticky, teamStaff, teamTaskSnapshots, teamReportSnapshots, onViewStaff, teamCheckins, onCheckIn, onSaveReport, onCreateTask, t }) => {
     const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
     
     const displayTasks = tasks
@@ -1935,7 +2037,8 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
 
     return (
       <div className="planner-dashboard max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
-        {isAdmin && viewedUserId === stickyAssignees?.[0]?.uid && <TeamPulseDashboard staff={teamStaff} taskSnapshots={teamTaskSnapshots} selectedDate={selectedDate} setSelectedDate={setSelectedDate} onViewStaff={onViewStaff} t={t} />}
+        {isAdmin && viewedUserId === stickyAssignees?.[0]?.uid && <TeamPulseDashboard staff={teamStaff} taskSnapshots={teamTaskSnapshots} reportSnapshots={teamReportSnapshots} selectedDate={selectedDate} setSelectedDate={setSelectedDate} onViewStaff={onViewStaff} t={t} />}
+        <TeamOperationsHub isAdmin={isAdmin} user={stickyAssignees?.[0]} staff={teamStaff} teamCheckins={teamCheckins} onCheckIn={onCheckIn} onSaveReport={onSaveReport} onCreateTask={onCreateTask} onUpdateTask={onUpdateTask} t={t} />
         <div className="planner-progress-hero bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div className="flex items-center gap-3">
@@ -2877,6 +2980,9 @@ export default function App() {
   const [stickyNotes, setStickyNotes] = useState([]);
   const [teamStickyNotes, setTeamStickyNotes] = useState([]);
   const [teamTaskSnapshots, setTeamTaskSnapshots] = useState([]);
+  const [teamReportSnapshots, setTeamReportSnapshots] = useState([]);
+  const [teamCheckins, setTeamCheckins] = useState([]);
+  const [teamReports, setTeamReports] = useState([]);
   const taskWriteQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
@@ -2934,6 +3040,19 @@ export default function App() {
   }, [viewedUserId, user]);
 
   useEffect(() => {
+    if (!user || !viewedUserId) {
+        setTeamCheckins([]);
+        setTeamReports([]);
+        return;
+    }
+    const checkinRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'team_checkins', 'data');
+    const reportRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'team_reports', 'data');
+    const unsubCheckins = onSnapshot(checkinRef, snapshot => setTeamCheckins(snapshot.exists() ? (snapshot.data().history || []) : []), () => setTeamCheckins([]));
+    const unsubReports = onSnapshot(reportRef, snapshot => setTeamReports(snapshot.exists() ? (snapshot.data().list || []) : []), () => setTeamReports([]));
+    return () => { unsubCheckins(); unsubReports(); };
+  }, [viewedUserId, user]);
+
+  useEffect(() => {
     if (!user || !isAdmin) {
         setTeamStickyNotes([]);
         setTeamTaskSnapshots([]);
@@ -2961,6 +3080,7 @@ export default function App() {
   useEffect(() => {
     if (!user || !isAdmin) {
         setTeamTaskSnapshots([]);
+        setTeamReportSnapshots([]);
         return;
     }
     const staff = globalStaffRegistry.filter(item => item?.uid && (item.adminEmail === user.email || !item.adminEmail));
@@ -2981,6 +3101,23 @@ export default function App() {
     return () => unsubs.forEach(unsub => unsub());
   }, [user, isAdmin, globalStaffRegistry]);
 
+  useEffect(() => {
+    if (!user || !isAdmin) {
+        setTeamReportSnapshots([]);
+        return;
+    }
+    const staff = globalStaffRegistry.filter(item => item?.uid && (item.adminEmail === user.email || !item.adminEmail));
+    const targets = [{ uid: user.uid, email: user.email }, ...staff];
+    const buckets = new Map();
+    const publish = () => setTeamReportSnapshots(Array.from(buckets.values()));
+    const unsubs = targets.map(person => onSnapshot(
+        doc(db, 'artifacts', appId, 'users', person.uid, 'team_reports', 'data'),
+        snapshot => { buckets.set(person.uid, { uid: person.uid, email: person.email || '', list: snapshot.exists() ? (snapshot.data().list || []) : [] }); publish(); },
+        () => { buckets.set(person.uid, { uid: person.uid, email: person.email || '', list: [] }); publish(); }
+    ));
+    return () => unsubs.forEach(unsub => unsub());
+  }, [user, isAdmin, globalStaffRegistry]);
+
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
   const commitTasks = (nextTasks) => {
       const cleanTasks = nextTasks.filter(task => task && task.id);
@@ -2993,8 +3130,37 @@ export default function App() {
           .catch(error => console.error('Task save failed:', error));
       return taskWriteQueueRef.current;
   };
+  const handleCreateTeamTask = async (taskData) => {
+      const targetUserId = isAdmin && taskData.assigneeId ? taskData.assigneeId : viewedUserId;
+      const nextTask = { id: generateId(), completed: false, date: taskData.date || getLocalDateString(new Date()), time: taskData.time || '', ...taskData };
+      if (targetUserId === viewedUserId) {
+          commitTasks([...tasks, nextTask]);
+          return;
+      }
+      const targetRef = doc(db, 'artifacts', appId, 'users', targetUserId, 'tasks', 'data');
+      const snapshot = await getDoc(targetRef);
+      const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+      await setDoc(targetRef, { list: [...existing, nextTask], updatedAt: new Date().toISOString() });
+  };
+  const handleCheckIn = async () => {
+      if (!user || !viewedUserId) return;
+      const today = getLocalDateString(new Date());
+      const checkinRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'team_checkins', 'data');
+      const snapshot = await getDoc(checkinRef);
+      const existing = snapshot.exists() ? (snapshot.data().history || []) : [];
+      const next = [{ date: today, at: new Date().toISOString(), uid: viewedUserId }, ...existing.filter(item => item.date !== today)].slice(0, 90);
+      await setDoc(checkinRef, { history: next, updatedAt: new Date().toISOString() });
+  };
+  const handleSaveReport = async (text) => {
+      if (!user || !viewedUserId || !text) return;
+      const reportRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'team_reports', 'data');
+      const snapshot = await getDoc(reportRef);
+      const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
+      const next = [{ id: generateId(), date: getLocalDateString(new Date()), text, createdAt: new Date().toISOString(), author: user.email || '' }, ...existing].slice(0, 90);
+      await setDoc(reportRef, { list: next, updatedAt: new Date().toISOString() });
+  };
   const handleToggleTask = (id) => {
-      const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+      const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed, executionStatus: !t.completed ? 'completed' : (t.executionStatus === 'completed' ? 'in_progress' : t.executionStatus || 'in_progress'), completedAt: !t.completed ? new Date().toISOString() : null} : t);
       commitTasks(n);
   };
 
@@ -3230,7 +3396,7 @@ export default function App() {
       <main className="planner-content flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
         <div className="max-w-7xl mx-auto">
             <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} />}
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} teamReportSnapshots={teamReportSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} teamCheckins={teamCheckins} onCheckIn={handleCheckIn} onSaveReport={handleSaveReport} onCreateTask={handleCreateTeamTask} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
