@@ -618,6 +618,7 @@ kbd { font-family: inherit !important; }
 .ops-action.primary { color: white; background: var(--pro-purple); border-color: var(--pro-purple); }
 .ops-notice { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 9px 11px; color: #1d9c70; background: rgba(76,182,138,.1); border: 1px solid rgba(76,182,138,.2); border-radius: 8px; font-size: 10px; font-weight: 750; }
 .planner-global-notice { max-width: 1120px; margin: 0 auto 12px; font-size: 12px; }
+.planner-global-notice.error { color: #c2415d; background: rgba(225, 93, 115, .1); border-color: rgba(225, 93, 115, .24); }
 .ops-modal { width: min(590px, 100%); overflow: hidden; color: var(--pro-text); background: var(--pro-panel) !important; border: 1px solid var(--pro-border); border-radius: 17px; box-shadow: 0 30px 80px rgba(20,20,40,.3); }
 .ops-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 22px; border-bottom: 1px solid var(--pro-border); }
 .ops-modal > header span { display: block; margin-bottom: 5px; color: var(--pro-purple); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
@@ -1189,7 +1190,7 @@ textarea:focus-visible {
   .retention-shell .app-header h2 {
     display: none;
   }
- 
+
   .retention-shell .app-header > div:last-child {
     width: 100%;
     overflow-x: auto;
