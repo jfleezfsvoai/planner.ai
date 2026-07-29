@@ -1831,7 +1831,53 @@ const StickyNotesBoard = ({ notes, isAdmin, assignees, viewedUserId, onAdd, onUp
     );
 };
 
-const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, onAddSticky, onUpdateSticky, onToggleSticky, onDeleteSticky, t }) => {
+const TeamPulseDashboard = ({ staff, taskSnapshots, selectedDate, setSelectedDate, onViewStaff, t }) => {
+    const people = (staff || []).map(person => {
+        const record = taskSnapshots?.find(item => item.uid === person.uid) || { tasks: [] };
+        const tasks = (record.tasks || []).filter(task => task.date === selectedDate);
+        const completed = tasks.filter(task => task.completed).length;
+        const overdue = tasks.filter(task => !task.completed && task.date < getLocalDateString(new Date())).length;
+        const completion = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
+        return { ...person, tasks, completed, overdue, completion, total: tasks.length };
+    });
+    const allTasks = people.flatMap(person => person.tasks);
+    const done = allTasks.filter(task => task.completed).length;
+    const overdue = allTasks.filter(task => !task.completed && task.date < getLocalDateString(new Date())).length;
+    const completion = allTasks.length ? Math.round((done / allTasks.length) * 100) : 0;
+
+    return (
+        <section className="team-pulse surface">
+            <header className="team-pulse-head">
+                <div>
+                    <span className="eyebrow">TEAM CONTROL CENTER</span>
+                    <h2>{t('团队执行总览', 'Team execution overview')}</h2>
+                    <p>{t('快速查看每位成员今天的任务、完成状态与需要跟进的事项。', 'See every member’s daily workload, completion and follow-ups at a glance.')}</p>
+                </div>
+                <label className="team-pulse-date"><span>{t('查看日期', 'View date')}</span><input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} /></label>
+            </header>
+            <div className="team-pulse-metrics">
+                <div><span>{t('团队完成率', 'Team completion')}</span><strong>{completion}%</strong><small>{done}/{allTasks.length} {t('项已完成', 'tasks done')}</small></div>
+                <div><span>{t('今日任务', 'Today’s tasks')}</span><strong>{allTasks.length}</strong><small>{people.length} {t('位成员', 'members')}</small></div>
+                <div className={overdue ? 'has-alert' : ''}><span>{t('需要跟进', 'Needs follow-up')}</span><strong>{overdue}</strong><small>{t('逾期未完成', 'overdue tasks')}</small></div>
+            </div>
+            <div className="team-pulse-table">
+                <div className="team-pulse-table-head"><span>{t('成员', 'Member')}</span><span>{t('今日进度', 'Today')}</span><span>{t('状态', 'Status')}</span></div>
+                {people.map(person => (
+                    <button key={person.uid} className="team-pulse-row" onClick={() => onViewStaff(person.uid)}>
+                        <span className="team-pulse-person"><i>{(person.email || '?').slice(0, 1).toUpperCase()}</i><b>{person.label || person.email}</b></span>
+                        <span className="team-pulse-progress"><span><em style={{ width: `${person.completion}%` }} /></span><small>{person.completed}/{person.total}</small></span>
+                        <span className={`team-pulse-status ${person.overdue ? 'late' : person.total && person.completed === person.total ? 'done' : 'active'}`}>
+                            {person.overdue ? t('需跟进', 'Follow up') : person.total && person.completed === person.total ? t('已完成', 'Complete') : t('进行中', 'In progress')}
+                        </span>
+                    </button>
+                ))}
+                {!people.length && <div className="team-pulse-empty">{t('先添加团队成员，就能在这里看到执行情况。', 'Add staff members to see execution here.')}</div>}
+            </div>
+        </section>
+    );
+};
+
+const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, onDeleteHabit, onCloneHabits, onReorderHabits, goToTimeline, toggleTask, deleteTask, onUpdateTask, onEditTask, stickyNotes, isAdmin, stickyAssignees, viewedUserId, onAddSticky, onUpdateSticky, onToggleSticky, onDeleteSticky, teamStaff, teamTaskSnapshots, onViewStaff, t }) => {
     const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
     
     const displayTasks = tasks
@@ -1889,6 +1935,7 @@ const DashboardView = ({ tasks, categories, habits, onUpdateHabit, onAddHabit, o
 
     return (
       <div className="planner-dashboard max-w-7xl mx-auto space-y-6 animate-in fade-in pb-12">
+        {isAdmin && viewedUserId === stickyAssignees?.[0]?.uid && <TeamPulseDashboard staff={teamStaff} taskSnapshots={teamTaskSnapshots} selectedDate={selectedDate} setSelectedDate={setSelectedDate} onViewStaff={onViewStaff} t={t} />}
         <div className="planner-progress-hero bg-slate-900 rounded-2xl p-8 shadow-lg border border-slate-800">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div className="flex items-center gap-3">
@@ -2829,6 +2876,7 @@ export default function App() {
   const [reviews, setReviews] = useState({ daily: {}, cycleTasks: {}, yearly: {} });
   const [stickyNotes, setStickyNotes] = useState([]);
   const [teamStickyNotes, setTeamStickyNotes] = useState([]);
+  const [teamTaskSnapshots, setTeamTaskSnapshots] = useState([]);
   const taskWriteQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
@@ -2888,6 +2936,7 @@ export default function App() {
   useEffect(() => {
     if (!user || !isAdmin) {
         setTeamStickyNotes([]);
+        setTeamTaskSnapshots([]);
         return;
     }
     const staff = globalStaffRegistry.filter(item => item?.uid && (item.adminEmail === user.email || !item.adminEmail));
@@ -2909,6 +2958,29 @@ export default function App() {
     return () => unsubs.forEach(unsub => unsub());
   }, [user, isAdmin, globalStaffRegistry]);
 
+  useEffect(() => {
+    if (!user || !isAdmin) {
+        setTeamTaskSnapshots([]);
+        return;
+    }
+    const staff = globalStaffRegistry.filter(item => item?.uid && (item.adminEmail === user.email || !item.adminEmail));
+    const targets = [{ uid: user.uid, email: user.email }, ...staff];
+    const buckets = new Map();
+    const publish = () => setTeamTaskSnapshots(Array.from(buckets.values()));
+    const unsubs = targets.map(person => onSnapshot(
+        doc(db, 'artifacts', appId, 'users', person.uid, 'tasks', 'data'),
+        snapshot => {
+            buckets.set(person.uid, { uid: person.uid, email: person.email || '', tasks: snapshot.exists() ? (snapshot.data().list || []) : [] });
+            publish();
+        },
+        () => {
+            buckets.set(person.uid, { uid: person.uid, email: person.email || '', tasks: [] });
+            publish();
+        }
+    ));
+    return () => unsubs.forEach(unsub => unsub());
+  }, [user, isAdmin, globalStaffRegistry]);
+
   const saveData = (c, data) => { if (user && viewedUserId) setDoc(doc(db, 'artifacts', appId, 'users', viewedUserId, c, 'data'), data); };
   const commitTasks = (nextTasks) => {
       const cleanTasks = nextTasks.filter(task => task && task.id);
@@ -2921,8 +2993,6 @@ export default function App() {
           .catch(error => console.error('Task save failed:', error));
       return taskWriteQueueRef.current;
   };
-  const isFinanceLocked = isAdmin && viewedUserId !== user?.uid;
-
   const handleToggleTask = (id) => {
       const n = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t);
       commitTasks(n);
@@ -3093,8 +3163,7 @@ export default function App() {
     { id: 'focus', icon: Home, label: t('仪表盘', 'Dashboard') },
     { id: 'calendar', icon: CalIcon, label: t('日历', 'Calendar') },
     { id: 'timeline', icon: Trello, label: t('时间轴', 'Timeline') },
-    { id: 'review', icon: ClipboardList, label: t('复盘', 'Review') },
-    { id: 'finance', icon: DollarSign, label: t('理财', 'Finance') }
+    { id: 'review', icon: ClipboardList, label: t('复盘', 'Review') }
   ];
 
   return (
@@ -3160,17 +3229,12 @@ export default function App() {
       </div>
       <main className="planner-content flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 pb-24">
         <div className="max-w-7xl mx-auto">
-            {view === 'finance' && isFinanceLocked ? (
-                <div className="flex items-center justify-center h-full animate-in fade-in pb-20"><div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center flex flex-col items-center gap-4"><div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center text-rose-500 shadow-inner"><EyeOff size={40} /></div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('隐私锁定', 'Privacy Locked')}</h2><p className="text-slate-500 text-sm max-w-xs">{t('管理员无法查看员工的财务隐私数据。', 'Admins cannot view staff financial data.')}</p></div></div>
-            ) : (
-                <>
-                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} />}
+            <>
+                    {view === 'focus' && <DashboardView t={t} tasks={tasks} categories={categories} habits={habits} onUpdateHabit={(id, up) => { const n = habits.map(h => h.id === id ? {...h, ...up} : h); setHabits(n); saveData('habits', { list: n }); }} onAddHabit={(h) => { const n = [...habits, { id: generateId(), ...h }]; setHabits(n); saveData('habits', { list: n }); }} onDeleteHabit={(id) => { const n = habits.filter(h => h.id !== id); setHabits(n); saveData('habits', { list: n }); }} onCloneHabits={(newHabits) => { const n = [...habits, ...newHabits.map(h => ({ id: generateId(), ...h }))]; setHabits(n); saveData('habits', { list: n }); }} onReorderHabits={handleReorderHabits} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} stickyNotes={isAdmin && viewedUserId === user?.uid ? teamStickyNotes : stickyNotes} isAdmin={isAdmin} stickyAssignees={stickyAssignees} viewedUserId={viewedUserId} onAddSticky={handleAddSticky} onUpdateSticky={handleUpdateSticky} onToggleSticky={handleToggleSticky} onDeleteSticky={handleDeleteSticky} teamStaff={[{ uid: user.uid, email: user.email, label: t('我自己 (Admin)', 'Myself (Admin)') }, ...myStaffRegistry]} teamTaskSnapshots={teamTaskSnapshots} onViewStaff={(staffId) => { setViewedUserId(staffId); localStorage.setItem('planner_viewed_userId', staffId); }} />}
                     {view === 'calendar' && <CalendarView tasks={tasks} t={t} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} goToTimeline={(d) => { setCurrentDate(new Date(d)); setView('timeline'); }} categories={categories} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} />}
                     {view === 'timeline' && <TimelineView t={t} currentDate={currentDate} setCurrentDate={setCurrentDate} tasks={tasks} categories={categories} openAddModal={(d, timeStr) => { setTargetDate(d); setPrefilledTime(timeStr); setIsAddModalOpen(true); }} toggleTask={handleToggleTask} deleteTask={handleDeleteTask} onUpdateTask={handleUpdateTask} onEditTask={(task) => setEditingTask(task)} onReorderTask={handleReorderTask} />}
                     {view === 'review' && <ReviewView reviews={reviews} onUpdateReview={(r) => { setReviews(r); saveData('reviews', r); }} t={t} />}
-                    {view === 'finance' && <FinanceVault t={t} viewedUserId={viewedUserId} user={user} isAdmin={isAdmin} />}
-                </>
-            )}
+            </>
         </div>
       </main>
 
