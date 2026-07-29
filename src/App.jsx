@@ -3192,6 +3192,16 @@ export default function App() {
   };
   const handleToggleTask = (id) => {
       const taskRef = doc(db, 'artifacts', appId, 'users', viewedUserId, 'tasks', 'data');
+      const displayed = tasks.find(task => task.id === id);
+      if (!displayed) return;
+      const optimisticState = {
+          completed: !displayed.completed,
+          executionStatus: !displayed.completed ? 'completed' : (displayed.executionStatus === 'completed' ? 'in_progress' : displayed.executionStatus || 'in_progress'),
+          completedAt: !displayed.completed ? new Date().toISOString() : null
+      };
+      const previousState = { completed: displayed.completed, executionStatus: displayed.executionStatus, completedAt: displayed.completedAt || null };
+      pendingTaskStateRef.current.set(id, optimisticState);
+      setTasks(previous => previous.map(task => task.id === id ? { ...task, ...optimisticState } : task));
       taskWriteQueueRef.current = taskWriteQueueRef.current.catch(() => {}).then(async () => {
           const snapshot = await getDoc(taskRef);
           const existing = snapshot.exists() ? (snapshot.data().list || []) : [];
@@ -3212,6 +3222,7 @@ export default function App() {
           pendingTaskStateRef.current.delete(id);
       }).catch(error => {
           pendingTaskStateRef.current.delete(id);
+          setTasks(previous => previous.map(task => task.id === id ? { ...task, ...previousState } : task));
           setOperationNotice(`${t('保存失败：请检查 Firebase 权限或网络','Save failed: check Firebase permissions or network')}`);
           window.setTimeout(() => setOperationNotice(''), 6000);
           console.error('Task toggle failed:', error);
